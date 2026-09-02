@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CS2 AI Coach — Match Watcher
+CS2 Tracker — Match Watcher
 =============================
 Monitora o log do CS2 em tempo real (tail -f), detecta início e fim de
 partida e dispara tv_record/tv_stoprecord (GOTV) automaticamente. Ao
@@ -215,7 +215,7 @@ class MatchWatcher:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="CS2 AI Coach — Match Watcher")
+    parser = argparse.ArgumentParser(description="CS2 Tracker — Match Watcher")
     parser.add_argument("--log", required=True, help="Caminho do console.log do CS2")
     parser.add_argument("--demo-dir", default="./demos", help="Pasta onde organizar os .dem")
     parser.add_argument("--rcon-host", default="127.0.0.1")

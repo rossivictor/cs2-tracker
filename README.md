@@ -1,4 +1,4 @@
-# CS2 AI Coach — Match Watcher
+# CS2 Tracker — Match Watcher
 
 Monitora o log de um servidor dedicado do CS2 em tempo real, detecta início
 e fim de partida, e dispara gravação de demo (GOTV) automaticamente via
