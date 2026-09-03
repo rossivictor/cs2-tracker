@@ -1,9 +1,9 @@
 # CS2 Tracker — Match Watcher
 
 Monitora o log de um servidor dedicado do CS2 em tempo real, detecta início
-e fim de partida, e dispara gravação de demo (GOTV) automaticamente via
-RCON. Ao final de cada partida, chama um hook onde depois entra o parser
-(awpy) e a gravação no banco.
+e fim de partida, dispara gravação de demo (GOTV) automaticamente via
+RCON e, ao final de cada partida, parseia o `.dem` com awpy e grava
+rounds/kills/dano/posição num SQLite.
 
 ## Por que servidor dedicado (e não "Practice with Bots")
 
@@ -16,10 +16,13 @@ local (via SteamCMD), que expõe RCON de verdade.
 ## Estrutura deste repositório
 
 ```
-watcher.py                                       # o script principal
+watcher.py                                       # tail do log + RCON/GOTV
+parser.py                                        # awpy -> SQLite
+requirements.txt                                 # awpy, rcon (Python <3.14)
 server-configs/cfg/server.cfg                    # vai pro servidor dedicado
 server-configs/cfg/gamemode_competitive_server.cfg  # vai pro servidor dedicado
-demos/                                           # scratch local (git-ignored)
+demos/                                           # .dem já parseados, arquivados (git-ignored)
+cs2_tracker.db                                   # SQLite gerado pelo parser (git-ignored)
 ```
 
 ### Onde cada arquivo satélite deve ir
@@ -70,16 +73,38 @@ sobrescrito. `gamemode_competitive_server.cfg` é o hook que a engine chama
    ```
    Espera `TCP 0.0.0.0:27015 ... LISTENING`.
 
+## Setup — ambiente Python (uma vez)
+
+O `parser.py` usa awpy 2.x, que exige Python `>=3.11,<3.14`. Se seu Python
+do sistema for 3.14+ (`python --version`), instale o 3.13 à parte (dá pra
+coexistir, via `py -0` pra conferir versões instaladas) e crie um venv só
+pro projeto:
+
+```bash
+py -3.13 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Todo comando abaixo (`watcher.py` e `parser.py`) roda através desse
+`.venv`, não do Python do sistema.
+
 ## Setup — watcher (a cada sessão de teste)
 
 ```bash
-pip install rcon
-python watcher.py --log "C:/cs2server/game/csgo/console.log" --demo-dir ./demos --rcon-host 127.0.0.1 --rcon-password sua_senha --debug
+.venv\Scripts\python.exe watcher.py --log "C:/cs2server/game/csgo/console.log" --server-demo-dir "C:/cs2server/game/csgo" --demo-dir ./demos --player seu_nick_in_game --rcon-host 127.0.0.1 --rcon-password sua_senha --debug
 ```
 
 Conecte no servidor pelo client normal do CS2 (globinho → Servidores →
 Rede Local) e jogue. O watcher deve mostrar `[CMD] tv_record ...` sem erro
-no início da partida, e `[CMD] tv_stoprecord` com o placar no final.
+no início da partida, e no final: `[CMD] tv_stoprecord`, o placar, o
+resumo do parser (`[PARSER] match_id=...`) e a demo arquivada em
+`./demos/`.
+
+`--server-demo-dir` é a pasta `game/csgo` do servidor **dedicado** (onde
+o GOTV grava o `.dem` de verdade) — normalmente a mesma pasta de `--log`.
+`--player` é o seu nick in-game, usado pra filtrar a posição/heatmap só
+pra você (bots não entram nessa tabela de qualquer forma — o awpy só
+trackeia clientes conectados de verdade em `ticks`).
 
 Use `--debug` sempre que for calibrar os regexes em `PATTERNS` — ele
 imprime toda linha de log relacionada a `Match_`/`Round_`/`Game Over`/
@@ -88,6 +113,29 @@ imprime toda linha de log relacionada a `Match_`/`Round_`/`Game Over`/
 Use `--print-only` como fallback manual (imprime o comando em vez de
 mandar via RCON) se o RCON falhar por outro motivo além dos já cobertos
 aqui.
+
+## Parser / banco de dados
+
+`parser.py` lê o `.dem` com awpy e grava em `cs2_tracker.db` (SQLite,
+git-ignored):
+
+| Tabela | Conteúdo |
+|---|---|
+| `matches` | 1 linha por partida — mapa, placar, duração, caminho do demo |
+| `rounds` | round a round — vencedor, motivo, plant de bomba |
+| `kills` | quem matou quem, arma, headshot, distância (`attacker_is_human`/`victim_is_human` marcam se é você) |
+| `damages` | dano por evento (dá pra computar ADR agrupando por round) |
+| `player_positions` | posição tick a tick — **só do jogador humano** (`--player`) |
+
+**TODO conhecido**: economia/compra (dinheiro gasto por round) fica de
+fora por ora — o awpy 2.0.2 não expõe um dataframe de compra com valor
+monetário, só o evento `item_pickup` sem o dado de dinheiro. Revisitar se
+uma versão futura do awpy cobrir isso.
+
+Pra reprocessar uma demo manualmente (sem precisar do watcher rodando):
+```bash
+.venv\Scripts\python.exe parser.py "C:/cs2server/game/csgo/20260902_202208_de_mirage.dem" --map de_mirage --score-ct 1 --score-t 13 --minutes 19 --player seu_nick_in_game --db cs2_tracker.db
+```
 
 ## Gotchas já resolvidos (documentados também no docstring de `watcher.py`)
 

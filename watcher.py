@@ -7,8 +7,8 @@ partida e dispara tv_record/tv_stoprecord (GOTV) automaticamente. Ao
 final de cada partida, chama um hook (on_match_finished) onde depois
 plugamos o parser (awpy) e a gravação no banco.
 
-Requisitos:
-    pip install rcon
+Requisitos (rode a partir do .venv do projeto — awpy exige Python <3.14):
+    .venv\\Scripts\\python.exe -m pip install -r requirements.txt
 
 IMPORTANTE — RCON só funciona em servidor DEDICADO:
     Listen server (client hospedando partida local/offline com bots, via
@@ -59,10 +59,16 @@ Setup necessário no servidor:
        outro motivo além dos dois acima.
 
 Uso:
-    python watcher.py --log "C:/.../csgo/console.log" \\
+    .venv\\Scripts\\python.exe watcher.py --log "C:/.../csgo/console.log" \\
+                       --server-demo-dir "C:/.../csgo" \\
                        --demo-dir ./demos \\
+                       --player seu_nick_in_game \\
                        --rcon-password minha_senha
                        # (ou --print-only pra testar sem RCON)
+
+    --server-demo-dir é a pasta game/csgo do servidor DEDICADO (onde o
+    GOTV realmente grava o .dem) — normalmente igual à pasta de --log,
+    já que console.log e o .dem ficam na mesma pasta.
 
     Adicione --debug na primeira vez rodando: ele imprime toda linha de
     log relacionada a Match_/Round_/Game Over/MatchStatus que ainda não
@@ -72,6 +78,7 @@ Uso:
 
 import argparse
 import re
+import shutil
 import time
 from datetime import datetime
 from pathlib import Path
@@ -80,6 +87,8 @@ try:
     from rcon.source import Client as RconClient
 except ImportError:
     RconClient = None
+
+from parser import parse_and_store
 
 
 # ---------------------------------------------------------------------------
@@ -97,11 +106,14 @@ PATTERNS = {
 
 
 class MatchWatcher:
-    def __init__(self, log_path, demo_dir, rcon_host, rcon_port, rcon_password,
-                 print_only=False, debug=False):
+    def __init__(self, log_path, demo_dir, server_demo_dir, player_name, db_path,
+                 rcon_host, rcon_port, rcon_password, print_only=False, debug=False):
         self.log_path = Path(log_path)
         self.demo_dir = Path(demo_dir)
         self.demo_dir.mkdir(parents=True, exist_ok=True)
+        self.server_demo_dir = Path(server_demo_dir)
+        self.player_name = player_name
+        self.db_path = db_path
         self.rcon_host = rcon_host
         self.rcon_port = rcon_port
         self.rcon_password = rcon_password
@@ -154,13 +166,20 @@ class MatchWatcher:
     def on_match_finished(self, demo_name, meta):
         """
         Hook chamado quando uma partida termina e o .dem já foi fechado.
-        Próximo passo: plugar aqui o parser (awpy) + gravação no SQLite.
-        Por ora só loga o que faria.
+        O GOTV grava o .dem dentro da pasta game/csgo/ do servidor
+        dedicado (server_demo_dir), não em demo_dir — parseia de lá e só
+        depois arquiva o arquivo em demo_dir.
         """
-        demo_path = self.demo_dir / f"{demo_name}.dem"
-        print(f"[PIPELINE] TODO: parsear {demo_path} com awpy e salvar no banco")
-        # from parser import parse_and_store
-        # parse_and_store(demo_path, meta)
+        source_path = self.server_demo_dir / f"{demo_name}.dem"
+        if not source_path.exists():
+            print(f"[PIPELINE] .dem não encontrado em {source_path}, pulando parse")
+            return
+
+        parse_and_store(source_path, meta, self.db_path, self.player_name)
+
+        dest_path = self.demo_dir / f"{demo_name}.dem"
+        shutil.move(str(source_path), str(dest_path))
+        print(f"[PIPELINE] Demo arquivada em {dest_path}")
 
     # ------------------------------------------------------------------
     def tail(self):
@@ -217,7 +236,13 @@ class MatchWatcher:
 def main():
     parser = argparse.ArgumentParser(description="CS2 Tracker — Match Watcher")
     parser.add_argument("--log", required=True, help="Caminho do console.log do CS2")
-    parser.add_argument("--demo-dir", default="./demos", help="Pasta onde organizar os .dem")
+    parser.add_argument("--demo-dir", default="./demos",
+                         help="Pasta onde arquivar os .dem já parseados")
+    parser.add_argument("--server-demo-dir", required=True,
+                         help="Pasta game/csgo do servidor dedicado, onde o GOTV grava o .dem")
+    parser.add_argument("--player", required=True,
+                         help="Nome in-game do jogador humano (usado pra filtrar posição/heatmap)")
+    parser.add_argument("--db", default="./cs2_tracker.db", help="Caminho do SQLite")
     parser.add_argument("--rcon-host", default="127.0.0.1")
     parser.add_argument("--rcon-port", type=int, default=27015)
     parser.add_argument("--rcon-password", default="")
@@ -230,6 +255,9 @@ def main():
     watcher = MatchWatcher(
         log_path=args.log,
         demo_dir=args.demo_dir,
+        server_demo_dir=args.server_demo_dir,
+        player_name=args.player,
+        db_path=args.db,
         rcon_host=args.rcon_host,
         rcon_port=args.rcon_port,
         rcon_password=args.rcon_password,
