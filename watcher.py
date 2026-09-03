@@ -70,6 +70,12 @@ Uso:
     GOTV realmente grava o .dem) — normalmente igual à pasta de --log,
     já que console.log e o .dem ficam na mesma pasta.
 
+    Ao fim de cada partida, o hook on_match_finished já dispara sozinho:
+    parseia o .dem (parser.py), arquiva em --demo-dir e regenera o
+    relatório (--report-out, default ./report.html) — não precisa rodar
+    report.py manualmente depois de cada partida, só quando quiser
+    reprocessar algo fora do fluxo normal do watcher.
+
     Adicione --debug na primeira vez rodando: ele imprime toda linha de
     log relacionada a Match_/Round_/Game Over/MatchStatus que ainda não
     bateu com nenhum padrão, pra você calibrar os regexes em PATTERNS
@@ -89,6 +95,7 @@ except ImportError:
     RconClient = None
 
 from parser import parse_and_store
+from report import generate_report
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +113,7 @@ PATTERNS = {
 
 
 class MatchWatcher:
-    def __init__(self, log_path, demo_dir, server_demo_dir, player_name, db_path,
+    def __init__(self, log_path, demo_dir, server_demo_dir, player_name, db_path, report_path,
                  rcon_host, rcon_port, rcon_password, print_only=False, debug=False):
         self.log_path = Path(log_path)
         self.demo_dir = Path(demo_dir)
@@ -114,6 +121,7 @@ class MatchWatcher:
         self.server_demo_dir = Path(server_demo_dir)
         self.player_name = player_name
         self.db_path = db_path
+        self.report_path = report_path
         self.rcon_host = rcon_host
         self.rcon_port = rcon_port
         self.rcon_password = rcon_password
@@ -181,6 +189,8 @@ class MatchWatcher:
         shutil.move(str(source_path), str(dest_path))
         print(f"[PIPELINE] Demo arquivada em {dest_path}")
 
+        generate_report(self.db_path, self.report_path)
+
     # ------------------------------------------------------------------
     def tail(self):
         """Segue o arquivo de log tipo `tail -f`, tolerando o arquivo ser recriado."""
@@ -243,6 +253,8 @@ def main():
     parser.add_argument("--player", required=True,
                          help="Nome in-game do jogador humano (usado pra filtrar posição/heatmap)")
     parser.add_argument("--db", default="./cs2_tracker.db", help="Caminho do SQLite")
+    parser.add_argument("--report-out", default="./report.html",
+                         help="Caminho do relatório HTML, regenerado ao fim de cada partida")
     parser.add_argument("--rcon-host", default="127.0.0.1")
     parser.add_argument("--rcon-port", type=int, default=27015)
     parser.add_argument("--rcon-password", default="")
@@ -258,6 +270,7 @@ def main():
         server_demo_dir=args.server_demo_dir,
         player_name=args.player,
         db_path=args.db,
+        report_path=args.report_out,
         rcon_host=args.rcon_host,
         rcon_port=args.rcon_port,
         rcon_password=args.rcon_password,

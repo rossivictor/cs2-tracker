@@ -97,8 +97,10 @@ Todo comando abaixo (`watcher.py` e `parser.py`) roda através desse
 Conecte no servidor pelo client normal do CS2 (globinho → Servidores →
 Rede Local) e jogue. O watcher deve mostrar `[CMD] tv_record ...` sem erro
 no início da partida, e no final: `[CMD] tv_stoprecord`, o placar, o
-resumo do parser (`[PARSER] match_id=...`) e a demo arquivada em
-`./demos/`.
+resumo do parser (`[PARSER] match_id=...`), a demo arquivada em
+`./demos/` e `[REPORT] N partida(s) — relatório gerado em ...` — o
+`report.html` é regenerado automaticamente a cada partida, não precisa
+rodar nada manualmente depois.
 
 `--server-demo-dir` é a pasta `game/csgo` do servidor **dedicado** (onde
 o GOTV grava o `.dem` de verdade) — normalmente a mesma pasta de `--log`.
@@ -121,10 +123,10 @@ git-ignored):
 
 | Tabela | Conteúdo |
 |---|---|
-| `matches` | 1 linha por partida — mapa, placar, duração, caminho do demo |
+| `matches` | 1 linha por partida — mapa, placar, duração, caminho do demo, nome do jogador |
 | `rounds` | round a round — vencedor, motivo, plant de bomba |
 | `kills` | quem matou quem, arma, headshot, distância (`attacker_is_human`/`victim_is_human` marcam se é você) |
-| `damages` | dano por evento (dá pra computar ADR agrupando por round) |
+| `damages` | dano por evento, com os mesmos flags `*_is_human` (dá pra computar ADR agrupando por round) |
 | `player_positions` | posição tick a tick — **só do jogador humano** (`--player`) |
 
 **TODO conhecido**: economia/compra (dinheiro gasto por round) fica de
@@ -139,18 +141,36 @@ Pra reprocessar uma demo manualmente (sem precisar do watcher rodando):
 
 ## Relatório
 
-`report.py` lê o `cs2_tracker.db` e gera um `.html` estático local (sem
-servidor, sem build) com K/D, ADR, headshot % e round win rate — geral e
-por partida, mais um gráfico de evolução (Chart.js via CDN):
+`report.py` lê o `cs2_tracker.db` e gera um único `.html` estático local
+(sem servidor, sem build, sem fetch — os dados vão embutidos como JSON
+inline no arquivo). O `watcher.py` já regenera esse arquivo sozinho ao
+fim de cada partida; rode manualmente só se quiser reprocessar fora
+desse fluxo:
 
 ```bash
 .venv\Scripts\python.exe report.py --db cs2_tracker.db --out report.html --open
 ```
 
-`--open` já abre o arquivo no navegador padrão ao terminar. Round win
-rate compara o lado do jogador humano em cada round (via
+O `.html` tem duas telas, navegadas em JS puro via `location.hash` (sem
+recarregar a página):
+
+- **Dashboard** (`report.html`): cards agregados (K/D, ADR, HS%, round
+  win rate), gráfico de evolução por partida, e a lista de partidas —
+  clique numa linha pra abrir o detalhe.
+- **Detalhe da partida** (`report.html#match-<id>`): quadro de armas
+  (kills/headshots/dano por arma), linha do tempo round a round (quem
+  venceu, motivo, plant de bomba, seu K/D naquele round) e o feed
+  cronológico de kills/mortes.
+
+Round win rate compara o lado do jogador humano em cada round (via
 `player_positions`) com `rounds.winner_side`, em vez de só olhar o
 placar final — necessário porque os lados trocam na metade da partida.
+
+**Limitação conhecida**: o quadro de armas pode separar a mesma arma em
+duas linhas (ex.: "M4A1-S" com kills e "M4A4" com dano, ou vice-versa) —
+o evento de kill e o de dano do CS2 às vezes usam nomes internos
+diferentes pra variantes com/sem silenciador. Os números de cada linha
+continuam corretos, só não ficam somados numa única arma.
 
 ## Gotchas já resolvidos (documentados também no docstring de `watcher.py`)
 
