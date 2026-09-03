@@ -3,3 +3,4 @@ __pycache__/
 demos/*.dem
 .venv/
 *.db
+report.html

@@ -137,6 +137,21 @@ Pra reprocessar uma demo manualmente (sem precisar do watcher rodando):
 .venv\Scripts\python.exe parser.py "C:/cs2server/game/csgo/20260902_202208_de_mirage.dem" --map de_mirage --score-ct 1 --score-t 13 --minutes 19 --player seu_nick_in_game --db cs2_tracker.db
 ```
 
+## Relatório
+
+`report.py` lê o `cs2_tracker.db` e gera um `.html` estático local (sem
+servidor, sem build) com K/D, ADR, headshot % e round win rate — geral e
+por partida, mais um gráfico de evolução (Chart.js via CDN):
+
+```bash
+.venv\Scripts\python.exe report.py --db cs2_tracker.db --out report.html --open
+```
+
+`--open` já abre o arquivo no navegador padrão ao terminar. Round win
+rate compara o lado do jogador humano em cada round (via
+`player_positions`) com `rounds.winner_side`, em vez de só olhar o
+placar final — necessário porque os lados trocam na metade da partida.
+
 ## Gotchas já resolvidos (documentados também no docstring de `watcher.py`)
 
 - **`log on`**: sem isso, o servidor não escreve `World triggered "..."`

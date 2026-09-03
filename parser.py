@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS matches (
     score_ct INTEGER,
     score_t INTEGER,
     duration_minutes INTEGER,
-    demo_path TEXT
+    demo_path TEXT,
+    player_name TEXT
 );
 
 CREATE TABLE IF NOT EXISTS rounds (
@@ -78,7 +79,9 @@ CREATE TABLE IF NOT EXISTS damages (
     weapon TEXT,
     hitgroup TEXT,
     dmg_health INTEGER,
-    dmg_armor INTEGER
+    dmg_armor INTEGER,
+    attacker_is_human INTEGER,
+    victim_is_human INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS player_positions (
@@ -126,8 +129,8 @@ def parse_and_store(demo_path, meta, db_path, human_name):
     dem.parse()
 
     cur.execute(
-        """INSERT INTO matches (demo_name, map, played_at, score_ct, score_t, duration_minutes, demo_path)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO matches (demo_name, map, played_at, score_ct, score_t, duration_minutes, demo_path, player_name)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             demo_name,
             meta.get("map"),
@@ -136,6 +139,7 @@ def parse_and_store(demo_path, meta, db_path, human_name):
             meta.get("score_t"),
             meta.get("minutes"),
             str(demo_path),
+            human_name,
         ),
     )
     match_id = cur.lastrowid
@@ -175,13 +179,15 @@ def parse_and_store(demo_path, meta, db_path, human_name):
             d["attacker_name"], _s(d["attacker_steamid"]),
             d["victim_name"], _s(d["victim_steamid"]),
             d["weapon"], d["hitgroup"], d["dmg_health"], d["dmg_armor"],
+            int(d["attacker_name"] == human_name), int(d["victim_name"] == human_name),
         )
         for d in dem.damages.iter_rows(named=True)
     ]
     cur.executemany(
         """INSERT INTO damages (match_id, round_num, tick, attacker_name, attacker_steamid,
-                                 victim_name, victim_steamid, weapon, hitgroup, dmg_health, dmg_armor)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                 victim_name, victim_steamid, weapon, hitgroup, dmg_health, dmg_armor,
+                                 attacker_is_human, victim_is_human)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         damages_rows,
     )
 
