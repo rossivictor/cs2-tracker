@@ -166,6 +166,14 @@ Round win rate compara o lado do jogador humano em cada round (via
 `player_positions`) com `rounds.winner_side`, em vez de só olhar o
 placar final — necessário porque os lados trocam na metade da partida.
 
+Toda estatística (cards, quadro de armas, linha do tempo, feed) vem em
+**3 variantes** — Geral / CT / TR —, trocadas por um toggle no topo da
+página, tanto no dashboard quanto no detalhe da partida. CT + TR sempre
+somam exatamente igual a Geral. Se você só jogou 1 ou 2 rounds de um
+lado numa partida (ex.: virada de metade cedo), o toggle daquele lado
+mostra só esses rounds — armas, linha do tempo e feed todos recortados
+igual.
+
 **Limitação conhecida**: o quadro de armas pode separar a mesma arma em
 duas linhas (ex.: "M4A1-S" com kills e "M4A4" com dano, ou vice-versa) —
 o evento de kill e o de dano do CS2 às vezes usam nomes internos
