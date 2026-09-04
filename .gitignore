@@ -4,3 +4,4 @@ demos/*.dem
 .venv/
 *.db
 report.html
+.env

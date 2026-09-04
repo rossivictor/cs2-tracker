@@ -1,0 +1,54 @@
+# Spike do Passo 0 (Camada 1) — ver docker/SPIKE.md.
+# Objetivo único deste compose: validar se o MatchZy reconhece uma
+# partida como "ao vivo" e reporta resultado quando team2 não tem
+# jogadores humanos (só bots do CS2 preenchendo via bot_quota fill).
+# Não é a stack final — não tem orquestração de torneio nem watcher
+# plugado ainda.
+#
+# Usa xbird/cs2-matchzy (Metamod + CounterStrikeSharp + MatchZy já
+# instalados, baseada em joedwards32/cs2) em vez da imagem base +
+# instalação manual — já validada no seu repo cs2-ai-bot-coach.
+
+services:
+  cs2-server:
+    image: xbird/cs2-matchzy
+    container_name: cs2-spike
+    environment:
+      # Sem isso, o SteamCMD usa $HOME=/root pra logs/cache — pasta fora
+      # do volume persistente e não pertencente ao usuário "steam" (uid
+      # 1000) que o processo roda. Causa raiz documentada de falhas de
+      # verificação recorrentes (joedwards32/CS2#130).
+      - HOME=/home/steam
+      - SRCDS_TOKEN=${SRCDS_TOKEN}
+      - CS2_SERVERNAME=CS2 Tracker - Spike MatchZy
+      - CS2_RCONPW=${CS2_RCONPW}
+      - CS2_LAN=1
+      - CS2_GAMETYPE=0
+      - CS2_GAMEMODE=1
+      - CS2_STARTMAP=de_mirage
+      - CS2_MAXPLAYERS=10
+      - CS2_LOG=on
+      - TV_ENABLE=1
+      - TV_PORT=27020
+      # SteamID64 com admin no MatchZy (necessário pra .start/.forceready
+      # funcionarem sem editar admins.json na mão) — mesmo valor que vai
+      # em docker/match_config.spike.json.
+      - MATCHZY_ADMINS=${MATCHZY_ADMINS}
+    volumes:
+      # Dados persistentes do servidor (jogo + addons instalados pela imagem).
+      - cs2-data:/home/steam/cs2-dedicated/
+      # Reaproveita o cfg já validado no fluxo nativo (bot_difficulty,
+      # economia de bot, mp_roundtime etc.) — é o arquivo que a engine
+      # executa por último, então tem a palavra final sobre essas cvars.
+      - ./server-configs/cfg/gamemode_competitive_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_competitive_server.cfg
+      # match_config.json de teste do spike (edite o STEAMID64 antes de usar).
+      - ./docker/match_config.spike.json:/home/steam/cs2-dedicated/game/csgo/match_config.spike.json
+    ports:
+      - "27015:27015/tcp"
+      - "27015:27015/udp"
+      - "27020:27020/udp"
+    stdin_open: true # docker attach --sig-proxy=false cs2-spike
+    tty: true
+
+volumes:
+  cs2-data:
