@@ -18,9 +18,17 @@ local (via SteamCMD), que expõe RCON de verdade.
 ```
 watcher.py                                       # tail do log + RCON/GOTV
 parser.py                                        # awpy -> SQLite
-requirements.txt                                 # awpy, rcon (Python <3.14)
-server-configs/cfg/server.cfg                    # vai pro servidor dedicado
-server-configs/cfg/gamemode_competitive_server.cfg  # vai pro servidor dedicado
+report.py                                        # SQLite -> report.html
+config.py                                        # paths/defaults compartilhados (.env)
+identity.py                                      # resolve nick/SteamID64 do jogador humano
+start_match.py                                   # orquestra docker up + RCON + matchzy_loadmatch
+wizard_core.py                                   # lógica do wizard (veto, match_config) — sem UI
+wizard_tui.py                                    # wizard interativo (Textual) — ver seção própria
+requirements.txt                                 # awpy, rcon, textual (Python <3.14)
+server-configs/cfg/server.cfg                    # vai pro servidor dedicado nativo
+server-configs/cfg/gamemode_competitive_server.cfg  # vai pro servidor dedicado nativo
+docker-compose.yml                               # servidor MatchZy em container Docker
+docker/plugins/                                  # plugins CounterStrikeSharp versionados aqui
 demos/                                           # .dem já parseados, arquivados (git-ignored)
 cs2_tracker.db                                   # SQLite gerado pelo parser (git-ignored)
 ```
@@ -145,6 +153,59 @@ partir do próprio `.dem` (o CSV do MatchZy não tem placar por round).
 
 **Limitação atual**: só séries bo1 (`num_maps: 1`, `map0`), como o
 `docker/match_config.spike.json`. Séries multi-mapa ainda não são suportadas.
+
+## Wizard interativo (`wizard_tui.py`)
+
+Forma recomendada de montar uma partida no fluxo Docker/MatchZy — troca as
+flags de `start_match.py` por um menu em texto (Textual), sem depender de
+browser:
+
+```bash
+.venv\Scripts\python.exe wizard_tui.py
+```
+
+Fluxo: nick ou SteamID64 → formato (bo1/bo3/bo5) + jogadores por time →
+veto de mapa (bans/picks alternando com um turno "bot" com timer visível,
+histórico de tudo que já foi banido/escolhido na tela) → lado (CT/TR) por
+mapa → resumo → dispara o mesmo `start_match.py` por baixo.
+
+Toda a lógica de negócio (sequência de veto, montagem do `match_config`)
+fica em `wizard_core.py`, sem nenhum import de Textual — `wizard_tui.py` é
+só a casca visual, então trocar de UI no futuro (ex.: um app desktop)
+significa reescrever só esse arquivo.
+
+**Limitação conhecida**: `start_match.py`/`run_match()` usa um `input()`
+bloqueante pra esperar você confirmar que já conectou e deu `.ready` antes
+de forçar o início (`css_start`). Como o Textual toma conta do terminal,
+esse prompt não aparece na tela do wizard — nesse ponto específico do
+fluxo, digite Enter no mesmo terminal onde o wizard está rodando (por
+baixo da UI) mesmo sem ver o texto do prompt.
+
+## Plugins do servidor MatchZy
+
+Além da própria MatchZy, o container roda plugins CounterStrikeSharp de
+"bots mais espertos" (patches de comportamento, mira, compra — projeto
+[ed0ard/CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver),
+já embutidos na imagem `xbird/cs2-matchzy`) e o
+[DefaultAgents-CS2](https://github.com/srwiruwiru/DefaultAgents-CS2)
+(versionado em `docker/plugins/DefaultAgents/`, adicionado por este repo),
+que força todo mundo a usar o agente default (visual "competitivo") sem
+mexer em skin de arma/faca/luva.
+
+**Dificuldade dos bots não é configurável por RCON nem pelo wizard** — o
+CS2-Bot-Improver ignora os cvars nativos (`bot_difficulty`,
+`custom_bot_difficulty`) e lê um arquivo estático
+(`game/csgo/overrides/botprofile.vpk`), carregado só na subida do
+processo do jogo. Este projeto fixa esse arquivo em **Low** (fácil) —
+pra trocar, dentro do container:
+
+```bash
+docker exec cs2-spike cp /home/steam/cs2-dedicated/game/csgo/overrides/Medium/botprofile.vpk /home/steam/cs2-dedicated/game/csgo/overrides/botprofile.vpk
+docker restart cs2-spike
+```
+
+(troque `Medium` por `High` pra dificuldade máxima). O arquivo já vem
+com as 3 variantes na própria imagem, em `overrides/{Low,Medium,High}/`.
 
 ## Parser / banco de dados
 
