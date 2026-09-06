@@ -22,11 +22,23 @@ services:
       - SRCDS_TOKEN=${SRCDS_TOKEN}
       - CS2_SERVERNAME=CS2 Tracker - Spike MatchZy
       - CS2_RCONPW=${CS2_RCONPW}
-      - CS2_LAN=1
+      # Passo 1 (Camada 1): estava em 1 ("dispensa GSLT pra teste local"), mas
+      # isso força o servidor em modo "insecure" (VAC desligado) mesmo com um
+      # SRCDS_TOKEN válido — confirmado via RCON `status` (insecure) e no log
+      # do container ("SV: VAC secure mode disabled."). Diagnosticado como a
+      # causa mais provável de demos gravadas pelo GOTV saírem sem nenhum
+      # evento de combate (player_death/player_hurt/weapon_fire/round_end
+      # todos zerados via demoparser2, apesar do CSV do MatchZy mostrar kills
+      # reais) — o awpy não consegue parsear essas demos por isso.
+      - CS2_LAN=0
       - CS2_GAMETYPE=0
       - CS2_GAMEMODE=1
       - CS2_STARTMAP=de_mirage
-      - CS2_MAXPLAYERS=10
+      # 2x team_size (5x5 = 10) + 1 slot pro GOTV/SourceTV, que consome uma
+      # vaga própria mesmo sendo um "bot" à parte dos times. Com só 10, os
+      # 9 bots do 5x5 enchiam o servidor inteiro antes do humano conectar
+      # ("Não foi possível se conectar — o servidor está cheio").
+      - CS2_MAXPLAYERS=11
       - CS2_LOG=on
       - TV_ENABLE=1
       - TV_PORT=27020
@@ -43,6 +55,19 @@ services:
       - ./server-configs/cfg/gamemode_competitive_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_competitive_server.cfg
       # match_config.json de teste do spike (edite o STEAMID64 antes de usar).
       - ./docker/match_config.spike.json:/home/steam/cs2-dedicated/game/csgo/match_config.spike.json
+      # Plugin DefaultAgents-CS2 (CounterStrikeSharp) — força agentes default
+      # (visual "competitivo") em todo mundo, sem mexer em skin de arma/faca/
+      # luva. Baixado de github.com/srwiruwiru/DefaultAgents-CS2 (release
+      # build-1). Versionado aqui (não no volume nomeado cs2-data) pelo mesmo
+      # motivo do gamemode_competitive_server.cfg: sobrevive a um container
+      # novo sem precisar reinstalar manualmente.
+      - ./docker/plugins/DefaultAgents:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/DefaultAgents
+      # Passo 1 (Camada 1): expõe as pastas onde o MatchZy grava demo e CSV
+      # de stats direto no host, sobrepondo o volume nomeado cs2-data só
+      # nesses subcaminhos — sem isso, precisaríamos de `docker cp` manual
+      # depois de cada partida pra tirar o .dem de dentro do container.
+      - ./docker/demos-live:/home/steam/cs2-dedicated/game/csgo/MatchZy
+      - ./docker/stats-live:/home/steam/cs2-dedicated/game/csgo/MatchZy_Stats
     ports:
       - "27015:27015/tcp"
       - "27015:27015/udp"

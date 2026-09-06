@@ -1,0 +1,15 @@
+{
+  "prefix": "{green}[DefaultAgents] {green}➜{default}",
+  "subprefix": "{green}➜{default}",
+  "no_permission": "{red}У вас нет разрешения использовать эту команду",
+
+  "enabled": "{green}Включено",
+  "disabled": "{red}Выключено",
+
+  "default_skins_status": "Стандартные скины: {0}",
+  "heavy_models_status": "Тяжелые модели: {0}",
+
+  "status_title": "{lightblue}Текущий статус агентов:",
+  "default_skins_label": "Стандартные скины",
+  "heavy_models_label": "Тяжелые модели"
+}

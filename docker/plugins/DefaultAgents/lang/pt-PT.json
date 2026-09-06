@@ -1,0 +1,15 @@
+{
+  "prefix": "{green}[DefaultAgents] {green}➜{default}",
+  "subprefix": "{green}➜{default}",
+  "no_permission": "{red}Você não tem permissão para usar este comando",
+
+  "enabled": "{green}Ativado",
+  "disabled": "{red}Desativado",
+
+  "default_skins_status": "Skins Padrão: {0}",
+  "heavy_models_status": "Modelos Pesados: {0}",
+
+  "status_title": "{lightblue}Status Atual dos Agentes:",
+  "default_skins_label": "Skins Padrão",
+  "heavy_models_label": "Modelos Pesados"
+}
