@@ -116,6 +116,36 @@ Use `--print-only` como fallback manual (imprime o comando em vez de
 mandar via RCON) se o RCON falhar por outro motivo além dos já cobertos
 aqui.
 
+## Fluxo Docker/MatchZy (`--mode matchzy`)
+
+Alternativa ao servidor dedicado nativo acima: sobe um container Docker com
+MatchZy (Metamod + CounterStrikeSharp), que grava demo e CSV de stats
+sozinho e orquestra a partida (ver `docker/SPIKE.md` e `start_match.py`).
+Nesse fluxo o watcher não precisa de RCON nem de `--server-demo-dir` — só
+segue o log do container e localiza a demo que o MatchZy já gravou:
+
+```bash
+docker compose up -d
+.venv\Scripts\python.exe start_match.py --player seu_nick_in_game
+```
+
+Em paralelo (antes de conectar no servidor), numa outra janela:
+
+```bash
+.venv\Scripts\python.exe watcher.py --mode matchzy --player seu_nick_in_game --debug
+```
+
+O gatilho de fim de partida é a linha de log
+`[MatchZy] [WritePlayerStatsToCsv] ...` (só ela é confiável — ver comentário
+de `MATCHZY_PATTERNS` em `watcher.py`), disparada quando o MatchZy já
+terminou de gravar `docker/demos-live/<matchid>_<mapa>_<time1>_vs_<time2>.dem`.
+O watcher localiza essa demo pelo `matchid`, parseia com awpy e regenera o
+`report.html`, igual ao fluxo nativo — placar e duração são calculados a
+partir do próprio `.dem` (o CSV do MatchZy não tem placar por round).
+
+**Limitação atual**: só séries bo1 (`num_maps: 1`, `map0`), como o
+`docker/match_config.spike.json`. Séries multi-mapa ainda não são suportadas.
+
 ## Parser / banco de dados
 
 `parser.py` lê o `.dem` com awpy e grava em `cs2_tracker.db` (SQLite,
