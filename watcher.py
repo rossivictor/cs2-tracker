@@ -85,8 +85,10 @@ Uso:
 import argparse
 import re
 import shutil
+import subprocess
 import time
 from datetime import datetime
+from glob import glob
 from pathlib import Path
 
 try:
@@ -96,6 +98,8 @@ except ImportError:
 
 from parser import parse_and_store
 from report import generate_report
+from config import CONTAINER_NAME, DB_PATH, DEMO_DIR, DEMOS_LIVE_DIR, MATCH_CONFIG_FILE, REPORT_PATH, ROOT
+from identity import resolve_identity
 
 
 # ---------------------------------------------------------------------------
@@ -111,17 +115,52 @@ PATTERNS = {
     ),
 }
 
+# ---------------------------------------------------------------------------
+# Passo 3 (Camada 1) — fim de partida via MatchZy (log do container Docker,
+# não mais o console.log nativo). Calibrado em cima de duas partidas reais:
+#
+#   matchid 6: veio HandleMatchEnd "MAP ENDED" seguido de um segundo
+#   HandleMatchEnd "MATCH ENDED, remainingMaps: 0, NumMaps: 1,
+#   Team1SeriesScore: 1, Team2SeriesScore: 0" antes do SetMatchEndData.
+#
+#   matchid 9: só veio o HandleMatchEnd "MAP ENDED" — a segunda linha
+#   "MATCH ENDED" com o placar de série NÃO apareceu.
+#
+# Ou seja, a linha "MATCH ENDED" com placar não é confiável como gatilho
+# (curioso — mesmo tipo de match bo1, com e sem ela). WritePlayerStatsToCsv
+# é o único evento que se repetiu nas duas partidas E é logicamente o
+# último passo do pipeline do MatchZy (stats já persistidas), então é o
+# gatilho definitivo de "partida terminou de verdade". SetMatchEndData vem
+# antes dele sempre e carrega o winnerName — o watcher guarda esse valor
+# e só dispara o hook de fim de partida quando o WritePlayerStatsToCsv
+# do MESMO matchid chegar.
+# ---------------------------------------------------------------------------
+MATCHZY_PATTERNS = {
+    "match_winner": re.compile(
+        r'\[SetMatchEndData\] Data updated for matchId: (?P<matchid>\d+) '
+        r'winnerName: (?P<winner>.+?)\s*$'
+    ),
+    "stats_written": re.compile(
+        r'\[WritePlayerStatsToCsv\] Match stats for ID: (?P<matchid>\d+) '
+        r'written successfully at: (?P<csv_path>\S+)\s*$'
+    ),
+}
+
 
 class MatchWatcher:
-    def __init__(self, log_path, demo_dir, server_demo_dir, player_name, db_path, report_path,
-                 rcon_host, rcon_port, rcon_password, print_only=False, debug=False):
-        self.log_path = Path(log_path)
-        self.demo_dir = Path(demo_dir)
+    def __init__(self, log_path=None, demo_dir=None, server_demo_dir=None, identity=None,
+                 db_path=None, report_path=None,
+                 rcon_host="127.0.0.1", rcon_port=27015, rcon_password="",
+                 print_only=False, debug=False,
+                 mode="native", container=None, demos_live_dir=None):
+        self.mode = mode
+        self.log_path = Path(log_path) if log_path else None
+        self.demo_dir = Path(demo_dir or DEMO_DIR)
         self.demo_dir.mkdir(parents=True, exist_ok=True)
-        self.server_demo_dir = Path(server_demo_dir)
-        self.player_name = player_name
-        self.db_path = db_path
-        self.report_path = report_path
+        self.server_demo_dir = Path(server_demo_dir) if server_demo_dir else None
+        self.identity = identity
+        self.db_path = db_path or DB_PATH
+        self.report_path = report_path or REPORT_PATH
         self.rcon_host = rcon_host
         self.rcon_port = rcon_port
         self.rcon_password = rcon_password
@@ -130,6 +169,11 @@ class MatchWatcher:
 
         self.recording = False
         self.current_demo_name = None
+
+        # Modo matchzy (Docker) — ver MATCHZY_PATTERNS.
+        self.container = container or CONTAINER_NAME
+        self.demos_live_dir = Path(demos_live_dir or DEMOS_LIVE_DIR)
+        self._pending_winners = {}
 
     # ------------------------------------------------------------------
     def send_command(self, command: str):
@@ -183,7 +227,7 @@ class MatchWatcher:
             print(f"[PIPELINE] .dem não encontrado em {source_path}, pulando parse")
             return
 
-        parse_and_store(source_path, meta, self.db_path, self.player_name)
+        parse_and_store(source_path, meta, self.db_path, self.identity)
 
         dest_path = self.demo_dir / f"{demo_name}.dem"
         shutil.move(str(source_path), str(dest_path))
@@ -242,33 +286,135 @@ class MatchWatcher:
         if self.debug and any(k in line for k in ("Match_", "Round_", "Game Over", "MatchStatus")):
             print(f"[DEBUG] linha não tratada: {line}")
 
+    # ------------------------------------------------------------------
+    # Modo matchzy (Docker) — ver MATCHZY_PATTERNS.
+    # ------------------------------------------------------------------
+    def tail_docker_logs(self):
+        """Segue `docker logs -f` do container, igual a um `tail -f` só que
+        do stdout do container em vez de um arquivo no host (MatchZy não
+        escreve log nenhum no host)."""
+        print(f"[WATCHER] Monitorando container Docker: {self.container}")
+        while True:
+            proc = None
+            try:
+                proc = subprocess.Popen(
+                    ["docker", "logs", "-f", "--tail", "0", self.container],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, encoding="utf-8", errors="ignore",
+                )
+                print("[WATCHER] Conectado ao log do container.")
+                for line in proc.stdout:
+                    self.handle_matchzy_line(line.strip())
+                proc.wait()
+                print(f"[WATCHER] `docker logs` encerrou (container parado?). Tentando de novo em 5s...")
+                time.sleep(5)
+            except KeyboardInterrupt:
+                print("\n[WATCHER] Encerrado pelo usuário.")
+                if proc:
+                    proc.terminate()
+                break
+            except FileNotFoundError:
+                print("[WATCHER] Comando 'docker' não encontrado. Docker está instalado e no PATH?")
+                time.sleep(5)
+
+    def handle_matchzy_line(self, line):
+        m = MATCHZY_PATTERNS["match_winner"].search(line)
+        if m:
+            self._pending_winners[m.group("matchid")] = m.group("winner")
+            return
+
+        m = MATCHZY_PATTERNS["stats_written"].search(line)
+        if m:
+            matchid = m.group("matchid")
+            winner = self._pending_winners.pop(matchid, None)
+            self.on_matchzy_match_finished(matchid, winner)
+            return
+
+        if self.debug and "MatchZy" in line:
+            print(f"[DEBUG] linha MatchZy não tratada: {line}")
+
+    def on_matchzy_match_finished(self, matchid, winner):
+        """
+        Hook chamado quando o MatchZy termina de escrever o CSV de stats de
+        uma partida (sinal de que a demo e os stats já estão finalizados em
+        disco). Diferente do fluxo nativo, a demo já foi gravada e arquivada
+        pelo próprio MatchZy em demos_live_dir — só falta localizá-la,
+        parsear e gravar no banco.
+        """
+        pattern = str(self.demos_live_dir / f"*_{matchid}_*.dem")
+        matches = []
+        for _ in range(20):  # até ~10s de espera pelo bind mount
+            matches = glob(pattern)
+            if matches:
+                break
+            time.sleep(0.5)
+
+        if not matches:
+            print(f"[PIPELINE] Nenhuma demo encontrada em {pattern}, pulando parse")
+            return
+        if len(matches) > 1:
+            print(f"[PIPELINE] Mais de uma demo casou com {pattern}, usando a mais recente")
+            matches.sort(key=lambda p: Path(p).stat().st_mtime)
+        demo_path = Path(matches[-1])
+
+        name_match = re.search(
+            r"_\d+_(?P<map>de_\w+)_(?P<team1>.+)_vs_(?P<team2>.+)\.dem$", demo_path.name
+        )
+        meta = {
+            "map": name_match.group("map") if name_match else None,
+            "winner": winner,
+        }
+
+        print(f"[MATCH] matchid={matchid} finalizado (vencedor: {winner or '?'}), demo: {demo_path.name}")
+        parse_and_store(demo_path, meta, self.db_path, self.identity)
+        generate_report(self.db_path, self.report_path)
+
 
 def main():
     parser = argparse.ArgumentParser(description="CS2 Tracker — Match Watcher")
-    parser.add_argument("--log", required=True, help="Caminho do console.log do CS2")
-    parser.add_argument("--demo-dir", default="./demos",
-                         help="Pasta onde arquivar os .dem já parseados")
-    parser.add_argument("--server-demo-dir", required=True,
-                         help="Pasta game/csgo do servidor dedicado, onde o GOTV grava o .dem")
+    parser.add_argument("--mode", choices=["native", "matchzy"], default="native",
+                         help="native: tail de console.log + RCON/GOTV (servidor dedicado nativo). "
+                              "matchzy: docker logs -f + demos/stats já gravados pelo MatchZy (fluxo Docker)")
+    parser.add_argument("--log", help="Caminho do console.log do CS2 (obrigatório no modo native)")
+    parser.add_argument("--demo-dir", default=DEMO_DIR,
+                         help="Pasta onde arquivar os .dem já parseados (modo native)")
+    parser.add_argument("--server-demo-dir",
+                         help="Pasta game/csgo do servidor dedicado, onde o GOTV grava o .dem "
+                              "(obrigatório no modo native)")
     parser.add_argument("--player", required=True,
-                         help="Nome in-game do jogador humano (usado pra filtrar posição/heatmap)")
-    parser.add_argument("--db", default="./cs2_tracker.db", help="Caminho do SQLite")
-    parser.add_argument("--report-out", default="./report.html",
+                         help="Nome in-game do jogador humano (ou SteamID64) — usado pra filtrar "
+                              "posição/heatmap")
+    parser.add_argument("--match-config", default=str(ROOT / "docker" / MATCH_CONFIG_FILE),
+                         help="Caminho do match_config.json pra resolver steamid do jogador "
+                              "(modo matchzy). Ignorado no modo native.")
+    parser.add_argument("--db", default=DB_PATH, help="Caminho do SQLite")
+    parser.add_argument("--report-out", default=REPORT_PATH,
                          help="Caminho do relatório HTML, regenerado ao fim de cada partida")
     parser.add_argument("--rcon-host", default="127.0.0.1")
     parser.add_argument("--rcon-port", type=int, default=27015)
     parser.add_argument("--rcon-password", default="")
     parser.add_argument("--print-only", action="store_true",
-                         help="Não envia comando de fato, só imprime (record/stop manual)")
+                         help="Não envia comando de fato, só imprime (record/stop manual) (modo native)")
+    parser.add_argument("--container", default=CONTAINER_NAME,
+                         help="Nome do container Docker do servidor MatchZy (modo matchzy)")
+    parser.add_argument("--demos-live-dir", default=DEMOS_LIVE_DIR,
+                         help="Pasta onde o MatchZy grava as demos, mapeada no docker-compose (modo matchzy)")
     parser.add_argument("--debug", action="store_true",
                          help="Mostra linhas de log ainda não reconhecidas")
     args = parser.parse_args()
 
+    if args.mode == "native" and (not args.log or not args.server_demo_dir):
+        parser.error("--log e --server-demo-dir são obrigatórios no modo native")
+
+    match_config_path = Path(args.match_config) if args.mode == "matchzy" else None
+    identity = resolve_identity(args.player, match_config_path)
+
     watcher = MatchWatcher(
+        mode=args.mode,
         log_path=args.log,
         demo_dir=args.demo_dir,
         server_demo_dir=args.server_demo_dir,
-        player_name=args.player,
+        identity=identity,
         db_path=args.db,
         report_path=args.report_out,
         rcon_host=args.rcon_host,
@@ -276,8 +422,14 @@ def main():
         rcon_password=args.rcon_password,
         print_only=args.print_only,
         debug=args.debug,
+        container=args.container,
+        demos_live_dir=args.demos_live_dir,
     )
-    watcher.tail()
+
+    if args.mode == "matchzy":
+        watcher.tail_docker_logs()
+    else:
+        watcher.tail()
 
 
 if __name__ == "__main__":

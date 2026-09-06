@@ -27,6 +27,9 @@ from pathlib import Path
 import polars as pl
 from awpy import Demo
 
+from config import DB_PATH
+from identity import PlayerIdentity, resolve_identity
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS matches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,6 +106,15 @@ def _s(value):
     return None if value is None else str(value)
 
 
+def _is_human(name, steamid, identity: PlayerIdentity) -> bool:
+    """Prefere comparação por steamid (estável a troca de nick); cai pra
+    nome quando a identidade não tem steamid resolvido (modo native, ou
+    matchzy sem correspondência no match_config)."""
+    if identity.has_steamid:
+        return steamid is not None and str(steamid) == identity.steamid
+    return name == identity.name
+
+
 def init_db(db_path):
     conn = sqlite3.connect(db_path)
     conn.executescript(SCHEMA)
@@ -110,7 +122,7 @@ def init_db(db_path):
     return conn
 
 
-def parse_and_store(demo_path, meta, db_path, human_name):
+def parse_and_store(demo_path, meta, db_path, identity: PlayerIdentity):
     demo_path = Path(demo_path)
     demo_name = demo_path.stem
 
@@ -128,6 +140,27 @@ def parse_and_store(demo_path, meta, db_path, human_name):
     dem = Demo(str(demo_path))
     dem.parse()
 
+    rounds_rows = [
+        (0, r["round_num"], r["winner"], r["reason"],
+         int(bool(r["bomb_plant"])), r["bomb_site"], r["start"], r["end"])
+        for r in dem.rounds.iter_rows(named=True)
+    ]
+
+    # Fluxo matchzy não tem placar/duração vindos de regex de log (não
+    # confiável — ver comentário de MATCHZY_PATTERNS em watcher.py) —
+    # calcula direto do próprio .dem já parseado.
+    score_ct = meta.get("score_ct")
+    score_t = meta.get("score_t")
+    if score_ct is None or score_t is None:
+        score_ct = sum(1 for r in rounds_rows if r[2] == "ct")
+        score_t = sum(1 for r in rounds_rows if r[2] == "t")
+
+    minutes = meta.get("minutes")
+    if minutes is None and rounds_rows:
+        start_tick = rounds_rows[0][6]
+        end_tick = rounds_rows[-1][7]
+        minutes = round((end_tick - start_tick) / 64 / 60)
+
     cur.execute(
         """INSERT INTO matches (demo_name, map, played_at, score_ct, score_t, duration_minutes, demo_path, player_name)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -135,20 +168,15 @@ def parse_and_store(demo_path, meta, db_path, human_name):
             demo_name,
             meta.get("map"),
             datetime.now().isoformat(timespec="seconds"),
-            meta.get("score_ct"),
-            meta.get("score_t"),
-            meta.get("minutes"),
+            score_ct,
+            score_t,
+            minutes,
             str(demo_path),
-            human_name,
+            identity.name,
         ),
     )
     match_id = cur.lastrowid
-
-    rounds_rows = [
-        (match_id, r["round_num"], r["winner"], r["reason"],
-         int(bool(r["bomb_plant"])), r["bomb_site"], r["start"], r["end"])
-        for r in dem.rounds.iter_rows(named=True)
-    ]
+    rounds_rows = [(match_id,) + row[1:] for row in rounds_rows]
     cur.executemany(
         """INSERT INTO rounds (match_id, round_num, winner_side, reason, bomb_plant, bomb_site, start_tick, end_tick)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -161,7 +189,8 @@ def parse_and_store(demo_path, meta, db_path, human_name):
             k["attacker_name"], _s(k["attacker_steamid"]), k["attacker_side"],
             k["victim_name"], _s(k["victim_steamid"]), k["victim_side"],
             k["weapon"], int(bool(k["headshot"])), k["distance"],
-            int(k["attacker_name"] == human_name), int(k["victim_name"] == human_name),
+            int(_is_human(k["attacker_name"], k["attacker_steamid"], identity)),
+            int(_is_human(k["victim_name"], k["victim_steamid"], identity)),
         )
         for k in dem.kills.iter_rows(named=True)
     ]
@@ -179,7 +208,8 @@ def parse_and_store(demo_path, meta, db_path, human_name):
             d["attacker_name"], _s(d["attacker_steamid"]),
             d["victim_name"], _s(d["victim_steamid"]),
             d["weapon"], d["hitgroup"], d["dmg_health"], d["dmg_armor"],
-            int(d["attacker_name"] == human_name), int(d["victim_name"] == human_name),
+            int(_is_human(d["attacker_name"], d["attacker_steamid"], identity)),
+            int(_is_human(d["victim_name"], d["victim_steamid"], identity)),
         )
         for d in dem.damages.iter_rows(named=True)
     ]
@@ -191,7 +221,10 @@ def parse_and_store(demo_path, meta, db_path, human_name):
         damages_rows,
     )
 
-    human_ticks = dem.ticks.filter(pl.col("name") == human_name)
+    if identity.has_steamid and "steamid" in dem.ticks.columns:
+        human_ticks = dem.ticks.filter(pl.col("steamid").cast(pl.Utf8) == identity.steamid)
+    else:
+        human_ticks = dem.ticks.filter(pl.col("name") == identity.name)
     positions_rows = [
         (match_id, t["round_num"], t["tick"], t["X"], t["Y"], t["Z"], t["side"], t["place"], t["health"])
         for t in human_ticks.iter_rows(named=True)
@@ -207,7 +240,7 @@ def parse_and_store(demo_path, meta, db_path, human_name):
 
     print(
         f"[PARSER] match_id={match_id}: {len(rounds_rows)} rounds, {len(kills_rows)} kills, "
-        f"{len(damages_rows)} damages, {len(positions_rows)} posições de '{human_name}'"
+        f"{len(damages_rows)} damages, {len(positions_rows)} posições de '{identity.name}'"
     )
     return match_id
 
@@ -219,8 +252,11 @@ def main():
     parser.add_argument("--score-ct", required=True)
     parser.add_argument("--score-t", required=True)
     parser.add_argument("--minutes", required=True)
-    parser.add_argument("--player", required=True, help="Nome do jogador humano (in-game)")
-    parser.add_argument("--db", default="./cs2_tracker.db")
+    parser.add_argument("--player", required=True, help="Nome do jogador humano (in-game) ou SteamID64")
+    parser.add_argument("--match-config", default=None,
+                         help="Caminho do match_config.json pra cruzar steamid<->nick (opcional, "
+                              "usado quando disponível; sem ele cai pra comparação só por nome)")
+    parser.add_argument("--db", default=DB_PATH)
     args = parser.parse_args()
 
     meta = {
@@ -229,7 +265,8 @@ def main():
         "score_t": args.score_t,
         "minutes": args.minutes,
     }
-    parse_and_store(args.demo, meta, args.db, args.player)
+    identity = resolve_identity(args.player, args.match_config)
+    parse_and_store(args.demo, meta, args.db, identity)
 
 
 if __name__ == "__main__":

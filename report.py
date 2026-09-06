@@ -22,6 +22,8 @@ import sqlite3
 import webbrowser
 from pathlib import Path
 
+from config import DB_PATH, REPORT_PATH
+
 
 def fetch_matches(conn):
     return conn.execute(
@@ -525,8 +527,8 @@ def generate_report(db_path, out_path):
 
 def main():
     parser = argparse.ArgumentParser(description="CS2 Tracker — Report (SQLite -> HTML local)")
-    parser.add_argument("--db", default="./cs2_tracker.db")
-    parser.add_argument("--out", default="./report.html")
+    parser.add_argument("--db", default=DB_PATH)
+    parser.add_argument("--out", default=REPORT_PATH)
     parser.add_argument("--open", action="store_true", help="Abre o relatório no navegador ao terminar")
     args = parser.parse_args()
 
