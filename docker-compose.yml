@@ -46,6 +46,17 @@ services:
       # funcionarem sem editar admins.json na mão) — mesmo valor que vai
       # em docker/match_config.spike.json.
       - MATCHZY_ADMINS=${MATCHZY_ADMINS}
+      # Sem isso a imagem busca "latest" do Metamod/CSSharp a cada boot —
+      # container ficou parado uns dias e, ao subir de novo, pegou um
+      # Metamod mais novo (interface 18) incompatível com os plugins
+      # nativos instalados (CounterStrikeSharp, RayTrace, BotHider, todos
+      # compilados pra interface 17): "[META] Loaded 0 plugins." no log,
+      # matchzy_loadmatch/css_start viravam "Unknown command". Fixando nas
+      # versões que sabíamos que funcionavam juntas (as que já estavam
+      # instaladas antes desse auto-update quebrar tudo).
+      - MMSOURCE_FIXED_VERSION=2.0.0.1411
+      - CSSHARP_FIXED_VERSION=v1.0.373
+      - MATCHZY_FIXED_VERSION=0.8.15
     volumes:
       # Dados persistentes do servidor (jogo + addons instalados pela imagem).
       - cs2-data:/home/steam/cs2-dedicated/
