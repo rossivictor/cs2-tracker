@@ -66,13 +66,16 @@ services:
       - ./server-configs/cfg/gamemode_competitive_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_competitive_server.cfg
       # match_config.json de teste do spike (edite o STEAMID64 antes de usar).
       - ./docker/match_config.spike.json:/home/steam/cs2-dedicated/game/csgo/match_config.spike.json
-      # Plugin DefaultAgents-CS2 (CounterStrikeSharp) — força agentes default
-      # (visual "competitivo") em todo mundo, sem mexer em skin de arma/faca/
-      # luva. Baixado de github.com/srwiruwiru/DefaultAgents-CS2 (release
-      # build-1). Versionado aqui (não no volume nomeado cs2-data) pelo mesmo
-      # motivo do gamemode_competitive_server.cfg: sobrevive a um container
-      # novo sem precisar reinstalar manualmente.
-      - ./docker/plugins/DefaultAgents:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/DefaultAgents
+      # Plugin DefaultAgents-CS2 (CounterStrikeSharp) — os arquivos continuam
+      # versionados em docker/plugins/DefaultAgents/, mas o mount pra dentro
+      # do container está DESLIGADO: forçar o agente default trava o load de
+      # um recurso de modelo (RESOURCE_TYPE_MODEL B6EC56677600A473 "not
+      # resident") — testado ao vivo (viewmodel de arma gigante/quebrado +
+      # textura faltando no HUD, sumiu ao desativar o plugin, reproduzido
+      # de novo ao reativar). Religar essa linha reintroduz o bug até
+      # investigarmos a causa (recurso não cacheado localmente? incompatível
+      # com a versão pinada do CSSharp/Metamod?).
+      # - ./docker/plugins/DefaultAgents:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/DefaultAgents
       # Passo 1 (Camada 1): expõe as pastas onde o MatchZy grava demo e CSV
       # de stats direto no host, sobrepondo o volume nomeado cs2-data só
       # nesses subcaminhos — sem isso, precisaríamos de `docker cp` manual

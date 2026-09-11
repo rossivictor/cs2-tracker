@@ -186,11 +186,18 @@ baixo da UI) mesmo sem ver o texto do prompt.
 Além da própria MatchZy, o container roda plugins CounterStrikeSharp de
 "bots mais espertos" (patches de comportamento, mira, compra — projeto
 [ed0ard/CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver),
-já embutidos na imagem `xbird/cs2-matchzy`) e o
+já embutidos na imagem `xbird/cs2-matchzy`).
+
+Também está versionado (mas **desligado** por padrão) o
 [DefaultAgents-CS2](https://github.com/srwiruwiru/DefaultAgents-CS2)
-(versionado em `docker/plugins/DefaultAgents/`, adicionado por este repo),
-que força todo mundo a usar o agente default (visual "competitivo") sem
-mexer em skin de arma/faca/luva.
+(`docker/plugins/DefaultAgents/`), que forçaria todo mundo a usar o agente
+default sem mexer em skin de arma/faca/luva. Desativado porque, testado ao
+vivo, ele trava o load de um recurso de modelo (`RESOURCE_TYPE_MODEL
+B6EC56677600A473 "not resident"` no log do client) — o viewmodel da arma
+renderiza gigante/quebrado e falta uma textura no HUD; o bug sumiu ao
+desativar o plugin e voltou ao reativar, então não é coincidência. Pra
+religar (por sua conta e risco), descomente o volume dele em
+`docker-compose.yml` e recrie o container.
 
 **Dificuldade dos bots não é configurável por RCON nem pelo wizard** — o
 CS2-Bot-Improver ignora os cvars nativos (`bot_difficulty`,
