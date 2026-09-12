@@ -76,6 +76,15 @@ services:
       # investigarmos a causa (recurso não cacheado localmente? incompatível
       # com a versão pinada do CSSharp/Metamod?).
       # - ./docker/plugins/DefaultAgents:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/DefaultAgents
+      # RayTraceImpl (embutido na imagem) derruba o servidor DE VERDADE na
+      # segunda troca de mapa de qualquer sessão: "terminate called after
+      # throwing an instance of 'spdlog::spdlog_ex' — logger with name
+      # 'RayTrace' already exists", processo aborta (core dumped) — o
+      # plugin tenta registrar um logger sem checar se já existe de um
+      # load anterior. Reproduzido ao vivo numa série BO3 (crashou entre
+      # mapa 1 e mapa 2). Ocultado montando uma pasta vazia por cima —
+      # não tem como só "desligar" um plugin embutido na imagem sem isso.
+      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/RayTraceImpl
       # Passo 1 (Camada 1): expõe as pastas onde o MatchZy grava demo e CSV
       # de stats direto no host, sobrepondo o volume nomeado cs2-data só
       # nesses subcaminhos — sem isso, precisaríamos de `docker cp` manual
