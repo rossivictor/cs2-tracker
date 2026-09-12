@@ -214,7 +214,7 @@ def wait_for_rcon(host, port, password, timeout_s=300, interval_s=5):
 
 def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_port,
               rcon_password, team_size, boot_timeout, skip_up, player, map_name=None,
-              side=None):
+              side=None, on_watcher_started=None):
     """
     Orquestração completa (passos 1-5 do docker/SPIKE.md), sem nenhum
     acoplamento a argparse — corpo extraído de main() pra ser reaproveitado
@@ -224,6 +224,10 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
     que args.match_config/args.compose_file tinham antes), não Path.
     map_name/side: já resolvidos por fora (ex.: pelo veto do wizard) — só
     são aplicados aqui se vierem preenchidos, igual ao --map/--side do CLI.
+    on_watcher_started: callback opcional, chamado com o subprocess.Popen do
+    watcher assim que ele sobe — usado pelo wizard_tui.py pra conseguir
+    encerrar o watcher quando a UI fecha (essa função fica bloqueada em
+    watcher_proc.wait() numa worker thread que o Textual não enxerga).
 
     Dificuldade dos bots NÃO é configurável aqui: o plugin CS2-Bot-Improver
     (github.com/ed0ard/CS2-Bot-Improver) que este projeto usa ignora os
@@ -259,6 +263,8 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
     watcher_proc = None
     if player:
         watcher_proc = start_watcher(container_name, player, local_match_config)
+        if on_watcher_started:
+            on_watcher_started(watcher_proc)
 
     if map_name:
         set_map_in_config(local_match_config, map_name)

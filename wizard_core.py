@@ -171,6 +171,7 @@ def launch(
     rcon_password: str,
     boot_timeout: int = 300,
     skip_up: bool = False,
+    on_watcher_started=None,
 ):
     """
     Escreve o match_config final e dispara run_match (start_match.py) —
@@ -179,6 +180,10 @@ def launch(
     argparse. Os prints de run_match continuam indo pro stdout; quem quiser
     capturá-los pra um widget (ex.: wizard_tui.py) faz isso por fora,
     redirecionando stdout ao redor da chamada a launch().
+
+    on_watcher_started: repassado direto pro run_match (ver docstring lá) —
+    é como o wizard_tui.py consegue o handle do watcher pra encerrar junto
+    quando a UI fecha.
     """
     local_match_config = ROOT / "docker" / Path(match_config_file).name
     base_config = load_base_config(local_match_config)
@@ -196,4 +201,5 @@ def launch(
         boot_timeout=boot_timeout,
         skip_up=skip_up,
         player=setup.identity.name,
+        on_watcher_started=on_watcher_started,
     )

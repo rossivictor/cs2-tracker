@@ -326,6 +326,9 @@ class LaunchScreen(Screen):
             team_size=app.team_size,
             maps=app.setup_maps,
         )
+        def on_watcher_started(proc):
+            app.call_from_thread(setattr, app, "watcher_proc", proc)
+
         try:
             with contextlib.redirect_stdout(stream):
                 core.launch(
@@ -338,9 +341,12 @@ class LaunchScreen(Screen):
                     rcon_password=app.rcon_password,
                     boot_timeout=app.boot_timeout,
                     skip_up=app.skip_up,
+                    on_watcher_started=on_watcher_started,
                 )
         except Exception as exc:
             app.call_from_thread(log_widget.write, f"[ERRO] {exc}")
+        finally:
+            app.call_from_thread(setattr, app, "watcher_proc", None)
 
 
 class WizardApp(App):
@@ -394,8 +400,24 @@ class WizardApp(App):
         self.team_size: Optional[int] = None
         self.setup_maps: List[core.MapChoice] = []
 
+        # Setado por LaunchScreen.do_launch assim que run_match sobe o
+        # watcher.py (via on_watcher_started) — run_match fica bloqueado
+        # em watcher_proc.wait() numa worker thread que o Textual não
+        # enxerga, então sair da UI (q/ctrl+q) não encerraria o watcher
+        # sozinho sem isso; action_quit abaixo mata o processo primeiro.
+        self.watcher_proc = None
+
     def on_mount(self) -> None:
         self.push_screen(IdentityScreen())
+
+    def action_quit(self) -> None:
+        if self.watcher_proc and self.watcher_proc.poll() is None:
+            self.watcher_proc.terminate()
+            try:
+                self.watcher_proc.wait(timeout=10)
+            except Exception:
+                self.watcher_proc.kill()
+        self.exit()
 
 
 def main():
