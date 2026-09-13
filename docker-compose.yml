@@ -85,6 +85,13 @@ services:
       # mapa 1 e mapa 2). Ocultado montando uma pasta vazia por cima —
       # não tem como só "desligar" um plugin embutido na imagem sem isso.
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/RayTraceImpl
+      # RayTraceImpl acima é só o lado CounterStrikeSharp/.NET — existe um
+      # SEGUNDO componente, o plugin Metamod NATIVO por trás dele
+      # (addons/RayTrace/, registrado em addons/metamod/RayTrace.vdf), que
+      # é quem de fato possui o logger "RayTrace" e crashou de novo mesmo
+      # com o de cima já oculto (mesmo erro, mesmo ponto da série). Precisa
+      # ocultar os dois.
+      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/RayTrace
       # Passo 1 (Camada 1): expõe as pastas onde o MatchZy grava demo e CSV
       # de stats direto no host, sobrepondo o volume nomeado cs2-data só
       # nesses subcaminhos — sem isso, precisaríamos de `docker cp` manual
