@@ -26,6 +26,7 @@ import json
 import re
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -182,19 +183,129 @@ def fix_bot_overflow(container_name, rcon_host, rcon_port, rcon_password,
                 rcon_run(rcon_host, rcon_port, rcon_password, f'bot_kick "{name}"')
 
 
-def start_watcher(container_name: str, player: str, match_config_path: Path) -> subprocess.Popen:
+def force_start_and_balance_bots(*, rcon_host, rcon_port, rcon_password, container_name,
+                                  team_size, player, local_match_config):
     """
-    Sobe watcher.py --mode matchzy em paralelo, herdando stdout/stderr do
-    processo atual (as duas saídas aparecem no mesmo terminal). Não redireciona
-    nada porque o objetivo é justamente um único lugar pra acompanhar tudo.
+    "Forçar início" (css_start) + balanceamento de bots — extraído de
+    run_match() pra poder repetir a cada mapa de uma série BO3/BO5, não só
+    no primeiro. A MatchZy nunca inicia um mapa sozinha aqui: ela exige
+    jogadores DE VERDADE prontos pra contar como "time pronto"
+    ([IsTeamReady] minPlayers:5 playerCount:0 — bots não contam), o que
+    nunca acontece só com bots do lado de menos. css_start ignora esse
+    checkr e força o "ao vivo" direto.
+    """
+    print("[MATCHZY] Forçando início da partida (css_start)...")
+    try:
+        response = rcon_run(rcon_host, rcon_port, rcon_password, "css_start")
+        print(f"  -> {response or '(sem resposta)'}")
+    except Exception as exc:
+        print(f"  [AVISO] css_start falhou via RCON ({exc}).")
+        print("  Digite '.start' manualmente no chat do jogo.")
+
+    # Balanceamento dos bots DEPOIS do css_start, não antes — ver comentário
+    # original em run_match() (css_start executa MatchZy/live.cfg, que
+    # reseta bots/bot_quota).
+    human_side = human_side_from_config(local_match_config)
+    ct_bots = team_size - 1 if human_side == "ct" else team_size
+    t_bots = team_size if human_side == "ct" else team_size - 1
+    print(f"[MATCHZY] Time humano no lado {human_side.upper()}. "
+          f"Balanceando pra {team_size}x{team_size} "
+          f"({ct_bots} bot(s) CT + {t_bots} bot(s) TR)...")
+
+    rcon_run(rcon_host, rcon_port, rcon_password,
+              "bot_quota 0; bot_quota_mode normal; mp_autoteambalance 0")
+    rcon_run(rcon_host, rcon_port, rcon_password, "bot_kick")
+    time.sleep(1)  # dá tempo dos slots dos bots kickados liberarem antes de re-adicionar
+
+    add_sequence = [
+        cmd for pair in itertools.zip_longest(
+            ["bot_add_ct"] * ct_bots, ["bot_add_t"] * t_bots
+        )
+        for cmd in pair if cmd is not None
+    ]
+    for cmd in add_sequence:
+        rcon_run(rcon_host, rcon_port, rcon_password, cmd)
+        time.sleep(0.2)  # um bot por vez, servidor precisa processar o join antes do próximo
+    print(f"  -> {len(add_sequence)} bot(s) adicionado(s): {ct_bots} CT + {t_bots} TR")
+
+    total_bots = ct_bots + t_bots
+    rcon_run(rcon_host, rcon_port, rcon_password, f"bot_quota {total_bots}")
+
+    if player:
+        wait_for_team_snapshot(container_name, expected_clients=total_bots + 1, timeout_s=12)
+        fix_bot_overflow(container_name, rcon_host, rcon_port, rcon_password,
+                          player, ct_bots, t_bots)
+
+    rcon_run(rcon_host, rcon_port, rcon_password, "mp_autoteambalance 1")
+
+
+def wait_for_next_map_warmup(container_name: str, since_ts: float, timeout_s: int = 240) -> bool:
+    """
+    Espera passivamente (só lendo docker logs) o próximo mapa de uma série
+    BO3/BO5 carregar e entrar em warmup, pra saber a hora certa de repetir
+    force_start_and_balance_bots(). Só olha logs a partir de `since_ts`
+    (time.time() capturado antes do mapa atual terminar) pra não reagir a
+    um "[StartWarmup]" antigo, do mapa anterior.
+
+    Retorna True se detectou o próximo mapa entrando em warmup, False se
+    `remainingMaps: 0` apareceu primeiro (série acabou, não tem próximo
+    mapa) ou o timeout estourou.
+    """
+    since_iso = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(since_ts))
+    deadline = time.time() + timeout_s
+    seen_changemap = False
+    while time.time() < deadline:
+        result = subprocess.run(
+            ["docker", "logs", "--since", since_iso, container_name],
+            capture_output=True, text=True, encoding="utf-8", errors="ignore",
+        )
+        text = result.stdout + result.stderr
+        if "remainingMaps: 0" in text:
+            return False
+        if "[MatchZy] [ChangeMap]" in text:
+            seen_changemap = True
+        if seen_changemap and "[MatchZy] [StartWarmup]" in text:
+            return True
+        time.sleep(2)
+    return False
+
+
+def start_watcher(container_name: str, player: str, match_config_path: Path,
+                  on_output=None) -> subprocess.Popen:
+    """
+    Sobe watcher.py --mode matchzy em paralelo. O objetivo, nos dois modos
+    abaixo, é o mesmo: um único lugar pra acompanhar launcher + watcher.
+
+    Sem on_output (caminho do CLI): herda stdout/stderr do processo atual,
+    então as duas saídas caem no terminal de quem rodou start_match.py.
+
+    Com on_output (caminho do wizard): captura a saída num pipe e entrega
+    linha a linha pro callback, de uma thread própria. O Textual toma conta
+    do terminal, então output herdado sairia impresso por cima do canvas da
+    TUI em vez de ir pro painel de log. O -u é obrigatório nesse modo: com
+    stdout ligado num pipe o Python do filho troca pra buffer de bloco e as
+    linhas só apareceriam lá no fim, todas de uma vez.
     """
     print(f"[WATCHER] Subindo watcher.py --mode matchzy --player {player} em paralelo...")
-    return subprocess.Popen(
-        [sys.executable, "watcher.py", "--mode", "matchzy",
-         "--player", player, "--container", container_name,
-         "--match-config", str(match_config_path)],
-        cwd=ROOT,
+    cmd = [sys.executable, "watcher.py", "--mode", "matchzy",
+           "--player", player, "--container", container_name,
+           "--match-config", str(match_config_path)]
+    if on_output is None:
+        return subprocess.Popen(cmd, cwd=ROOT)
+
+    cmd.insert(1, "-u")
+    proc = subprocess.Popen(
+        cmd, cwd=ROOT,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, encoding="utf-8", errors="replace", bufsize=1,
     )
+
+    def pump_output():
+        for line in proc.stdout:
+            on_output(line.rstrip())
+
+    threading.Thread(target=pump_output, daemon=True, name="watcher-output").start()
+    return proc
 
 
 def wait_for_rcon(host, port, password, timeout_s=300, interval_s=5):
@@ -214,7 +325,8 @@ def wait_for_rcon(host, port, password, timeout_s=300, interval_s=5):
 
 def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_port,
               rcon_password, team_size, boot_timeout, skip_up, player, map_name=None,
-              side=None, on_watcher_started=None):
+              side=None, on_watcher_started=None, watcher_output=None,
+              confirm_ready=None):
     """
     Orquestração completa (passos 1-5 do docker/SPIKE.md), sem nenhum
     acoplamento a argparse — corpo extraído de main() pra ser reaproveitado
@@ -228,6 +340,12 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
     watcher assim que ele sobe — usado pelo wizard_tui.py pra conseguir
     encerrar o watcher quando a UI fecha (essa função fica bloqueada em
     watcher_proc.wait() numa worker thread que o Textual não enxerga).
+    watcher_output: callback opcional que recebe cada linha do watcher (ver
+    start_watcher) — sem ele o watcher herda o terminal, como sempre.
+    confirm_ready: callback opcional que substitui o input() bloqueante da
+    espera "já conectei e dei .ready". Default: o mesmo input() de sempre
+    (é o que o CLI usa); o wizard passa um botão na TUI no lugar, porque o
+    prompt de terminal fica invisível por baixo do canvas do Textual.
 
     Dificuldade dos bots NÃO é configurável aqui: o plugin CS2-Bot-Improver
     (github.com/ed0ard/CS2-Bot-Improver) que este projeto usa ignora os
@@ -262,7 +380,8 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
 
     watcher_proc = None
     if player:
-        watcher_proc = start_watcher(container_name, player, local_match_config)
+        watcher_proc = start_watcher(container_name, player, local_match_config,
+                                     on_output=watcher_output)
         if on_watcher_started:
             on_watcher_started(watcher_proc)
 
@@ -297,89 +416,49 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
     print("=" * 70)
     print("Agora conecte no servidor pelo client normal do CS2:")
     print("  Servidores -> Rede Local -> conectar")
+    print("  (ou, com a console do jogo ligada: connect 127.0.0.1:27015)")
     print("Depois de conectado, digite '.ready' no chat do jogo.")
     print("=" * 70)
-    input("Pressione Enter aqui quando estiver conectado e pronto pra forçar o início... ")
+    if confirm_ready is None:
+        input("Pressione Enter aqui quando estiver conectado e pronto pra forçar o início... ")
+    else:
+        confirm_ready()
 
-    # Suposição não 100% confirmada: CounterStrikeSharp costuma expor todo
-    # ChatCommand (".start") também como ConsoleCommand ("css_start"),
-    # utilizável via RCON. Se falhar, cai pro fallback manual abaixo — o
-    # comando de chat ainda funciona normalmente (você já é admin via
-    # MATCHZY_ADMINS, confirmado no spike).
-    print("[MATCHZY] Forçando início da partida (css_start)...")
-    try:
-        response = rcon_run(rcon_host, rcon_port, rcon_password, "css_start")
-        print(f"  -> {response or '(sem resposta)'}")
-    except Exception as exc:
-        print(f"  [AVISO] css_start falhou via RCON ({exc}).")
-        print("  Digite '.start' manualmente no chat do jogo.")
+    force_start_and_balance_bots(
+        rcon_host=rcon_host, rcon_port=rcon_port, rcon_password=rcon_password,
+        container_name=container_name, team_size=team_size, player=player,
+        local_match_config=local_match_config,
+    )
 
-    # Balanceamento dos bots DEPOIS do css_start, não antes. css_start executa
-    # MatchZy/live.cfg no servidor, que reseta bots/bot_quota (uma partida
-    # "de verdade" pro MatchZy pressupõe só humanos) — balancear antes só pra
-    # ver tudo ser zerado de novo assim que a partida vira "ao vivo" (foi
-    # assim que sobrou 0 bots, todo mundo "morto" já no round 1). Fazendo
-    # isso logo em seguida, ainda dá tempo de terminar dentro do freeze time
-    # (~15s padrão) antes de alguém poder se mexer/atirar de verdade.
-    #
-    # bot_quota_mode fill deixa a divisão CT/TR a critério da engine, que não
-    # bate certo com 1 humano já ocupando um time (observado: 4x5 em vez de
-    # 5x5). Em vez disso: zera os bots e adiciona a quantidade exata por
-    # lado, sabendo de que lado o humano (team1) está pelo match_config.
-    human_side = human_side_from_config(local_match_config)
-    ct_bots = team_size - 1 if human_side == "ct" else team_size
-    t_bots = team_size if human_side == "ct" else team_size - 1
-    print(f"[MATCHZY] Time humano no lado {human_side.upper()}. "
-          f"Balanceando pra {team_size}x{team_size} "
-          f"({ct_bots} bot(s) CT + {t_bots} bot(s) TR)...")
-
-    # mp_autoteambalance desligado durante o ajuste: adicionar um lado inteiro
-    # antes do outro cria um desequilíbrio momentâneo grande (ex.: 5x0), o
-    # suficiente pra engine kickar um bot sozinha antes do outro lado terminar
-    # de encher (foi assim que sobrou 5x4 numa rodada anterior). Intercalar
-    # ct/t reduz o desequilíbrio a no máximo 1 durante o processo, mas
-    # desligar o autobalance também evita qualquer race remanescente.
-    rcon_run(rcon_host, rcon_port, rcon_password,
-              "bot_quota 0; bot_quota_mode normal; mp_autoteambalance 0")
-    rcon_run(rcon_host, rcon_port, rcon_password, "bot_kick")
-    time.sleep(1)  # dá tempo dos slots dos bots kickados liberarem antes de re-adicionar
-
-    add_sequence = [
-        cmd for pair in itertools.zip_longest(
-            ["bot_add_ct"] * ct_bots, ["bot_add_t"] * t_bots
-        )
-        for cmd in pair if cmd is not None
-    ]
-    for cmd in add_sequence:
-        rcon_run(rcon_host, rcon_port, rcon_password, cmd)
-        time.sleep(0.2)  # um bot por vez, servidor precisa processar o join antes do próximo
-    print(f"  -> {len(add_sequence)} bot(s) adicionado(s): {ct_bots} CT + {t_bots} TR")
-
-    # bot_quota não é só a leva inicial — a engine mantém esse número
-    # continuamente, kickando bots de sobra até bater a meta. Deixá-lo em 0
-    # (usado acima só pra não interferir no ajuste manual) fazia a engine ir
-    # kickando os bots aos poucos até sobrar só o humano. Trava no total real
-    # que acabamos de montar, pra ela manter (e repor, se um bot cair) esse
-    # número em vez de zerar.
-    total_bots = ct_bots + t_bots
-    rcon_run(rcon_host, rcon_port, rcon_password, f"bot_quota {total_bots}")
-
-    # Confere de verdade quem a engine colocou em cada time antes de
-    # reativar o autobalance — bot_add_ct/bot_add_t não garante contra
-    # entidades internas da MatchZy (ex.: "ScopedEconomy") entrando num
-    # time por engano (observado ao vivo como 6x5 mesmo com esse
-    # balanceamento certo). Tentativa anterior usava mp_restartgame pra
-    # forçar um OnPreResetRound fresco na hora — só que isso interrompeu a
-    # gravação da demo que a MatchZy tinha acabado de iniciar (demo saiu
-    # truncada em ~30s, sem round_end nenhum). Espera passiva, só lendo o
-    # docker logs (sem mandar nenhum comando de engine), ainda dentro do
-    # freeze time (~15s de orçamento, ver comentário acima).
-    if player:
-        wait_for_team_snapshot(container_name, expected_clients=total_bots + 1, timeout_s=12)
-        fix_bot_overflow(container_name, rcon_host, rcon_port, rcon_password,
-                          player, ct_bots, t_bots)
-
-    rcon_run(rcon_host, rcon_port, rcon_password, "mp_autoteambalance 1")
+    # BO3/BO5: a MatchZy troca de mapa sozinha ao fim de cada um (mp_
+    # match_restart_delay + changelevel), mas o mapa seguinte cai na mesma
+    # trava de warmup do primeiro ([IsTeamReady] minPlayers:5 playerCount:0
+    # — bots não contam como "prontos") e os bots não voltam sozinhos
+    # (bot_quota_mode volta pra "fill" quando gamemode_competitive_server.cfg
+    # reexecuta no load do novo mapa). Sem repetir force_start_and_balance_bots
+    # aqui, a série trava no warmup do mapa 2 pra sempre — observado ao vivo.
+    # Você já está conectado, então não precisa de confirm_ready de novo.
+    num_maps = json.loads(local_match_config.read_text(encoding="utf-8")).get("num_maps", 1)
+    for map_index in range(2, num_maps + 1):
+        print(f"\n[MATCHZY] Esperando o mapa {map_index}/{num_maps} da série carregar...")
+        since_ts = time.time()
+        if not wait_for_next_map_warmup(container_name, since_ts):
+            print("[AVISO] Não detectei o próximo mapa entrando em warmup "
+                  "(série já pode ter terminado) — seguindo sem forçar de novo.")
+            break
+        try:
+            wait_for_rcon(rcon_host, rcon_port, rcon_password, timeout_s=60)
+            force_start_and_balance_bots(
+                rcon_host=rcon_host, rcon_port=rcon_port, rcon_password=rcon_password,
+                container_name=container_name, team_size=team_size, player=player,
+                local_match_config=local_match_config,
+            )
+        except Exception as exc:
+            # Não deixa um hiccup aqui derrubar o run_match inteiro (e junto
+            # o watcher/gravação) — o pior caso é você precisar digitar
+            # '.start' manualmente no chat pra esse mapa específico.
+            print(f"[AVISO] Falha ao forçar o mapa {map_index}/{num_maps} ({exc}). "
+                  "Digite '.start' manualmente no chat do jogo se precisar.")
 
     print()
     if watcher_proc:
@@ -412,8 +491,8 @@ def main():
                          help="Arquivo dentro de game/csgo (o mesmo mapeado no volume do compose)")
     parser.add_argument("--map", default=None,
                          help="Sobrescreve o maplist do match_config antes de carregar "
-                              "(ex.: de_inferno, de_ancient, de_nuke, de_dust2, de_overpass, "
-                              "de_anubis, de_vertigo, de_train). Default: mantém o que já "
+                              "(pool do wizard: de_dust2, de_mirage, de_inferno, de_nuke, "
+                              "de_ancient, de_anubis, de_cache). Default: mantém o que já "
                               "está no arquivo.")
     parser.add_argument("--side", choices=["ct", "t"], default=None,
                          help="Lado do seu time (team1) no mapa. A MatchZy trava a escolha "
