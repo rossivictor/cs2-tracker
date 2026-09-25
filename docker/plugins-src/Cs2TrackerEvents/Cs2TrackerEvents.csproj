@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Cs2TrackerEvents</AssemblyName>
+    <RootNamespace>Cs2TrackerEvents</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Pinada na mesma versão do CSSHARP_FIXED_VERSION do docker-compose.yml
+         (v1.0.373) pra não correr risco de incompatibilidade de interface
+         com o que já está instalado na imagem xbird/cs2-matchzy. -->
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.373" />
+  </ItemGroup>
+
+</Project>

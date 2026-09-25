@@ -3,7 +3,25 @@ __pycache__/
 demos/*.dem
 docker/demos-live/*
 docker/stats-live/*
+docker/events-live/*
+# Saída compilada do plugin Cs2TrackerEvents — gerada por
+# docker/build-events-plugin.sh a partir de docker/plugins-src/, não é
+# pra versionar (diferente do DefaultAgents, que é um plugin de terceiros
+# baixado pronto).
+docker/plugins/Cs2TrackerEvents/*
+docker/plugins-src/*/bin/
+docker/plugins-src/*/obj/
 .venv/
 *.db
 report.html
+index.html
 .env
+# Perfil local salvo pelo wizard web (D8, docs/features/M3-web-paridade.md
+# F3.2) — nick/SteamID64 de quem roda o app, não é dado do projeto.
+data/profile.json
+
+# Demos de sondagem geradas durante depuração do pipeline GOTV — artefato de
+# investigação, não dado do projeto.
+probe*.dem
+# Lock de tarefas agendadas do Claude Code; estado local da máquina.
+.claude/scheduled_tasks.lock

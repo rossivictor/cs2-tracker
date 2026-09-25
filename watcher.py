@@ -83,10 +83,12 @@ Uso:
 """
 
 import argparse
+import json
 import re
 import shutil
 import subprocess
 import time
+import traceback
 from datetime import datetime
 from glob import glob
 from pathlib import Path
@@ -96,9 +98,13 @@ try:
 except ImportError:
     RconClient = None
 
-from parser import parse_and_store
+from parser import parse_and_store, store_match_from_csv, store_match_from_events
 from report import generate_report
-from config import CONTAINER_NAME, DB_PATH, DEMO_DIR, DEMOS_LIVE_DIR, MATCH_CONFIG_FILE, REPORT_PATH, ROOT
+from home import generate_home
+from config import (
+    CONTAINER_NAME, DB_PATH, DEMO_DIR, DEMOS_LIVE_DIR, EVENTS_LIVE_DIR,
+    HOME_PATH, MATCH_CONFIG_FILE, REPORT_PATH, ROOT, STATS_LIVE_DIR,
+)
 from identity import resolve_identity
 
 
@@ -144,16 +150,30 @@ MATCHZY_PATTERNS = {
         r'\[WritePlayerStatsToCsv\] Match stats for ID: (?P<matchid>\d+) '
         r'written successfully at: (?P<csv_path>\S+)\s*$'
     ),
+    # Número do mapa dito pelo próprio MatchZy. É a fonte autoritativa: a
+    # versão anterior deduzia o índice contando os .dem em disco, e a demo
+    # só é descarregada `tvFlushDelay` segundos DEPOIS do fim do mapa (15s
+    # por padrão) — mais que os 10s que o watcher esperava. Na série 45
+    # (19/09/2026) isso perdeu um mapa inteiro e rotulou outro errado.
+    "map_ended": re.compile(
+        r'\[HandleMatchEnd\] MAP ENDED.*?matchid: (?P<matchid>\d+) '
+        r'currentMapNumber: (?P<mapnum>\d+)'
+    ),
+    # Nome do mapa. O 'World triggered "Match_Start"' do modo nativo NÃO
+    # aparece no log do container — conferido no log de 19/09/2026.
+    "change_map": re.compile(r'\[ChangeMap\] Changing map to (?P<map>\w+)'),
 }
 
 
 class MatchWatcher:
     def __init__(self, log_path=None, demo_dir=None, server_demo_dir=None, identity=None,
-                 db_path=None, report_path=None,
+                 db_path=None, report_path=None, home_path=None,
                  rcon_host="127.0.0.1", rcon_port=27015, rcon_password="",
                  print_only=False, debug=False,
-                 mode="native", container=None, demos_live_dir=None):
+                 mode="native", container=None, demos_live_dir=None, stats_live_dir=None,
+                 events_live_dir=None, match_config_path=None):
         self.mode = mode
+        self.match_config_path = Path(match_config_path) if match_config_path else None
         self.log_path = Path(log_path) if log_path else None
         self.demo_dir = Path(demo_dir or DEMO_DIR)
         self.demo_dir.mkdir(parents=True, exist_ok=True)
@@ -161,6 +181,7 @@ class MatchWatcher:
         self.identity = identity
         self.db_path = db_path or DB_PATH
         self.report_path = report_path or REPORT_PATH
+        self.home_path = home_path or HOME_PATH
         self.rcon_host = rcon_host
         self.rcon_port = rcon_port
         self.rcon_password = rcon_password
@@ -173,7 +194,15 @@ class MatchWatcher:
         # Modo matchzy (Docker) — ver MATCHZY_PATTERNS.
         self.container = container or CONTAINER_NAME
         self.demos_live_dir = Path(demos_live_dir or DEMOS_LIVE_DIR)
+        self.stats_live_dir = Path(stats_live_dir or STATS_LIVE_DIR)
+        self.events_live_dir = Path(events_live_dir or EVENTS_LIVE_DIR)
         self._pending_winners = {}
+        # Nome do mapa em jogo, vindo do 'Match_Start' do log — fonte mais
+        # confiável que o nome do arquivo .dem, que pode nem existir ainda
+        # (ou nunca existir) na hora de arquivar os eventos.
+        self._current_map = None
+        # matchid -> currentMapNumber, preenchido pelo 'MAP ENDED'.
+        self._pending_map_number = {}
 
     # ------------------------------------------------------------------
     def send_command(self, command: str):
@@ -234,6 +263,7 @@ class MatchWatcher:
         print(f"[PIPELINE] Demo arquivada em {dest_path}")
 
         generate_report(self.db_path, self.report_path)
+        generate_home(self.db_path, self.home_path)
 
     # ------------------------------------------------------------------
     def tail(self):
@@ -304,7 +334,17 @@ class MatchWatcher:
                 )
                 print("[WATCHER] Conectado ao log do container.")
                 for line in proc.stdout:
-                    self.handle_matchzy_line(line.strip())
+                    try:
+                        self.handle_matchzy_line(line.strip())
+                    except Exception as exc:
+                        # Um bug no handler de UMA linha (ex.: o NameError em
+                        # stored_any, 2026-09-21) não pode derrubar o watcher
+                        # pro resto da série — sem isso, um mapa com problema
+                        # silenciosamente perdia a ingestão dos mapas
+                        # seguintes inteiros, sem nenhum aviso na tela.
+                        print(f"[WATCHER] [ERRO] Falha processando linha do log "
+                              f"(seguindo mesmo assim): {exc!r}")
+                        traceback.print_exc()
                 proc.wait()
                 print(f"[WATCHER] `docker logs` encerrou (container parado?). Tentando de novo em 5s...")
                 time.sleep(5)
@@ -318,6 +358,18 @@ class MatchWatcher:
                 time.sleep(5)
 
     def handle_matchzy_line(self, line):
+        m = MATCHZY_PATTERNS["change_map"].search(line)
+        if m:
+            self._current_map = m.group("map")
+            return
+
+        m = MATCHZY_PATTERNS["map_ended"].search(line)
+        if m:
+            # Guardado aqui e consumido no stats_written, que vem ~0,1s
+            # depois e garante que o CSV já está em disco.
+            self._pending_map_number[m.group("matchid")] = int(m.group("mapnum"))
+            return
+
         m = MATCHZY_PATTERNS["match_winner"].search(line)
         if m:
             self._pending_winners[m.group("matchid")] = m.group("winner")
@@ -326,48 +378,136 @@ class MatchWatcher:
         m = MATCHZY_PATTERNS["stats_written"].search(line)
         if m:
             matchid = m.group("matchid")
+            # O número do mapa vem do CAMINHO DO CSV que o próprio MatchZy
+            # acabou de escrever (match_data_map<N>_<matchid>.csv). Antes ele
+            # era deduzido contando as demos em disco, o que quebrava feio: na
+            # série 45 (19/09/2026) faltou a demo de um mapa, todos os índices
+            # escorregaram, o mapa 1 foi perdido inteiro e o mapa 2 acabou
+            # arquivado como "map1".
+            map_number = self._pending_map_number.pop(matchid, None)
+            if map_number is None:
+                csv_match = re.search(r"match_data_map(\d+)_\d+\.csv", m.group("csv_path"))
+                if csv_match:
+                    map_number = int(csv_match.group(1))
             winner = self._pending_winners.pop(matchid, None)
-            self.on_matchzy_match_finished(matchid, winner)
+            self.on_matchzy_map_finished(matchid, map_number, winner)
             return
 
         if self.debug and "MatchZy" in line:
             print(f"[DEBUG] linha MatchZy não tratada: {line}")
 
-    def on_matchzy_match_finished(self, matchid, winner):
-        """
-        Hook chamado quando o MatchZy termina de escrever o CSV de stats de
-        uma partida (sinal de que a demo e os stats já estão finalizados em
-        disco). Diferente do fluxo nativo, a demo já foi gravada e arquivada
-        pelo próprio MatchZy em demos_live_dir — só falta localizá-la,
-        parsear e gravar no banco.
-        """
-        pattern = str(self.demos_live_dir / f"*_{matchid}_*.dem")
-        matches = []
-        for _ in range(20):  # até ~10s de espera pelo bind mount
-            matches = glob(pattern)
-            if matches:
-                break
-            time.sleep(0.5)
+    def _match_config(self):
+        """match_config.json que o wizard acabou de escrever. None quando o
+        arquivo não existe ou está ilegível — nunca derruba a ingestão."""
+        if not self.match_config_path:
+            return None
+        try:
+            return json.loads(self.match_config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
 
-        if not matches:
-            print(f"[PIPELINE] Nenhuma demo encontrada em {pattern}, pulando parse")
-            return
-        if len(matches) > 1:
-            print(f"[PIPELINE] Mais de uma demo casou com {pattern}, usando a mais recente")
-            matches.sort(key=lambda p: Path(p).stat().st_mtime)
-        demo_path = Path(matches[-1])
+    def _series_num_maps(self):
+        """Tamanho da série (1/3/5) lido do match_config.json — usado pra
+        exibir BO3/BO5 no report (docs/SPEC.md, pedido em 2026-09-21)."""
+        data = self._match_config()
+        return data.get("num_maps") if data else None
 
-        name_match = re.search(
-            r"_\d+_(?P<map>de_\w+)_(?P<team1>.+)_vs_(?P<team2>.+)\.dem$", demo_path.name
+    def _map_name_for(self, matchid, map_number):
+        """Nome do mapa que acabou de terminar, em três fontes.
+
+        1. `_current_map`, do '[ChangeMap]' do log. Só pega do SEGUNDO mapa
+           de uma série em diante: o wizard troca o mapa e SÓ DEPOIS sobe o
+           watcher, e o watcher segue `docker logs -f --tail 0`, que começa
+           do fim do log. A linha do primeiro mapa já passou.
+        2. O maplist do match_config.json, indexado por map_number. É a fonte
+           boa pro primeiro mapa: o wizard escreveu esse arquivo antes de
+           carregar a série, então ele já está em disco e não depende de
+           tempo nenhum.
+        3. O nome do arquivo .dem. Última reserva, e frágil: a demo pode
+           demorar (com tv_delay alto a MatchZy só fecha o arquivo
+           tv_delay+14.5s depois do fim da partida — em 22/09/2026 isso fez
+           duas partidas entrarem com map=NULL) ou não existir (série 45: 2
+           demos pra 3 mapas).
+        """
+        if self._current_map:
+            return self._current_map
+
+        data = self._match_config() or {}
+        maplist = data.get("maplist") or []
+        if map_number is not None and 0 <= map_number < len(maplist):
+            return maplist[map_number]
+
+        demos = sorted(
+            glob(str(self.demos_live_dir / f"*_{matchid}_*.dem")),
+            key=lambda p: Path(p).stat().st_mtime,
         )
-        meta = {
-            "map": name_match.group("map") if name_match else None,
-            "winner": winner,
-        }
+        if map_number is not None and 0 <= map_number < len(demos):
+            alvo = demos[map_number]
+        elif demos:
+            alvo = demos[-1]
+        else:
+            return None
+        achou = re.search(
+            r"_\d+_(?P<map>de_\w+)_(?P<team1>.+)_vs_(?P<team2>.+)\.dem$", Path(alvo).name
+        )
+        return achou.group("map") if achou else None
 
-        print(f"[MATCH] matchid={matchid} finalizado (vencedor: {winner or '?'}), demo: {demo_path.name}")
-        parse_and_store(demo_path, meta, self.db_path, self.identity)
-        generate_report(self.db_path, self.report_path)
+    def on_matchzy_map_finished(self, matchid, map_number, winner):
+        """
+        Chamado quando o MatchZy termina de escrever o CSV de stats de UM
+        MAPA (WritePlayerStatsToCsv) — o último passo do pipeline dele, ou
+        seja, demo e stats já estão em disco.
+
+        Trata só o mapa que acabou. A versão anterior reprocessava a série
+        inteira a cada mapa e, pior, numerava os mapas enumerando as demos em
+        disco: bastava uma demo faltar pra todos os índices escorregarem.
+
+        O arquivamento dos eventos é urgente: o plugin só escreve em
+        "current.jsonl" e trunca esse arquivo no próximo OnMapStart. Entre
+        esta linha de log e o começo do mapa seguinte é a única janela.
+        """
+        if map_number is None:
+            print("[PIPELINE] Não consegui extrair o número do mapa do log; "
+                  "usando 0 como fallback.")
+            map_number = 0
+
+        map_name = self._map_name_for(matchid, map_number)
+        meta = {"map": map_name, "winner": winner, "series_num_maps": self._series_num_maps()}
+        demo_name = f"events_{matchid}_map{map_number}"
+        archived = self.events_live_dir / f"{demo_name}.jsonl"
+        current = self.events_live_dir / "current.jsonl"
+
+        # Arquiva PRIMEIRO, ingere depois: o rename é o que salva os dados do
+        # truncamento, e qualquer erro de ingestão depois disso é recuperável
+        # (tools/reingest_events.py).
+        if not archived.exists() and current.exists() and current.stat().st_size > 0:
+            current.rename(archived)
+            print(f"[PIPELINE] Eventos do mapa {map_number} arquivados em {archived.name}")
+
+        stored = False
+        if archived.exists():
+            meta["demo_name"] = demo_name
+            store_match_from_events(archived, meta, self.db_path, self.identity)
+            stored = True
+        else:
+            print(f"[PIPELINE] Sem eventos pro mapa {map_number} de {matchid} "
+                  f"(current.jsonl vazio ou já truncado).")
+            csv_path = self.stats_live_dir / str(matchid) / f"match_data_map{map_number}_{matchid}.csv"
+            for _ in range(20):  # até ~10s de espera pelo bind mount
+                if csv_path.exists():
+                    break
+                time.sleep(0.5)
+            if csv_path.exists():
+                print(f"[PIPELINE] CSV de stats existe ({csv_path.name}), mas só tem "
+                      f"agregado — sem rounds nem placar. Não ingerido; use "
+                      f"tools/reingest_events.py se os eventos aparecerem.")
+            else:
+                print(f"[PIPELINE] Nem eventos nem CSV pro mapa {map_number}, pulando.")
+
+        print(f"[MATCH] matchid={matchid} finalizado (vencedor: {winner or '?'})")
+        if stored:
+            generate_report(self.db_path, self.report_path)
+            generate_home(self.db_path, self.home_path)
 
 
 def main():
@@ -390,6 +530,8 @@ def main():
     parser.add_argument("--db", default=DB_PATH, help="Caminho do SQLite")
     parser.add_argument("--report-out", default=REPORT_PATH,
                          help="Caminho do relatório HTML, regenerado ao fim de cada partida")
+    parser.add_argument("--home-out", default=HOME_PATH,
+                         help="Caminho da home HTML, regenerada ao fim de cada partida")
     parser.add_argument("--rcon-host", default="127.0.0.1")
     parser.add_argument("--rcon-port", type=int, default=27015)
     parser.add_argument("--rcon-password", default="")
@@ -399,6 +541,11 @@ def main():
                          help="Nome do container Docker do servidor MatchZy (modo matchzy)")
     parser.add_argument("--demos-live-dir", default=DEMOS_LIVE_DIR,
                          help="Pasta onde o MatchZy grava as demos, mapeada no docker-compose (modo matchzy)")
+    parser.add_argument("--stats-live-dir", default=STATS_LIVE_DIR,
+                         help="Pasta onde o MatchZy grava os CSVs de stats, mapeada no docker-compose (modo matchzy)")
+    parser.add_argument("--events-live-dir", default=EVENTS_LIVE_DIR,
+                         help="Pasta onde o plugin Cs2TrackerEvents escreve current.jsonl, mapeada no "
+                              "docker-compose (modo matchzy) — fonte preferida sobre o CSV quando presente")
     parser.add_argument("--debug", action="store_true",
                          help="Mostra linhas de log ainda não reconhecidas")
     args = parser.parse_args()
@@ -410,6 +557,7 @@ def main():
     identity = resolve_identity(args.player, match_config_path)
 
     watcher = MatchWatcher(
+        match_config_path=match_config_path,
         mode=args.mode,
         log_path=args.log,
         demo_dir=args.demo_dir,
@@ -417,6 +565,7 @@ def main():
         identity=identity,
         db_path=args.db,
         report_path=args.report_out,
+        home_path=args.home_out,
         rcon_host=args.rcon_host,
         rcon_port=args.rcon_port,
         rcon_password=args.rcon_password,
@@ -424,6 +573,8 @@ def main():
         debug=args.debug,
         container=args.container,
         demos_live_dir=args.demos_live_dir,
+        stats_live_dir=args.stats_live_dir,
+        events_live_dir=args.events_live_dir,
     )
 
     if args.mode == "matchzy":

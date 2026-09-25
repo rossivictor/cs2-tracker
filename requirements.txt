@@ -1,3 +1,9 @@
 awpy==2.0.2
 rcon
 textual
+jinja2
+pytest
+fastapi
+uvicorn
+httpx
+python-multipart

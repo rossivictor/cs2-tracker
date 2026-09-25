@@ -36,8 +36,12 @@ def _get(key, default):
 
 DB_PATH = _get("CS2_TRACKER_DB_PATH", "./cs2_tracker.db")
 REPORT_PATH = _get("CS2_TRACKER_REPORT_PATH", "./report.html")
+HOME_PATH = _get("CS2_TRACKER_HOME_PATH", "./index.html")
 DEMO_DIR = _get("CS2_TRACKER_DEMO_DIR", "./demos")
 DEMOS_LIVE_DIR = _get("CS2_TRACKER_DEMOS_LIVE_DIR", "./docker/demos-live")
+STATS_LIVE_DIR = _get("CS2_TRACKER_STATS_LIVE_DIR", "./docker/stats-live")
+EVENTS_LIVE_DIR = _get("CS2_TRACKER_EVENTS_LIVE_DIR", "./docker/events-live")
 CONTAINER_NAME = _get("CS2_TRACKER_CONTAINER", "cs2-spike")
 COMPOSE_FILE = _get("CS2_TRACKER_COMPOSE_FILE", "docker-compose.yml")
 MATCH_CONFIG_FILE = _get("CS2_TRACKER_MATCH_CONFIG", "match_config.spike.json")
+ROSTERS_FILE = _get("CS2_TRACKER_ROSTERS_FILE", "data/rosters.json")
