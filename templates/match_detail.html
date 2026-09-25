@@ -1,0 +1,478 @@
+{# Tela de UMA partida (F6.1), rota própria /partidas/<id> em vez do
+   location.hash de report.html. Renderizada no servidor a partir de
+   matches.build_detail_context. #}
+{% extends "shell.html" %}
+{% block title %}CS2 Tracker — {{ map.label }} {{ played_at }}{% endblock %}
+
+{% block extra_style %}{% include "_matches_style.html" %}{% endblock %}
+
+{% block content %}
+<a class="back" href="/partidas?lado={{ side }}">&lt; todas as partidas</a>
+
+<div class="hero {{ 'noart' if not map.bg }}" {% if map.bg %}style="--art:url('/static/{{ map.bg }}')"{% endif %}>
+  {% if map.bg %}<span class="art"></span>{% endif %}
+  <div class="inner">
+    <div>
+      <span class="eyebrow">
+        {{ map.label }}{% if series %} · {{ series }}{% endif %} · {{ played_at }}
+      </span>
+      <h1>{{ match.player_name or 'você' }} <span style="color:var(--muted);font-weight:400">vs.</span> bots</h1>
+      <p class="meta">
+        {% if match.duration_minutes %}{{ match.duration_minutes }} min · {% endif %}
+        {{ total_rounds }} rounds contados · fonte {{ match.source }}
+        {% if match.score_ct is not none %} · por lado: CT {{ match.score_ct }} : TR {{ match.score_t }}{% endif %}
+      </p>
+    </div>
+    <div>
+      <div class="bigscore">
+        {% if match.score_mine is not none %}
+          <span class="{{ 'up' if match.outcome == 'win' else 'down' if match.outcome == 'loss' else '' }}">{{ match.score_mine }}</span><span class="x">:</span>{{ match.score_theirs }}
+        {% else %}-{% endif %}
+      </div>
+      <div class="verdict {{ 'up' if match.outcome == 'win' else 'down' if match.outcome == 'loss' else 'flat' }}">
+        {{ {'win': 'VITÓRIA', 'loss': 'DERROTA', 'tie': 'EMPATE'}.get(match.outcome, '—') }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="filters">
+  <div class="fgroup">
+    <span class="lbl">Lado</span>
+    {% for key, label in sides %}
+      <a class="chip {{ 'on' if key == side }}" href="/partidas/{{ match.id }}?lado={{ key }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+{% if not stats %}
+  <div class="box"><div class="body"><p class="empty">Você não jogou nesse lado nessa partida.</p></div></div>
+{% else %}
+
+<div class="tabs" role="tablist">
+  <button role="tab" data-tab="resumo" aria-selected="true">Resumo</button>
+  <button role="tab" data-tab="rounds" aria-selected="false">Rounds</button>
+  <button role="tab" data-tab="armas" aria-selected="false">Armas</button>
+  <button role="tab" data-tab="duelos" aria-selected="false">Duelos</button>
+  {% if radar %}<button role="tab" data-tab="mapa" aria-selected="false">Mapa</button>{% endif %}
+  <button role="tab" data-tab="feed" aria-selected="false">Feed</button>
+</div>
+
+{# ---------------------------------------------------------------- resumo #}
+<div data-pane="resumo">
+  <div class="row row-main">
+    <div class="box">
+      <header><h2>Desempenho</h2><span class="note">comparado com a sua média</span></header>
+      <div class="body">
+        <div class="gaugerow">
+          {% for key, label, digits, suffix, color in [
+              ('adr', 'ADR', 1, '', 'var(--accent)'),
+              ('kast_pct', 'KAST', 0, '%', 'var(--amber)'),
+              ('kd', 'K/D', 2, '', '#a78bfa'),
+              ('hs_pct', 'HS', 0, '%', '#60a5fa')] %}
+            {% set c = comparison[key] %}
+            {% if c.value is not none %}
+            <div class="gaugecell">
+              <div style="font-family:var(--mono);font-size:27px;font-weight:700;color:{{ color }};line-height:1">
+                {{ '%.*f'|format(digits, c.value) }}{{ suffix }}
+              </div>
+              <div class="cap">{{ label }}</div>
+              {% if c.delta is not none %}
+                <div class="cmp {{ 'up' if c.delta > 0 else 'down' if c.delta < 0 else 'flat' }}">
+                  {{ '%+.*f'|format(digits, c.delta) }} vs. média
+                </div>
+              {% else %}
+                <div class="cmp flat">sem comparação</div>
+              {% endif %}
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="box">
+      <header><h2>Detalhe</h2></header>
+      <div class="body" style="display:flex;flex-direction:column;gap:16px">
+        <div class="kv" style="flex-wrap:wrap;gap:18px">
+          <div><b>{{ stats.kills }}/{{ stats.deaths }}</b><span>Kills / Mortes</span></div>
+          <div><b>{{ stats.rounds_played }}</b><span>Rounds</span></div>
+          <div><b>{{ stats.round_wins }}</b><span>Ganhos</span></div>
+          <div><b>{{ stats.entry_for }} / {{ stats.entry_against }}</b><span>Entry feita / sofrida</span></div>
+          <div><b>{{ stats.max_streak }}</b><span>Maior sequência</span></div>
+          {% if stats.trade_kills is not none %}
+            <div><b>{{ stats.trade_kills }}</b><span>Trades feitas</span></div>
+            <div><b>{{ stats.traded_deaths }}</b><span>Você trocado</span></div>
+          {% endif %}
+          {% if stats.clutch_count is not none %}
+            <div><b>{{ stats.clutch_wins }}/{{ stats.clutch_count }}</b><span>Clutches</span></div>
+          {% endif %}
+          {% if longest_kill %}
+            <div><b>{{ longest_kill.distance | round | int }}u</b><span>Kill mais longa</span></div>
+          {% endif %}
+        </div>
+
+        {% if stats.multi_kills %}
+        <div>
+          <div class="cap" style="font-size:8.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:7px">Multi-kills</div>
+          <div class="kv">
+            <div><b>{{ stats.multi_kills['2k'] }}</b><span>2K</span></div>
+            <div><b>{{ stats.multi_kills['3k'] }}</b><span>3K</span></div>
+            <div><b>{{ stats.multi_kills['4k'] }}</b><span>4K</span></div>
+            <div><b>{{ stats.multi_kills['5k'] }}</b><span>Ace</span></div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if loadout_summary %}
+        <div>
+          <div class="cap" style="font-size:8.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:7px">Sua compra e tempo cego</div>
+          <div class="kv" style="margin-bottom:9px">
+            <div><b>${{ loadout_summary.avg_equip }}</b><span>Equip. médio</span></div>
+            <div><b>{{ '%.1f'|format(loadout_summary.blind_time) }}s</b><span>Cego</span></div>
+            <div><b>{{ loadout_summary.flashes }}</b><span>Flashes sofridas</span></div>
+          </div>
+          <div class="split">
+            {% for b in loadout_summary.buys %}<span style="width:{{ b.pct }}%;background:{{ b.color }}"></span>{% endfor %}
+          </div>
+          <div class="split-key">
+            {% for b in loadout_summary.buys %}<span><i style="background:{{ b.color }}"></i>{{ b.label }} {{ b.count }}</span>{% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if reason_split %}
+        <div>
+          <div class="cap" style="font-size:8.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:7px">Como você ganhou os rounds</div>
+          <div class="split">
+            {% for r in reason_split %}<span style="width:{{ r.pct }}%;background:{{ r.color }}"></span>{% endfor %}
+          </div>
+          <div class="split-key">
+            {% for r in reason_split %}<span><i style="background:{{ r.color }}"></i>{{ r.label }} {{ r.count }}</span>{% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if ct_stats and t_stats %}
+  <div class="box">
+    <header><h2>CT vs. TR</h2><span class="note">ADR e rounds ganhos por lado</span></header>
+    <div class="body" style="display:flex;flex-direction:column;gap:14px">
+      {% for label, s, color in [('TR', t_stats, 'var(--amber)'), ('CT', ct_stats, '#60a5fa')] %}
+      <div>
+        <div class="line" style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted)">
+          <span style="color:{{ color }}">{{ label }} · {{ s.rounds_played }} rounds</span>
+          <span style="color:var(--text)">{{ s.round_wins }}V · ADR {{ '%.1f'|format(s.adr) }} · KAST {{ '%.0f'|format(s.kast_pct) }}%</span>
+        </div>
+        <div class="minibar" style="height:7px"><span style="width:{{ s.round_win_pct | round | int }}%;background:{{ color }}"></span></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# ---------------------------------------------------------------- rounds #}
+<div data-pane="rounds" hidden>
+  <div class="box">
+    <header><h2>Linha do tempo</h2><span class="note">{{ rounds | length }} rounds</span></header>
+    <div class="body">
+      {# with-buy troca o grid do .rnd pra abrir as colunas de economia e
+         tempo cego. É por partida, não por round: ou a partida toda tem
+         esses dados ou nenhuma linha tem. #}
+      <div class="rounds {{ 'with-buy' if loadout_summary }}">
+        {% for r in rounds %}
+        <div class="rnd {{ r.result }}">
+          <span class="n">R{{ r.round_num }}</span>
+          <span class="why" style="color:{{ r.reason_color }}" title="{{ r.reason_label }}">
+            {{ {'elim': '×', 'bomb': '✸', 'defuse': '⌁', 'time': '◷'}.get(r.reason_group, '·') }}
+          </span>
+          <span class="desc">
+            {{ r.side_label }} · {{ r.reason_label }}{% if r.bomb_plant %} · plant {{ r.bomb_site or '?' }}{% endif %}{% if r.entry == 'for' %} · <span class="up">entry sua</span>{% elif r.entry == 'against' %} · <span class="down">entry contra</span>{% endif %}
+          </span>
+          {% if r.loadout %}
+          <span class="buy" title="Equipamento no fim do freeze time{% if r.loadout.has_helmet %} · com capacete{% endif %}{% if r.loadout.has_defuser %} · com kit{% endif %}">
+            <span class="buy-top">
+              <span style="color:{{ r.loadout.buy_color }}">{{ r.loadout.buy_label }}</span>
+              <span class="buy-val">${{ r.loadout.equip_value }}</span>
+            </span>
+            <span class="minibar"><span style="width:{{ r.loadout.equip_bar }}%;background:{{ r.loadout.buy_color }}"></span></span>
+          </span>
+          {% if r.loadout.blind_time %}
+            <span class="blind" title="{{ r.loadout.flashes }} flash(es) te pegaram">◍ {{ '%.1f'|format(r.loadout.blind_time) }}s</span>
+          {% else %}<span class="blind empty-slot"></span>{% endif %}
+          {% endif %}
+          <span class="kd"><span class="up">{{ r.kills }}</span> / <span class="down">{{ r.deaths }}</span></span>
+          <span class="run">{{ r.score_mine }}:{{ r.score_theirs }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% if not loadout_summary %}
+      <p class="foot-note">
+        Sem economia e sem tempo cego nesta partida: ela foi ingerida pelo plugin, que não manda
+        estado de inventário nem fim de freeze time. Só as partidas lidas do <code>.dem</code>
+        (e reprocessadas depois de <code>parser.PLAYER_PROPS</code>) têm esses dados.
+      </p>
+      {% else %}
+      <p class="foot-note">
+        Economia é o <b>seu</b> equipamento no fim do freeze time — não o do time. Os bots não
+        entram no stream de ticks da demo, então não há como somar o equipamento dos dois lados
+        como um tracker de matchmaking faz.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ----------------------------------------------------------------- armas #}
+<div data-pane="armas" hidden>
+  <div class="row row-main">
+    <div class="box">
+      <header><h2>Armas</h2><span class="note">barra = dano relativo</span></header>
+      <div class="body">
+        <div class="tw"><table>
+          <thead><tr><th>Arma</th><th class="num">Kills</th><th class="num">HS</th><th class="num">HS%</th><th class="num">Dano</th><th></th></tr></thead>
+          <tbody>
+            {% for w in weapons %}
+            <tr>
+              <td class="txt">{% if w.icon %}<img class="wicon" src="/static/{{ w.icon }}" alt="">{% endif %}{{ w.label }}</td>
+              <td class="num">{{ w.kills }}</td>
+              <td class="num">{{ w.headshots }}</td>
+              <td class="num">{{ w.hs_pct ~ '%' if w.hs_pct is not none else '–' }}</td>
+              <td class="num">{{ w.dmg }}</td>
+              <td style="width:90px"><span class="minibar" style="margin:0"><span style="width:{{ w.dmg_bar }}%;background:var(--accent)"></span></span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table></div>
+        <p class="foot-note">
+          M4A4/M4A1-S e P2000/USP-S aparecem juntas: a demo registra a morte com o nome da arma
+          silenciada e o dano com o nome da versão base, e não há como separar as duas no agregado.
+        </p>
+      </div>
+    </div>
+
+    <div class="box">
+      <header><h2>Onde você acerta</h2><span class="note">damages.hitgroup</span></header>
+      <div class="body">
+        {% if hitgroups %}
+        {# A cor de cada região do boneco vem do percentual de acertos dela,
+           e a legenda usa a MESMA função — senão a bolinha ao lado do texto
+           não corresponde à parte do corpo que ela nomeia. #}
+        {% set pcts = {} %}
+        {% for h in hitgroups %}{% set _ = pcts.update({h.hitgroup: h.hit_pct}) %}{% endfor %}
+        {% macro fill(group) %}{{ 'var(--accent)' if pcts.get(group, 0) >= 25 else '#3c7a72' if pcts.get(group, 0) >= 12 else '#24413e' if pcts.get(group, 0) > 0 else '#1a2224' }}{% endmacro %}
+        <div class="hitbox">
+          <svg width="96" height="172" viewBox="0 0 96 172" role="img" aria-label="Distribuição dos seus acertos por região do corpo">
+            <circle cx="48" cy="22" r="16" fill="{{ fill('head') }}"></circle>
+            <rect x="30" y="42" width="36" height="34" rx="4" fill="{{ fill('chest') }}"></rect>
+            <rect x="30" y="78" width="36" height="24" rx="4" fill="{{ fill('stomach') }}"></rect>
+            <rect x="12" y="44" width="14" height="48" rx="6" fill="{{ fill('arms') }}"></rect>
+            <rect x="70" y="44" width="14" height="48" rx="6" fill="{{ fill('arms') }}"></rect>
+            <rect x="31" y="106" width="14" height="56" rx="6" fill="{{ fill('legs') }}"></rect>
+            <rect x="51" y="106" width="14" height="56" rx="6" fill="{{ fill('legs') }}"></rect>
+          </svg>
+          <div class="legend">
+            {% for h in hitgroups %}
+            <div>
+              <i style="background:{{ fill(h.hitgroup) }}"></i>
+              <b style="font-weight:700">{{ h.hit_pct }}%</b>
+              <span style="color:var(--muted)">{{ h.label }}</span>
+              <span style="color:var(--muted);font-size:10.5px">({{ h.hits }} acertos · {{ h.dmg }} dano)</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <p class="foot-note">"Outros" é dano sem região de acerto — granada, molotov e queda.</p>
+        {% else %}<p class="empty">Sem dano registrado nesse lado.</p>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ---------------------------------------------------------------- duelos #}
+<div data-pane="duelos" hidden>
+  <div class="box">
+    <header><h2>Head-to-head</h2><span class="note">saldo contra cada adversário</span></header>
+    <div class="body">
+      {% if head_to_head %}
+      <div class="tw"><table class="h2h">
+        <thead><tr><th>Adversário</th><th class="num">Você matou</th><th class="num">Te matou</th><th class="num">Saldo</th><th>Balanço</th></tr></thead>
+        <tbody>
+          {% for h in head_to_head %}
+          {% set total = h.kills + h.deaths %}
+          <tr>
+            <td class="name">{{ h.opponent }}</td>
+            <td class="num up">{{ h.kills }}</td>
+            <td class="num down">{{ h.deaths }}</td>
+            <td class="num {{ 'up' if h.diff > 0 else 'down' if h.diff < 0 else '' }}">{{ '%+d'|format(h.diff) }}</td>
+            <td style="width:120px">
+              <span class="bar">
+                <i style="width:{{ (100 * h.kills / total) | round | int if total else 0 }}%;background:var(--win)"></i>
+                <i style="width:{{ (100 * h.deaths / total) | round | int if total else 0 }}%;background:var(--loss)"></i>
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+      {% elif match.source == 'demo' %}
+        <p class="empty">
+          Esta partida foi ingerida do <code>.dem</code>, e o dataframe de kills do awpy não traz o
+          nome dos bots — sem nome não há contra quem contabilizar o duelo. As partidas ingeridas
+          pelo plugin trazem o adversário de cada kill.
+        </p>
+      {% else %}<p class="empty">Sem duelos nesse lado.</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+{# ------------------------------------------------------------------ mapa #}
+{% if radar %}
+<div data-pane="mapa" hidden>
+  <div class="box">
+    <header><h2>Onde aconteceu</h2><span class="note">{{ radar.kills }} kills · {{ radar.deaths }} mortes localizadas</span></header>
+    <div class="body">
+      <div class="radar-wrap">
+        <div class="radar-col">
+          {% if radar.levels | length > 1 %}
+          <div class="levels" role="group" aria-label="Nível do mapa">
+            {% for lv in radar.levels %}
+            <button type="button" data-level="{{ lv.key }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">
+              {{ lv.label }} <span>{{ lv.kills + lv.deaths }}</span>
+            </button>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% for lv in radar.levels %}
+          <div class="radar" data-level-pane="{{ lv.key }}" {{ 'hidden' if not loop.first }}>
+            {% if lv.image %}<img src="/static/{{ lv.image }}" alt="Radar de {{ map.label }}">{% endif %}
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img"
+                 aria-label="Posições das suas kills e mortes em {{ map.label }}">
+              <g class="lay-kill">
+                {% for p in lv.points if p.type == 'kill' %}
+                <circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="1.4" fill="#7be08a" fill-opacity="0.85" stroke="#0a0c0e" stroke-width="0.35">
+                  <title>R{{ p.round_num }} · matou {{ p.opponent }} com {{ p.weapon_label }}{% if p.place %} em {{ p.place }}{% endif %}</title>
+                </circle>
+                {% endfor %}
+              </g>
+              <g class="lay-death">
+                {% for p in lv.points if p.type == 'death' %}
+                <circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="1.4" fill="#ff8a8a" fill-opacity="0.9" stroke="#0a0c0e" stroke-width="0.35">
+                  <title>R{{ p.round_num }} · morreu para {{ p.opponent }}{% if p.place %} em {{ p.place }}{% endif %}</title>
+                </circle>
+                {% endfor %}
+              </g>
+            </svg>
+          </div>
+          {% endfor %}
+        </div>
+        <div>
+          <div class="radar-legend" style="margin-bottom:16px">
+            <label style="color:var(--win)"><input type="checkbox" data-layer="kill" checked> kills ({{ radar.kills }})</label>
+            <label style="color:var(--loss)"><input type="checkbox" data-layer="death" checked> mortes ({{ radar.deaths }})</label>
+          </div>
+          <div class="tw"><table>
+            <thead><tr><th>Lugar</th><th class="num">K</th><th class="num">D</th><th class="num">±</th></tr></thead>
+            <tbody>
+              {% for p in radar.places %}
+              <tr>
+                <td class="txt">{{ p.place }}</td>
+                <td class="num up">{{ p.kills }}</td>
+                <td class="num down">{{ p.deaths }}</td>
+                <td class="num {{ 'up' if p.diff > 0 else 'down' if p.diff < 0 else '' }}">{{ '%+d'|format(p.diff) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+      {% if radar.mode == 'world' %}
+      <p class="foot-note">
+        Posições convertidas pela fórmula oficial do jogo
+        (<code>pos_x</code>/<code>pos_y</code>/<code>scale</code> do overview do mapa, em
+        <code>data/map_radar.json</code>){% if not radar.has_image %}. Falta a imagem
+        <code>static/radar-{{ map.name | replace('de_', '') }}.webp</code>, então só os pontos aparecem{% endif %}.
+        A coluna "Lugar" vem de <code>player_positions.place</code>, o nome que o próprio jogo dá à região.
+      </p>
+      {% else %}
+      <p class="foot-note">
+        Sem metadado de radar para <code>{{ map.name }}</code>: os pontos estão normalizados pela área
+        que você percorreu nesta partida, então o agrupamento é legível mas a posição não é absoluta.
+        Rodar <code>tools/extract_map_radar.py</code> com o CS2 instalado resolve.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ------------------------------------------------------------------ feed #}
+<div data-pane="feed" hidden>
+  <div class="box">
+    <header><h2>Kills e mortes</h2><span class="note">{{ feed | length }} eventos</span></header>
+    <div class="body">
+      <div class="feed">
+        {% for e in feed %}
+        <div class="fe">
+          <span class="r">R{{ e.round_num }}</span>
+          <span class="who {{ 'up' if e.type == 'kill' else 'down' }}">{{ match.player_name or 'você' if e.type == 'kill' else e.opponent }}</span>
+          {% if e.icon %}<img src="/static/{{ e.icon }}" alt="{{ e.label }}" title="{{ e.label }}">{% else %}<span style="color:var(--muted);font-size:11px">{{ e.label }}</span>{% endif %}
+          {% if e.headshot %}<span class="hs" title="headshot">◉</span>{% endif %}
+          <span class="who {{ 'down' if e.type == 'kill' else 'up' }}">{{ e.opponent if e.type == 'kill' else match.player_name or 'você' }}</span>
+          {% if e.distance is not none %}<span style="margin-left:auto;color:var(--muted);font-size:11px">{{ e.distance | round | int }}u</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  "use strict";
+  var tabs = document.querySelectorAll("[data-tab]");
+  var panes = document.querySelectorAll("[data-pane]");
+  function show(name) {
+    panes.forEach(function (p) { p.hidden = p.dataset.pane !== name; });
+    tabs.forEach(function (t) { t.setAttribute("aria-selected", String(t.dataset.tab === name)); });
+    try { history.replaceState(null, "", "#" + name); } catch (e) { /* file:// */ }
+  }
+  tabs.forEach(function (t) {
+    t.addEventListener("click", function () { show(t.dataset.tab); });
+  });
+  var fromHash = (location.hash || "").slice(1);
+  show(Array.prototype.some.call(tabs, function (t) { return t.dataset.tab === fromHash; })
+       ? fromHash : "resumo");
+
+  // Camadas (kills/mortes) valem para todos os níveis do mapa ao mesmo
+  // tempo, por isso são classe e não id — o Nuke tem dois SVGs.
+  document.querySelectorAll("[data-layer]").forEach(function (cb) {
+    cb.addEventListener("change", function () {
+      document.querySelectorAll(".lay-" + cb.dataset.layer).forEach(function (g) {
+        g.style.display = cb.checked ? "" : "none";
+      });
+    });
+  });
+
+  // Níveis (superior/inferior) só existem em mapa de dois andares.
+  var levelButtons = document.querySelectorAll("[data-level]");
+  levelButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      levelButtons.forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b === btn));
+      });
+      document.querySelectorAll("[data-level-pane]").forEach(function (pane) {
+        pane.hidden = pane.dataset.levelPane !== btn.dataset.level;
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

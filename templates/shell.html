@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}CS2 Tracker{% endblock %}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+{% block head_extra %}{% endblock %}
+<style>
+  :root{
+    --bg:#0a0c0e; --panel:#101418; --chip:#242e30; --line:#2a3f3c; --line-soft:#1c2528;
+    --accent:#5eead4; --accent-dim:#2dd4bf; --accent-ink:#04211d;
+    --text:#d7ece8; --muted:#7a908c; --win:#7be08a; --loss:#ff8a8a; --amber:#fbbf24;
+    --sans:"Archivo","Segoe UI",system-ui,sans-serif;
+    --mono:"JetBrains Mono","Cascadia Mono","Consolas",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;
+       -webkit-font-smoothing:antialiased}
+  h1,h2,h3{margin:0;text-wrap:balance}
+  a{color:var(--accent-dim)}
+
+  /* topbar — mesma barra em toda tela, ver docs/features/M3.5-home.md F3.5.1 */
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:40;background:#0c1013;
+          border-bottom:1px solid var(--line-soft);
+          padding:0 20px;padding-top:env(safe-area-inset-top,0px);
+          height:calc(60px + env(safe-area-inset-top,0px));
+          display:flex;align-items:center;gap:24px}
+  .brand{display:flex;align-items:flex-end;gap:10px;flex:0 0 auto}
+  .brand pre{margin:0;font-family:var(--mono);font-size:7px;line-height:1.05;color:var(--accent)}
+  .brand .wordmark{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.22em;
+                   color:var(--text);padding-bottom:1px}
+  .nav{display:flex;gap:4px;margin:0 auto}
+  .nav a{font-size:13px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;
+         text-decoration:none;color:var(--muted);padding:8px 14px;border-radius:2px;
+         border-bottom:2px solid transparent}
+  .nav a:hover{color:var(--text);background:#151b1f}
+  .nav a.on{color:var(--text);border-bottom-color:var(--accent)}
+
+  .play{position:relative;flex:0 0 auto}
+  .play>a{font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:.14em;
+        background:var(--accent);color:var(--accent-ink);border:0;border-radius:2px;
+        padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;
+        text-decoration:none}
+  .play>a:hover{background:#7ff2de}
+  .play .chev{width:9px;height:9px;transition:transform .15s}
+  .play:hover .chev{transform:rotate(180deg)}
+  .play .menu{position:absolute;right:0;top:calc(100% + 6px);min-width:200px;background:#131a1e;
+        border:1px solid var(--line);border-radius:3px;padding:4px;display:none;
+        box-shadow:0 12px 28px rgba(0,0,0,.6)}
+  .play:hover .menu,.play:focus-within .menu{display:block}
+  .play .menu button{display:flex;width:100%;align-items:center;gap:10px;background:none;border:0;
+        color:var(--text);font-family:var(--sans);font-size:13px;text-align:left;padding:9px 10px;
+        border-radius:2px;cursor:pointer}
+  .play .menu button:hover{background:#1c2528;color:var(--accent)}
+  .play .menu .dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+  .play .menu .note{padding:8px 10px 4px;font-size:11px;color:var(--muted);line-height:1.4}
+
+  /* shell de conteúdo, compartilhado por home e relatório */
+  .shell{max-width:1200px;margin:0 auto;padding:0 20px 48px;
+         padding-top:calc(60px + env(safe-area-inset-top,0px) + 28px)}
+
+  .box{background:var(--panel);border:1px solid var(--line-soft);border-radius:3px;
+       display:flex;flex-direction:column;margin-bottom:16px}
+  .box>header{display:flex;align-items:baseline;justify-content:space-between;
+       padding:14px 16px 10px;border-bottom:1px solid var(--line-soft)}
+  .box>header h2{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+       color:var(--muted)}
+  .box .body{padding:16px;flex:1}
+  .box .foot{border-top:1px solid var(--line-soft);padding:10px 16px}
+  .box .foot a{font-size:12px;font-weight:600;color:var(--accent);text-decoration:none;
+       letter-spacing:.03em}
+  .box .foot a:hover{text-decoration:underline}
+
+  .empty{color:var(--muted);font-size:13px}
+  footer.page{margin:0 auto;max-width:1200px;padding:0 20px 32px;color:var(--muted);
+       font-size:11px;letter-spacing:.08em}
+
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  @media (max-width:900px){
+    .nav{margin:0}
+    .topbar{gap:12px;overflow-x:auto}
+  }
+  {% block extra_style %}{% endblock %}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <pre aria-label="CS2"> ██████╗███████╗██████╗
+██║     ███████╗ █████╔╝
+╚██████╗███████║███████╗</pre>
+    <span class="wordmark">TRACKER</span>
+  </div>
+  <nav class="nav">
+    <a href="/" class="{{ 'on' if active_page == 'home' else '' }}">Início</a>
+    <a href="/partidas" class="{{ 'on' if active_page in ('matches', 'report') else '' }}">Minhas partidas</a>
+  </nav>
+  <div class="play">
+    <a href="/setup">JOGAR
+      <svg class="chev" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1.5 3.5 5 7l3.5-3.5"/></svg>
+    </a>
+    <div class="menu">
+      <p class="note">Os dois modos de 1 clique ainda não existem — o botão
+        acima abre a partida completa (formato, times, mapas).</p>
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+{% block content %}{% endblock %}
+</div>
+<footer class="page">cs2-tracker · gerado localmente · sem servidor</footer>
+{% block scripts %}{% endblock %}
+</body>
+</html>

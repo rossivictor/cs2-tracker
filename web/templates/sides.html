@@ -1,0 +1,19 @@
+{% extends "wizard_modal.html" %}
+{% block title %}CS2 Tracker — Lados{% endblock %}
+{% block wizard_content %}
+<div class="box">
+  <h1>Mapa {{ session.side_index + 1 }}/{{ session.maps_in_order|length }}: {{ map_name }}</h1>
+  <p class="hint">Seu lado neste mapa?</p>
+  <form method="post" action="/sides" id="side-form">
+    <div class="radio-row">
+      <label><input type="radio" name="side" value="ct"> CT</label>
+      <label><input type="radio" name="side" value="t"> TR</label>
+    </div>
+    <div class="error">{{ error or "" }}</div>
+  </form>
+  <div class="actions">
+    <form method="post" action="/back"><button type="submit">Voltar</button></form>
+    <button type="submit" form="side-form" class="primary">Confirmar</button>
+  </div>
+</div>
+{% endblock %}

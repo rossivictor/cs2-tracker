@@ -1,0 +1,75 @@
+{
+  "snapshot_date": "2026-09-20",
+  "map_pool_version": "2026-07-06",
+  "teams": [
+    {
+      "id": "furia",
+      "display_name": "FURIA",
+      "logo": "fur",
+      "players": ["KSCERATO", "yuurih", "FalleN", "molodoy", "YEKINDAR"],
+      "veto": {
+        "de_ancient": { "win_pct": 50.0, "pick_pct": 16, "ban_pct": 61, "first_ban": true },
+        "de_anubis":  { "win_pct":  0.0, "pick_pct":  6, "ban_pct": 59 },
+        "de_mirage":  { "win_pct": 44.4, "pick_pct": 33, "ban_pct":  6, "first_pick": true },
+        "de_nuke":    { "win_pct": 71.4, "pick_pct": 26, "ban_pct":  8 },
+        "de_inferno": { "win_pct": 50.0, "pick_pct": 26, "ban_pct": 24 },
+        "de_cache":   { "win_pct": 50.0, "pick_pct": 21, "ban_pct": 24 },
+        "de_dust2":   { "win_pct": 50.0, "pick_pct": 21, "ban_pct":  6 }
+      }
+    },
+    {
+      "id": "vitality",
+      "display_name": "Vitality",
+      "logo": "vit",
+      "players": ["ZywOo", "mezii", "flameZ", "apEX", "ropz"]
+    },
+    {
+      "id": "natus_vincere",
+      "display_name": "Natus Vincere",
+      "logo": "navi",
+      "players": ["electroNic", "B1T", "jL", "iM", "w0nderful"]
+    },
+    {
+      "id": "g2",
+      "display_name": "G2",
+      "logo": "g2",
+      "players": ["huNter-", "NiKo", "m0NESY", "malbsMd", "HooXi"]
+    },
+    {
+      "id": "spirit",
+      "display_name": "Spirit",
+      "logo": "spirit",
+      "players": ["chopper", "donk", "magixx", "sh1ro", "zont1x"]
+    },
+    {
+      "id": "mouz",
+      "display_name": "MOUZ",
+      "logo": "mouz",
+      "players": ["torzsi", "JDC", "xertioN", "Brollan", "siuhy"]
+    },
+    {
+      "id": "faze",
+      "display_name": "FaZe",
+      "logo": "faze",
+      "players": ["karrigan", "frozen", "broky", "rain", "EliGE"]
+    },
+    {
+      "id": "mibr",
+      "display_name": "MIBR",
+      "logo": "mibr",
+      "players": ["saffee", "drop", "insani", "exit", "dumau"]
+    },
+    {
+      "id": "falcons",
+      "display_name": "Falcons",
+      "logo": "falcons",
+      "players": ["Ax1Le", "interz", "Perfecto", "iDISBALANCE", "arT"]
+    },
+    {
+      "id": "legacy",
+      "display_name": "Legacy",
+      "logo": "legacy",
+      "players": ["Tuurtle", "snow", "lux", "twist", "Buzz"]
+    }
+  ]
+}

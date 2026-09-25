@@ -1,0 +1,25 @@
+<div id="veto-box" class="box">
+  <h1>Veto de mapas</h1>
+  {% if history %}
+  <div class="history">
+    {% for line in history %}<div>{{ loop.index }}. {{ line }}</div>{% endfor %}
+  </div>
+  {% endif %}
+  {% if veto_step.actor == "you" %}
+    <p class="hint">Sua vez: {{ "banir" if veto_step.action == "ban" else "escolher" }} um mapa.</p>
+    <div class="map-grid">
+      {% for map_name in pool %}
+      <form method="post" action="/veto/pick">
+        <input type="hidden" name="map_name" value="{{ map_name }}">
+        <button type="submit" class="map-btn" style="background-image:url('/static/{{ map_bg[map_name] }}')">
+          <span>{{ map_label[map_name] }}</span>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="hint">Bot vai {{ "banir" if veto_step.action == "ban" else "escolher" }} um mapa...</p>
+    <div hx-get="/veto/bot-turn" hx-trigger="load delay:1.2s" hx-target="#veto-box" hx-swap="outerHTML"></div>
+  {% endif %}
+  <div class="error">{{ error or "" }}</div>
+</div>

@@ -1,0 +1,339 @@
+{# Tela "todas as suas partidas" (F6.1). Renderizada no servidor a partir de
+   matches.build_list_context — ao contrário de report.html, que embute o
+   payload inteiro como JSON e monta tudo em JS. #}
+{% extends "shell.html" %}
+{% block title %}CS2 Tracker — Minhas partidas{% endblock %}
+
+{% block extra_style %}{% include "_matches_style.html" %}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Minhas partidas</h1>
+    <p class="sub">{{ total_matches }} partida{{ '' if total_matches == 1 else 's' }} no banco{% if map_filter %} · filtrando por {{ map_options | selectattr('value', 'equalto', map_filter) | map(attribute='label') | first }}{% endif %}</p>
+  </div>
+  <a class="chip" href="/report">Relatório antigo</a>
+</div>
+
+{% if not has_matches %}
+  <div class="box"><div class="body">
+    <p class="empty">Nenhuma partida no banco ainda. Jogue uma pelo botão JOGAR e ela aparece aqui quando o watcher ingerir a demo.</p>
+  </div></div>
+{% else %}
+
+<div class="filters">
+  <div class="fgroup">
+    <span class="lbl">Lado</span>
+    {% for key, label in sides %}
+      <a class="chip {{ 'on' if key == side }}"
+         href="/partidas?lado={{ key }}{% if map_filter %}&mapa={{ map_filter }}{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
+  <div class="fgroup">
+    <span class="lbl">Mapa</span>
+    <a class="chip {{ 'on' if not map_filter }}" href="/partidas?lado={{ side }}">Todos</a>
+    {% for m in map_options %}
+      <a class="chip {{ 'on' if map_filter == m.value }}" href="/partidas?lado={{ side }}&mapa={{ m.value }}"
+         title="{{ m.label }}">
+        {% if m.icon %}<img src="/static/{{ m.icon }}" alt="">{% endif %}{{ m.label }}
+      </a>
+    {% endfor %}
+  </div>
+</div>
+
+{% if kpis %}
+<div class="kpis">
+  {% for k in kpis %}
+  <div class="kpi">
+    <span class="lbl">{{ k.label }}</span>
+    <span class="val">{{ '%.*f'|format(k.digits, k.value) }}{{ k.suffix }}</span>
+    {% if k.delta is not none %}
+      <span class="dlt {{ 'up' if k.delta > 0 else 'down' if k.delta < 0 else 'flat' }}">
+        {{ '▲' if k.delta > 0 else '▼' if k.delta < 0 else '—' }}
+        {{ '%+.*f'|format(k.digits, k.delta) }}{{ k.suffix }} · últimas 5
+      </span>
+    {% else %}
+      <span class="dlt flat">— sem base de comparação</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="row row-main">
+  <div class="box">
+    <header><h2>Forma recente</h2><span class="note">{{ recent.wins }}V · {{ recent.losses }}D</span></header>
+    <div class="body">
+      <div class="form-strip">
+        {% for r in recent['items'] %}
+          <a class="{{ 'w' if r.outcome == 'win' else 'l' if r.outcome == 'loss' else '' }}"
+             href="/partidas/{{ r.id }}?lado={{ side }}"
+             title="{{ r.map.label }} · {{ r.score }} · {{ r.played_at }}"></a>
+        {% endfor %}
+      </div>
+      {% if reason_split %}
+      <div style="margin-top:18px">
+        <div class="lbl" style="font-size:8.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:7px">Como você ganha os rounds</div>
+        <div class="split">
+          {% for r in reason_split %}<span style="width:{{ r.pct }}%;background:{{ r.color }}"></span>{% endfor %}
+        </div>
+        <div class="split-key">
+          {% for r in reason_split %}<span><i style="background:{{ r.color }}"></i>{{ r.label }} {{ r.pct }}%</span>{% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="box">
+    <header><h2>Tendência</h2><span class="note">por partida, em ordem cronológica</span></header>
+    <div class="body">
+      <div class="trend">
+        <div class="series">
+          {% for s in trend.series %}
+          <label style="color:{{ s.color }}">
+            <input type="checkbox" data-series="{{ s.key }}" {{ 'checked' if s.on }}> {{ s.label }}
+          </label>
+          {% endfor %}
+        </div>
+        <div class="canvas-wrap"><canvas id="trend" height="150"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="box">
+  <header><h2>Mapas</h2><span class="note">barra = ADR relativo ao seu melhor mapa</span></header>
+  <div class="body">
+    <div class="mapgrid">
+      {% for m in map_cards %}
+      <a class="mapcard {{ 'noart' if not m.map.bg }}" href="/partidas?lado={{ side }}&mapa={{ m.map.name }}"
+         {% if m.map.bg %}style="--art:url('/static/{{ m.map.bg }}')"{% endif %}>
+        {% if m.map.bg %}<span class="art"></span>{% endif %}
+        <span class="top">
+          {% if m.map.icon %}<img src="/static/{{ m.map.icon }}" alt="">{% endif %}
+          <strong>{{ m.map.label }}</strong>
+        </span>
+        <span class="line"><span>{{ m.matches }} partida{{ '' if m.matches == 1 else 's' }}</span><b>{{ m.win_pct }}% rounds</b></span>
+        <span class="metric">
+          <span class="line"><span style="color:var(--accent)">Geral</span><b>{{ m.adr }} ADR</b></span>
+          <span class="minibar"><span style="width:{{ m.adr_bar }}%;background:var(--accent)"></span></span>
+        </span>
+        {% if m.t_adr is not none %}
+        <span class="metric">
+          <span class="line"><span style="color:var(--amber)">TR</span><b>{{ m.t_adr }}</b></span>
+          <span class="minibar"><span style="width:{{ m.t_bar }}%;background:var(--amber)"></span></span>
+        </span>
+        {% endif %}
+        {% if m.ct_adr is not none %}
+        <span class="metric">
+          <span class="line"><span style="color:#60a5fa">CT</span><b>{{ m.ct_adr }}</b></span>
+          <span class="minibar"><span style="width:{{ m.ct_bar }}%;background:#60a5fa"></span></span>
+        </span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="box">
+  <header><h2>Partidas</h2><span class="note">Δ = ADR contra a sua média das 10 anteriores</span></header>
+  <div class="colgroups" role="group" aria-label="Grupo de colunas">
+    <button type="button" data-group="resumo" aria-pressed="true">Resumo</button>
+    <button type="button" data-group="entry" aria-pressed="false">Entry &amp; trades</button>
+    <button type="button" data-group="clutch" aria-pressed="false">Clutches</button>
+    <button type="button" data-group="multi" aria-pressed="false">Multi-kills</button>
+  </div>
+  <div class="body" style="padding-top:12px">
+    <div class="tw">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th><th>Mapa</th><th>Placar</th>
+            <th class="num" data-col="resumo">K–D</th>
+            <th class="num" data-col="resumo">ADR</th>
+            <th class="num" data-col="resumo">KAST</th>
+            <th class="num" data-col="resumo">HS</th>
+            <th class="num" data-col="entry" hidden>Entry ±</th>
+            <th class="num" data-col="entry" hidden>Entry feita</th>
+            <th class="num" data-col="entry" hidden>Trades</th>
+            <th class="num" data-col="entry" hidden>Trocado</th>
+            <th class="num" data-col="clutch" hidden>Clutches</th>
+            <th class="num" data-col="clutch" hidden>Ganhos</th>
+            <th class="num" data-col="multi" hidden>2K</th>
+            <th class="num" data-col="multi" hidden>3K</th>
+            <th class="num" data-col="multi" hidden>4K</th>
+            <th class="num" data-col="multi" hidden>Ace</th>
+            <th class="num">Δ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr class="link" onclick="location.href='/partidas/{{ r.id }}?lado={{ side }}'">
+            <td>{{ r.played_at }}</td>
+            <td class="txt">
+              {% if r.map.icon %}<img src="/static/{{ r.map.icon }}" alt="" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;margin-right:7px">{% endif %}{{ r.map.label }}
+              {% if r.series %}<span class="pill neutral" style="margin-left:6px">{{ r.series }}</span>{% endif %}
+            </td>
+            <td class="{{ 'up' if r.outcome == 'win' else 'down' if r.outcome == 'loss' else '' }}">
+              {% if r.score_mine is not none %}{{ r.score_mine }}<span style="color:var(--muted)"> : </span>{{ r.score_theirs }}{% else %}-{% endif %}
+            </td>
+            {# Nenhuma célula usa colspan: a ocultação por grupo é coluna a
+               coluna, e um colspan aqui desalinharia o cabeçalho. Partida sem
+               rounds naquele lado mostra – em cada célula. #}
+            <td class="num" data-col="resumo">{{ r.kills ~ '–' ~ r.deaths if r.has_side else '–' }}</td>
+            <td class="num" data-col="resumo">{{ r.adr if r.adr is not none else '–' }}</td>
+            <td class="num" data-col="resumo">{{ r.kast_pct ~ '%' if r.kast_pct is not none else '–' }}</td>
+            <td class="num" data-col="resumo">{{ r.hs_pct ~ '%' if r.hs_pct is not none else '–' }}</td>
+            <td class="num" data-col="entry" hidden>{{ '%+d'|format(r.entry_diff) if r.entry_diff is not none else '–' }}</td>
+            <td class="num" data-col="entry" hidden>{{ r.entry_for if r.entry_for is not none else '–' }}</td>
+            <td class="num" data-col="entry" hidden>{{ r.trade_kills if r.trade_kills is not none else '–' }}</td>
+            <td class="num" data-col="entry" hidden>{{ r.traded_deaths if r.traded_deaths is not none else '–' }}</td>
+            <td class="num" data-col="clutch" hidden>{{ r.clutch_count if r.clutch_count is not none else '–' }}</td>
+            <td class="num" data-col="clutch" hidden>{{ r.clutch_wins if r.clutch_wins is not none else '–' }}</td>
+            <td class="num" data-col="multi" hidden>{{ r.mk2 if r.mk2 is not none else '–' }}</td>
+            <td class="num" data-col="multi" hidden>{{ r.mk3 if r.mk3 is not none else '–' }}</td>
+            <td class="num" data-col="multi" hidden>{{ r.mk4 if r.mk4 is not none else '–' }}</td>
+            <td class="num" data-col="multi" hidden>{{ r.mk5 if r.mk5 is not none else '–' }}</td>
+            <td class="num">
+              {% if r.delta is not none %}
+                <span class="delta {{ 'up' if r.delta > 0 else 'down' }}">{{ '%+.1f'|format(r.delta) }}</span>
+              {% else %}<span style="color:var(--muted)">–</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="foot-note">
+      Trades e clutches saem como — nas partidas ingeridas de <code>.dem</code>: o dataframe de kills do awpy
+      não traz o time de cada bot, e sem lado não dá pra saber quem era aliado. As partidas ingeridas pelo
+      plugin têm o lado completo.
+    </p>
+  </div>
+</div>
+
+<div class="row row-info">
+  <div class="box">
+    <header><h2>Recordes</h2></header>
+    <div class="body">
+      {% if records %}
+      <div class="kv" style="flex-direction:column;gap:11px">
+        {% if records.best_kd %}<div><b>{{ '%.2f'|format(records.best_kd.value) }}</b><span>Melhor K/D</span></div>{% endif %}
+        {% if records.best_adr %}<div><b>{{ '%.1f'|format(records.best_adr.value) }}</b><span>Melhor ADR</span></div>{% endif %}
+        <div><b>{{ records.max_kill_streak or 0 }}</b><span>Maior sequência</span></div>
+        <div><b>{{ records.current_kill_streak or 0 }}</b><span>Sequência atual</span></div>
+        {% if records.longest_kill %}<div><b>{{ records.longest_kill.distance | round | int }}u</b><span>Kill mais longa</span></div>{% endif %}
+      </div>
+      {% else %}<p class="empty">Sem recordes nesse lado.</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="box">
+    <header><h2>Head-to-head</h2><span class="note">saldo por adversário</span></header>
+    <div class="body">
+      {% if head_to_head %}
+      <div class="tw"><table class="h2h">
+        <thead><tr><th>Adversário</th><th class="num">K</th><th class="num">D</th><th class="num">±</th></tr></thead>
+        <tbody>
+          {% for h in head_to_head %}
+          <tr>
+            <td class="name">{{ h.opponent }}</td>
+            <td class="num">{{ h.kills }}</td>
+            <td class="num">{{ h.deaths }}</td>
+            <td class="num {{ 'up' if h.diff > 0 else 'down' if h.diff < 0 else '' }}">{{ '%+d'|format(h.diff) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+      {% else %}<p class="empty">Sem duelos nesse lado.</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="box">
+    <header><h2>Onde você acerta</h2><span class="note">damages.hitgroup</span></header>
+    <div class="body">
+      {% if hitgroups %}
+      <div class="kv" style="flex-direction:column;gap:9px">
+        {% for h in hitgroups %}
+        <div>
+          <span style="display:flex;justify-content:space-between;gap:10px">
+            <span style="font-size:11.5px;color:var(--text)">{{ h.label }}</span>
+            <b style="font-size:12.5px">{{ h.hit_pct }}%</b>
+          </span>
+          <span class="minibar"><span style="width:{{ h.hit_pct }}%;background:{{ 'var(--accent)' if h.hitgroup == 'head' else 'var(--muted)' }}"></span></span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<p class="empty">Sem dano registrado nesse lado.</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if has_matches %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // --- grupos de coluna: a esquerda da tabela fica fixa, o bloco da direita troca
+  var buttons = document.querySelectorAll(".colgroups button");
+  function showGroup(name) {
+    document.querySelectorAll("[data-col]").forEach(function (cell) {
+      cell.hidden = cell.dataset.col !== name;
+    });
+    buttons.forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.group === name));
+    });
+  }
+  buttons.forEach(function (b) {
+    b.addEventListener("click", function () { showGroup(b.dataset.group); });
+  });
+  showGroup("resumo");
+
+  // --- tendência: uma série por métrica, ligada/desligada por checkbox
+  var TREND = {{ trend | tojson }};
+  var chart = new Chart(document.getElementById("trend"), {
+    type: "line",
+    data: {
+      labels: TREND.labels,
+      datasets: TREND.series.map(function (s) {
+        return {
+          label: s.label,
+          data: s.data,
+          borderColor: s.color,
+          backgroundColor: s.color + "22",
+          hidden: !s.on,
+          tension: 0.25,
+          spanGaps: true,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+        };
+      }),
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#7a908c", maxTicksLimit: 6 }, grid: { color: "#1a2a27" } },
+        y: { ticks: { color: "#7a908c" }, grid: { color: "#1a2a27" } },
+      },
+    },
+  });
+  document.querySelectorAll("[data-series]").forEach(function (cb) {
+    cb.addEventListener("change", function () {
+      var i = TREND.series.findIndex(function (s) { return s.key === cb.dataset.series; });
+      if (i >= 0) { chart.setDatasetVisibility(i, cb.checked); chart.update(); }
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

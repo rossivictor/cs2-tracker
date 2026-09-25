@@ -1,0 +1,39 @@
+{% extends "wizard_modal.html" %}
+{% block title %}CS2 Tracker — Jogador & Formato{% endblock %}
+{% block wizard_content %}
+<div class="box">
+  <h1>Quem vai jogar, e como?</h1>
+  <p class="hint">
+    Este wizard monta uma partida contra bots no servidor local: sobe o container,
+    carrega a série, balanceia os times e grava demo/stats sozinho no fim.
+    Digite seu nick in-game (o mesmo que aparece no placar) ou seu SteamID64, e
+    escolha o formato da série.
+  </p>
+  <form method="post" action="/setup" id="setup-form">
+    <div class="field">
+      <label for="player">Nick in-game ou SteamID64</label>
+      <input type="text" id="player" name="player" placeholder="ex.: can1sh ou 76561198100290385"
+             value="{{ player or '' }}" autofocus>
+    </div>
+    <div class="field">
+      <label>Formato</label>
+      <div class="radio-row">
+        {% for fmt in formats %}
+        <label>
+          <input type="radio" name="fmt" value="{{ fmt }}" {{ "checked" if fmt == chosen_fmt else "" }}>
+          {{ fmt.upper() }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="field">
+      <label for="team_size">Jogadores por time (contando você)</label>
+      <input type="text" id="team_size" name="team_size" value="{{ chosen_team_size }}">
+    </div>
+    <div class="error">{{ error or "" }}</div>
+  </form>
+  <div class="actions">
+    <button type="submit" form="setup-form" class="primary">Continuar</button>
+  </div>
+</div>
+{% endblock %}

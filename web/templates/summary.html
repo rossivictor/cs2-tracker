@@ -1,0 +1,33 @@
+{% extends "wizard_modal.html" %}
+{% block title %}CS2 Tracker — Resumo{% endblock %}
+{% block wizard_content %}
+<div class="box summary">
+  <h1>Resumo</h1>
+  <dl>
+    <dt>Jogador</dt>
+    <dd>{{ session.identity.name }}{% if session.identity.has_steamid %} ({{ session.identity.steamid }}){% endif %}</dd>
+    <dt>Formato</dt>
+    <dd>{{ session.format.upper() }}</dd>
+    <dt>Jogadores por time</dt>
+    <dd>{{ session.team_size }}</dd>
+    <dt>Mapas</dt>
+    <dd>
+      <ol>
+        {% for choice in session.map_choices %}
+        <li>{{ choice.map_name }} ({{ choice.side.upper() }})</li>
+        {% endfor %}
+      </ol>
+    </dd>
+  </dl>
+  <p class="hint">
+    A tela de partida (iniciar servidor, log ao vivo, confirmar ".ready") ainda não
+    existe aqui — é o próximo passo do roteiro (docs/SPEC.md, item 6). Por enquanto,
+    pra jogar de verdade use <code>wizard_tui.py</code> ou <code>start_match.py</code>.
+  </p>
+  <div class="actions">
+    <form method="post" action="/back"><button type="submit">Voltar</button></form>
+    <form method="post" action="/reset"><button type="submit">Recomeçar</button></form>
+    <button type="button" class="primary" disabled title="Ainda não implementado (item 6)">Iniciar partida</button>
+  </div>
+</div>
+{% endblock %}

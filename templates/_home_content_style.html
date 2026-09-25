@@ -1,0 +1,108 @@
+{# CSS dos boxes de Início (docs/features/M3.5-home.md). Extraído do antigo
+   block extra_style de home.html pra ser incluído tanto pela home "solta"
+   quanto pelo modal de partida (web/templates/wizard_modal.html), que
+   renderiza a mesma home como fundo atrás do wizard. #}
+  .row{display:grid;gap:16px;margin-bottom:16px}
+  .row-main{grid-template-columns:1fr 2fr}
+  .row-info{grid-template-columns:repeat(3,1fr)}
+
+  /* inicio rapido */
+  .quick{background:linear-gradient(180deg,rgba(94,234,212,.09),rgba(94,234,212,.03));
+         border-color:rgba(94,234,212,.45)}
+  .quick>header{border-bottom-color:rgba(94,234,212,.2)}
+  .quick>header h2{color:var(--accent)}
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .mode{border-radius:3px;padding:16px 10px;font-family:var(--sans);
+        display:flex;flex-direction:column;align-items:center;gap:9px;text-align:center;
+        font-size:12.5px;font-weight:600;line-height:1.25;cursor:default}
+  .mode svg{width:26px;height:26px}
+  .mode-pro{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent)}
+  .mode-comp{background:transparent;color:var(--accent);border:1px solid rgba(94,234,212,.5)}
+
+  /* historico */
+  .matches{display:flex;flex-direction:column}
+  .match{display:flex;align-items:center;gap:14px;padding:11px 16px 11px 13px;
+         border-left:3px solid transparent;border-bottom:1px solid var(--line-soft)}
+  .match:last-child{border-bottom:0}
+  .match.w{border-left-color:var(--win)}
+  .match.l{border-left-color:var(--loss)}
+  .ctx{display:flex;align-items:center;gap:11px;flex:0 0 auto}
+  .crest{width:28px;height:28px;border-radius:50%;background:var(--chip);
+         display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .crest svg{width:17px;height:17px;color:var(--muted)}
+  .score{font-family:var(--mono);font-size:21px;font-weight:700;
+         font-variant-numeric:tabular-nums;min-width:74px;text-align:center}
+  .score .x{color:var(--muted);font-weight:400;font-size:15px;padding:0 2px}
+  .w .score{color:var(--win)}
+  .l .score{color:var(--loss)}
+  .mapch{width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+         flex:0 0 auto}
+  .mapch img{width:100%;height:100%;object-fit:contain;display:block}
+  .stats{margin-left:auto;display:flex;gap:26px}
+  .match .mapch{margin-left:12px}
+  .stat{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:44px}
+  .stat b{font-family:var(--mono);font-size:13.5px;font-weight:500;font-variant-numeric:tabular-nums}
+  .stat span{font-size:8.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+  .when{font-size:11px;color:var(--muted);min-width:110px;font-family:var(--mono);text-align:right}
+
+  /* box do melhor mapa: arte do mapa ao fundo */
+  .map-hero{position:relative;overflow:hidden;isolation:isolate}
+  .map-hero .art{position:absolute;inset:0;z-index:-2;
+       background-image:var(--art);background-size:cover;background-position:center;
+       opacity:.42;filter:saturate(.75)}
+  .map-hero .art::after{content:"";position:absolute;inset:0;
+       background:linear-gradient(105deg,#101418 18%,rgba(16,20,24,.82) 46%,rgba(16,20,24,.35) 100%)}
+  .map-hero>header{border-bottom-color:rgba(255,255,255,.07)}
+  .map-hero .body{display:flex;flex-direction:column;justify-content:space-between;gap:20px}
+  .hero-map{display:flex;align-items:center;gap:16px}
+  .hero-map .mapch{width:76px;height:76px;filter:drop-shadow(0 3px 10px rgba(0,0,0,.65))}
+  .hero-map strong{font-size:30px;font-weight:700;line-height:1.05;letter-spacing:-.01em;
+       display:block}
+  .hero-map em{display:block;font-style:normal;font-size:11.5px;color:var(--muted);margin-top:5px}
+  .map-hero .kv{justify-content:space-between;gap:12px}
+  .map-hero .kv b{font-size:19px}
+  .kv{display:flex;gap:22px}
+  .kv div{display:flex;flex-direction:column;gap:2px}
+  .kv b{font-family:var(--mono);font-size:16px;font-weight:500}
+  .kv span{font-size:8.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+
+  /* box da arma mais letal */
+  .wep-hero .body{display:flex;flex-direction:column;justify-content:space-between;gap:20px}
+  .wep-art{display:flex;align-items:center;justify-content:center;min-height:66px;padding:0 4px}
+  .wep-art img{width:100%;max-width:230px;height:auto;display:block;
+       filter:drop-shadow(0 2px 8px rgba(0,0,0,.6))}
+  .wep-name{font-size:19px;font-weight:700;line-height:1.05;letter-spacing:.02em;
+       margin-bottom:7px}
+  .wep-hero .kv{justify-content:space-between;gap:12px}
+  .wep-hero .kv b{font-size:19px}
+  .big{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--amber);line-height:1}
+  .big small{font-family:var(--sans);font-size:11px;font-weight:600;color:var(--muted);
+       letter-spacing:.1em;text-transform:uppercase;margin-left:6px}
+  .gauges{display:flex;justify-content:space-around;align-items:flex-end}
+  .gauge{text-align:center}
+  .gauge svg{display:block;margin:0 auto;max-width:100%}
+  .gauge .lbl{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+       margin-top:-4px}
+  .note{color:var(--muted);font-size:12px;line-height:1.5}
+
+  .tip{position:relative}
+  .tip::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;
+       transform:translateX(-50%);background:#1c2528;color:var(--text);border:1px solid var(--line);
+       font-family:var(--sans);font-size:11px;font-weight:500;white-space:nowrap;
+       padding:5px 8px;border-radius:2px;opacity:0;pointer-events:none;transition:opacity .12s;z-index:30}
+  .tip:hover::after{opacity:1}
+
+  .hero-empty{text-align:center;padding:52px 20px 44px}
+  .hero-empty pre{margin:0 0 18px;font-family:var(--mono);font-size:10px;line-height:1.1;
+       color:var(--accent);overflow-x:auto}
+  .hero-empty h1{font-size:19px;font-weight:600;margin-bottom:8px}
+  .hero-empty p{color:var(--muted);font-size:13px;max-width:52ch;margin:0 auto 28px;line-height:1.6}
+  .hero-empty .modes{max-width:440px;margin:0 auto}
+  .hero-empty .modes .mode{padding:22px 14px;font-size:14px}
+  .hero-empty .modes .mode svg{width:32px;height:32px}
+
+  @media (max-width:900px){
+    .row-main,.row-info{grid-template-columns:1fr}
+    .stats{gap:16px}
+    .match{flex-wrap:wrap}
+  }

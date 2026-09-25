@@ -1,0 +1,150 @@
+{% if not has_matches %}
+<section>
+  <div class="box quick">
+    <div class="hero-empty">
+      <pre> ██████╗███████╗██████╗   ████████╗██████╗  █████╗  ██████╗██╗  ██╗███████╗██████╗
+██╔════╝██╔════╝╚════██╗  ╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝██╔════╝██╔══██╗
+██║     ███████╗ █████╔╝     ██║   ██████╔╝███████║██║     █████╔╝ █████╗  ██████╔╝
+██║     ╚════██║██╔═══╝      ██║   ██╔══██╗██╔══██║██║     ██╔═██╗ ██╔══╝  ██╔══██╗
+╚██████╗███████║███████╗     ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗███████╗██║  ██║
+ ╚═════╝╚══════╝╚══════╝     ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝</pre>
+      <h1>Escolha um lado e entre no servidor.</h1>
+      <p>Suas estatísticas — histórico, melhor mapa, arma mais letal e desempenho por
+         lado — aparecem aqui assim que a primeira partida terminar.</p>
+      <div class="modes">
+        <div class="mode mode-pro">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2.5 4.5 5.5v6c0 4.6 3.1 8.6 7.5 10 4.4-1.4 7.5-5.4 7.5-10v-6L12 2.5Z"/><path d="m9 11.5 2.2 2.2L15.5 9.5"/></svg>
+          5x5 profissional
+        </div>
+        <div class="mode mode-comp">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18"/></svg>
+          5x5 competitivo
+        </div>
+      </div>
+      <p class="note" style="margin-top:18px">Escolha um dos modos acima ou
+        <a href="/setup">configure a partida</a> — formato, times e mapas.</p>
+    </div>
+  </div>
+</section>
+{% else %}
+<section>
+  <div class="row row-main">
+
+    <div class="box quick">
+      <header><h2>Início rápido</h2></header>
+      <div class="body">
+        <div class="modes">
+          <div class="mode mode-pro">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2.5 4.5 5.5v6c0 4.6 3.1 8.6 7.5 10 4.4-1.4 7.5-5.4 7.5-10v-6L12 2.5Z"/><path d="m9 11.5 2.2 2.2L15.5 9.5"/></svg>
+            5x5<br>profissional
+          </div>
+          <div class="mode mode-comp">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18"/></svg>
+            5x5<br>competitivo
+          </div>
+        </div>
+      </div>
+      <div class="foot"><a href="/setup">Configurar partida</a></div>
+    </div>
+
+    <div class="box">
+      <header><h2>Meu histórico</h2></header>
+      <div class="matches">
+        {% for m in recent_matches %}
+        <div class="match {{ 'w' if m.outcome == 'win' else 'l' if m.outcome == 'loss' else '' }}">
+          <div class="ctx">
+            <span class="crest tip" data-tip="Competitivo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18"/></svg>
+            </span>
+            <span class="score">{{ m.score_mine if m.score_mine is not none else '-' }}<span class="x">×</span>{{ m.score_theirs if m.score_theirs is not none else '-' }}</span>
+          </div>
+          <div class="stats">
+            <div class="stat"><b>{{ m.kd_label }}</b><span>K/D</span></div>
+            <div class="stat"><b>{{ m.adr }}</b><span>ADR</span></div>
+            <div class="stat"><b>{{ m.hs_pct }}</b><span>HS</span></div>
+          </div>
+          <span class="mapch tip" data-tip="{{ m.map_label }}"><img src="/static/{{ m.map_icon }}" alt="{{ m.map_label }}"></span>
+          <span class="when">{{ m.played_at }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="foot"><a href="/partidas">Ver todas as partidas</a></div>
+    </div>
+  </div>
+
+  <div class="row row-info">
+    <div class="box map-hero" {% if best_map %}style="--art:url('/static/{{ best_map.map_bg }}')"{% endif %}>
+      {% if best_map %}<div class="art"></div>{% endif %}
+      <header><h2>Meu melhor mapa</h2></header>
+      <div class="body">
+        {% if best_map %}
+        <div class="hero-map">
+          <span class="mapch"><img src="/static/{{ best_map.map_icon }}" alt="{{ best_map.map_label }}"></span>
+          <span><strong>{{ best_map.map_label }}</strong><em>{{ best_map.matches }} partidas · {{ best_map.win_pct }} de vitórias</em></span>
+        </div>
+        <div class="kv">
+          <div><b>{{ best_map.adr }}</b><span>ADR</span></div>
+          <div><b>{{ best_map.kd }}</b><span>K/D</span></div>
+          <div><b>{{ best_map.hs_pct }}</b><span>HS</span></div>
+        </div>
+        {% else %}
+        <p class="empty">Dados insuficientes — precisa de pelo menos {{ best_map_min_matches }} partidas no mesmo mapa.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="box wep-hero">
+      <header><h2>Minha arma mais letal</h2></header>
+      <div class="body">
+        {% if top_weapon %}
+        <div class="wep-art"><img src="/static/{{ top_weapon.icon }}" alt="{{ top_weapon.weapon_label }}"></div>
+        <div>
+          <div class="wep-name">{{ top_weapon.weapon_label }}</div>
+          <div class="big">{{ top_weapon.dmg_total }}<small>de dano</small></div>
+        </div>
+        <div class="kv">
+          <div><b>{{ top_weapon.kills }}</b><span>kills</span></div>
+          <div><b>{{ top_weapon.dmg_share_pct }}</b><span>do seu dano</span></div>
+        </div>
+        {% else %}
+        <p class="empty">Sem dados de arma ainda — só partidas com demo (não CSV) alimentam este box.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="box">
+      <header><h2>Meu melhor lado</h2></header>
+      <div class="body">
+        {% if sides %}
+        <div class="gauges">
+          <div class="gauge">
+            <svg viewBox="0 0 120 74" width="124" height="76" role="img" aria-label="CT: {{ sides.ct_pct|round(0, 'floor')|int }}% de vitórias">
+              <path d="M14 60 A46 46 0 0 1 106 60" fill="none" stroke="#1c2528" stroke-width="10" stroke-linecap="round"/>
+              <path d="M14 60 A46 46 0 0 1 106 60" fill="none" stroke="#5eead4" stroke-width="10"
+                    stroke-linecap="round" stroke-dasharray="{{ sides.ct_dasharray }}"/>
+              <text x="60" y="55" text-anchor="middle" fill="#d7ece8" font-family="JetBrains Mono, monospace"
+                    font-size="23" font-weight="700">{{ sides.ct_pct|round(0, 'floor')|int }}%</text>
+            </svg>
+            <div class="lbl" style="color:#5eead4">CT</div>
+          </div>
+          <div class="gauge">
+            <svg viewBox="0 0 120 74" width="124" height="76" role="img" aria-label="TR: {{ sides.t_pct|round(0, 'floor')|int }}% de vitórias">
+              <path d="M14 60 A46 46 0 0 1 106 60" fill="none" stroke="#1c2528" stroke-width="10" stroke-linecap="round"/>
+              <path d="M14 60 A46 46 0 0 1 106 60" fill="none" stroke="#fbbf24" stroke-width="10"
+                    stroke-linecap="round" stroke-dasharray="{{ sides.t_dasharray }}"/>
+              <text x="60" y="55" text-anchor="middle" fill="#7a908c" font-family="JetBrains Mono, monospace"
+                    font-size="23" font-weight="700">{{ sides.t_pct|round(0, 'floor')|int }}%</text>
+            </svg>
+            <div class="lbl" style="color:#fbbf24">TR</div>
+          </div>
+        </div>
+        <p class="note" style="text-align:center;margin:10px 0 0">
+          Rounds vencidos em cada lado, sobre {{ sides.total_matches }} partida{{ 's' if sides.total_matches != 1 else '' }}.</p>
+        {% else %}
+        <p class="empty">Dados insuficientes ainda.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}

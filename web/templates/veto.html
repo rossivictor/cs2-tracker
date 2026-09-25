@@ -1,0 +1,8 @@
+{% extends "wizard_modal.html" %}
+{% block title %}CS2 Tracker — Veto{% endblock %}
+{% block wizard_content %}
+{% include "_veto_fragment.html" %}
+<div class="actions">
+  <form method="post" action="/back"><button type="submit">Voltar (aborta o veto)</button></form>
+</div>
+{% endblock %}

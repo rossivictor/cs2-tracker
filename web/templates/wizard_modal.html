@@ -1,0 +1,111 @@
+{# Casca do wizard (F3.1-F4.4) como modal de abertura de partida sobre a
+   home real (docs/features/M3.5-home.md, F3.5.2/F3.5.3). Estende o mesmo
+   shell.html que home.html/report.html usam — a home renderiza como fundo
+   e o passo atual do wizard entra num overlay por cima, com o mesmo
+   .modal-overlay/.modal-box que lineups.html/maps.html já usavam pros
+   próprios pickers internos (item 4). Fechar o modal (X) só navega pra "/":
+   o WizardSession no servidor não é resetado, então reabrir por /setup
+   volta pro mesmo passo (D14). #}
+{% extends "shell.html" %}
+
+{% block head_extra %}
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+<style>
+{% include "_home_content_style.html" %}
+
+  /* Formulários e componentes do wizard, isolados dentro de .modal-box pra
+     não colidir com o CSS do dashboard (ex.: .box tem outro layout lá —
+     header/body/foot — por isso redefinido aqui com escopo). */
+  .field{margin-bottom:16px}
+  .error{color:var(--loss);font-size:13px;min-height:1.2em;margin-top:8px}
+  .actions{display:flex;gap:10px;margin-top:20px}
+  .actions form{display:inline}
+  .modal-box label{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+       color:var(--muted);margin-bottom:6px}
+  .modal-box input[type=text]{font-family:var(--mono);font-size:14px;background:var(--bg);
+       color:var(--text);border:1px solid var(--line);border-radius:3px;padding:10px 12px;width:100%}
+  .modal-box input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px}
+
+  .modal-box button,.modal-box .btn{font-family:var(--sans);font-size:13px;font-weight:600;
+       letter-spacing:.02em;border-radius:3px;border:1px solid var(--line);background:var(--chip);
+       color:var(--text);padding:10px 16px;cursor:pointer}
+  .modal-box button:hover,.modal-box .btn:hover{border-color:var(--accent-dim)}
+  .modal-box button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .modal-box button.primary:hover{background:#7ff2de}
+  .modal-box button:disabled{opacity:.45;cursor:not-allowed}
+
+  .steps{display:flex;gap:4px;list-style:none;margin:0 0 16px;padding:0;font-size:11px;
+       letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .steps li{flex:1;text-align:center;padding-bottom:8px;border-bottom:3px solid var(--line-soft)}
+  .steps li.done{color:var(--win);border-bottom-color:var(--win)}
+  .steps li.current{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
+
+  .modal-box .box{background:var(--panel);border:1px solid var(--line-soft);border-radius:3px;
+       display:block;padding:20px;margin-bottom:16px}
+  .modal-box .box h1{font-size:16px;margin:0}
+  .modal-box .box .hint{color:var(--muted);font-size:13px;margin-top:8px;line-height:1.5}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+  .grid button{width:100%}
+  .grid button.selected{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+  .radio-row{display:flex;gap:10px}
+  .radio-row label{display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;
+       color:var(--text);background:var(--chip);border:1px solid var(--line);border-radius:3px;
+       padding:10px 16px;cursor:pointer;flex:1;justify-content:center}
+  .radio-row input{accent-color:var(--accent)}
+
+  .history{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--bg);
+       border:1px solid var(--line-soft);border-radius:3px;padding:10px 12px;margin-top:14px;
+       max-height:160px;overflow-y:auto}
+  .history div{padding:2px 0}
+
+  .summary dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0}
+  .summary dt{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+  .summary dd{margin:0}
+  .summary ol{margin:6px 0 0;padding-left:20px}
+
+  .icon-btn{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;
+       justify-content:center;font-size:14px;line-height:1;text-decoration:none}
+
+  .map-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .map-grid > form{display:contents}
+  .map-btn{position:relative;aspect-ratio:16/9;border-radius:6px;border:1px solid var(--line);
+       overflow:hidden;background-size:cover;background-position:center;color:#fff;
+       padding:0;display:flex;align-items:flex-end;justify-content:flex-start;width:100%}
+  .map-btn::before{content:"";position:absolute;inset:0;
+       background:linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(0,0,0,.85) 100%)}
+  .map-btn span{position:relative;z-index:1;padding:8px 10px;font-weight:700;
+       font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+  .map-btn.selected{outline:2px solid var(--accent);outline-offset:2px}
+  .map-btn:hover{border-color:var(--accent-dim)}
+
+  /* Overlay que hospeda o wizard inteiro sobre a home (F3.5.2/F3.5.3).
+     lineups.html e maps.html reusam essas MESMAS classes pros próprios
+     pickers internos — nesse caso é um segundo modal por cima do primeiro,
+     de propósito: mesma linguagem visual, sem componente novo. */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;
+       align-items:center;justify-content:center;padding:20px;z-index:50;overflow-y:auto}
+  .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:6px;
+       padding:20px;width:min(760px,100%);max-height:85vh;overflow-y:auto;position:relative;
+       margin:auto}
+  .modal-box h3{margin:0 0 14px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;
+       color:var(--muted)}
+  .modal-close{position:absolute;top:12px;right:12px}
+</style>
+{% endblock %}
+
+{% block content %}
+{% include "_home_content.html" %}
+<div class="modal-overlay">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-label="Abrir partida">
+    <a class="btn icon-btn modal-close" href="/" title="Fechar">&#10005;</a>
+    <ol class="steps">
+      {% for name in steps %}
+      <li class="{{ 'current' if loop.index == step else ('done' if loop.index < step else '') }}">{{ name }}</li>
+      {% endfor %}
+    </ol>
+    {% block wizard_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

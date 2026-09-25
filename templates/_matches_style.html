@@ -1,0 +1,227 @@
+{# CSS das duas telas de partidas (F6.1): matches.html e match_detail.html.
+   Herda .box/.empty de shell.html e .match/.score/.mapch/.kv/.tip/.map-hero
+   de _home_content_style.html — aqui só entra o que é novo nessas telas. #}
+{% include "_home_content_style.html" %}
+
+  h1{margin:0;font-size:19px;font-weight:700;letter-spacing:.01em}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;
+       gap:16px;flex-wrap:wrap;margin-bottom:14px}
+  .page-head .sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .back{display:inline-flex;align-items:center;gap:6px;color:var(--accent-dim);
+       font-size:12px;text-decoration:none;margin-bottom:10px}
+  .back:hover{text-decoration:underline}
+
+  /* barra de filtros — lado, mapa, e link pro relatório antigo */
+  .filters{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .fgroup{display:flex;align-items:center;gap:6px}
+  .fgroup > .lbl{font-size:9px;font-weight:700;letter-spacing:.14em;
+       text-transform:uppercase;color:var(--muted);margin-right:2px}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);
+       color:var(--muted);border:1px solid var(--line-soft);border-radius:2px;
+       padding:6px 12px;font-size:11.5px;font-weight:700;letter-spacing:.06em;
+       text-decoration:none;font-family:var(--sans)}
+  .chip:hover{color:var(--text)}
+  .chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .chip img{width:15px;height:15px;object-fit:contain}
+
+  /* KPIs do topo */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+       gap:12px;margin-bottom:16px}
+  .kpi{background:var(--panel);border:1px solid var(--line-soft);border-radius:3px;
+       padding:13px 15px;display:flex;flex-direction:column;gap:5px}
+  .kpi .lbl{font-size:8.5px;font-weight:700;letter-spacing:.14em;
+       text-transform:uppercase;color:var(--muted)}
+  .kpi .val{font-family:var(--mono);font-size:25px;font-weight:700;line-height:1;
+       letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .kpi .dlt{font-family:var(--mono);font-size:10.5px;font-weight:700}
+  .up{color:var(--win)} .down{color:var(--loss)} .flat{color:var(--muted)}
+
+  /* forma recente */
+  .form-strip{display:flex;gap:4px;flex-wrap:wrap}
+  .form-strip a{width:17px;height:17px;border-radius:2px;display:block;
+       background:var(--chip);border:1px solid transparent}
+  .form-strip a.w{background:rgba(123,224,138,.8);border-color:rgba(123,224,138,.8)}
+  .form-strip a.l{background:rgba(255,138,138,.55);border-color:rgba(255,138,138,.55)}
+  .form-strip a:hover{outline:1px solid var(--accent);outline-offset:1px}
+
+  /* barra empilhada de motivo de vitória */
+  .split{display:flex;height:9px;border-radius:2px;overflow:hidden}
+  .split span{display:block}
+  .split-key{display:flex;gap:14px;flex-wrap:wrap;margin-top:9px;
+       font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+  .split-key i{width:8px;height:8px;border-radius:1px;display:inline-block;margin-right:5px}
+
+  /* cartões de mapa com arte */
+  .mapgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+  .mapcard{position:relative;overflow:hidden;isolation:isolate;border-radius:3px;
+       border:1px solid var(--line-soft);min-height:158px;padding:13px;
+       display:flex;flex-direction:column;justify-content:flex-end;gap:9px;
+       text-decoration:none;color:var(--text)}
+  .mapcard .art{position:absolute;inset:0;z-index:-2;background-image:var(--art);
+       background-size:cover;background-position:center;opacity:.45;filter:saturate(.75)}
+  .mapcard .art::after{content:"";position:absolute;inset:0;
+       background:linear-gradient(180deg,rgba(16,20,24,.25),rgba(16,20,24,.95))}
+  .mapcard.noart{background:var(--panel)}
+  .mapcard .top{display:flex;align-items:center;gap:9px;margin-bottom:auto}
+  .mapcard .top img{width:26px;height:26px;object-fit:contain}
+  .mapcard strong{font-size:17px;font-weight:700;letter-spacing:.01em}
+  .mapcard .line{display:flex;align-items:baseline;justify-content:space-between;
+       gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+       color:var(--muted);text-transform:uppercase}
+  .mapcard .line b{font-size:12.5px;font-weight:500;color:var(--text)}
+  /* O cartão é um <a>, então os agrupadores rótulo+barra são <span>: sem
+     display:block eles ficam inline e a barra sobe por cima do texto. */
+  .mapcard .metric{display:block}
+  /* display:block explícito: a minibar é <span> dentro de <a>/<td>, e um
+     inline ignora height/width. */
+  .minibar{display:block;height:4px;background:rgba(255,255,255,.09);
+       border-radius:2px;overflow:hidden;margin-top:3px}
+  .minibar span{display:block;height:100%;border-radius:2px}
+
+  /* tabelas */
+  .tw{overflow-x:auto}
+  table{border-collapse:collapse;width:100%}
+  th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line-soft);
+       font-size:13px;white-space:nowrap}
+  th{font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+       color:var(--muted);font-family:var(--sans)}
+  td{font-family:var(--mono);font-variant-numeric:tabular-nums;color:#c3dbd6}
+  td.txt{font-family:var(--sans);color:var(--text)}
+  tbody tr:last-child td{border-bottom:0}
+  tr.link{cursor:pointer}
+  tr.link:hover{background:#151b1f}
+  td.num,th.num{text-align:right}
+  .delta{display:inline-block;padding:2px 7px;border-radius:2px;font-weight:700;font-size:11.5px}
+  .delta.up{background:rgba(123,224,138,.14)}
+  .delta.down{background:rgba(255,138,138,.14)}
+  .pill{display:inline-block;padding:2px 8px;border:1px solid currentColor;border-radius:2px;
+       font-size:10px;font-weight:700;letter-spacing:.05em;font-family:var(--sans)}
+  .pill.win{color:var(--win)} .pill.loss{color:var(--loss)} .pill.neutral{color:var(--muted)}
+
+  /* grupos de coluna alternáveis */
+  .colgroups{display:flex;gap:4px;padding:12px 13px 0;flex-wrap:wrap}
+  .colgroups button{background:var(--chip);color:var(--muted);border:1px solid var(--line-soft);
+       border-radius:2px;padding:6px 12px;font-family:var(--sans);font-size:10.5px;
+       font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+  .colgroups button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);
+       border-color:var(--accent)}
+
+  /* gráfico de tendência com séries alternáveis */
+  .trend{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+  .trend .series{display:flex;flex-direction:column;gap:7px;min-width:104px}
+  .trend .series label{display:flex;align-items:center;gap:7px;font-family:var(--mono);
+       font-size:11.5px;cursor:pointer}
+  .trend .canvas-wrap{flex:1 1 380px;min-width:260px}
+
+  /* abas do detalhe */
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line-soft);
+       overflow-x:auto;margin-bottom:16px}
+  .tabs button{background:none;border:0;border-bottom:2px solid transparent;
+       color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+       text-transform:uppercase;font-weight:700;padding:10px 14px;cursor:pointer;white-space:nowrap}
+  .tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+  .tabs button:hover{color:var(--text)}
+
+  /* hero do detalhe */
+  .hero{position:relative;overflow:hidden;isolation:isolate;border:1px solid var(--line-soft);
+       border-radius:3px;padding:22px 20px;margin-bottom:16px}
+  .hero .art{position:absolute;inset:0;z-index:-2;background-image:var(--art);
+       background-size:cover;background-position:center;opacity:.4;filter:saturate(.75)}
+  .hero .art::after{content:"";position:absolute;inset:0;
+       background:linear-gradient(180deg,rgba(16,20,24,.4),rgba(16,20,24,.93))}
+  .hero .inner{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .hero .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.2em;
+       text-transform:uppercase;color:var(--accent);font-weight:700}
+  .hero h1{font-size:28px;margin-top:5px}
+  .hero .meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px}
+  .hero .bigscore{font-family:var(--mono);font-size:42px;font-weight:700;line-height:1;
+       letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-align:right}
+  .hero .bigscore .x{color:var(--muted);font-weight:400;font-size:26px;padding:0 6px}
+  .hero .verdict{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;
+       text-align:right;margin-top:6px;font-weight:700}
+
+  /* comparação com a própria média */
+  .gaugerow{display:flex;gap:22px;flex-wrap:wrap;justify-content:center}
+  .gaugecell{text-align:center;min-width:112px}
+  .gaugecell .cap{font-size:8.5px;font-weight:700;letter-spacing:.14em;
+       text-transform:uppercase;color:var(--muted);margin-top:2px}
+  .gaugecell .cmp{font-family:var(--mono);font-size:11px;font-weight:700;margin-top:3px}
+
+  /* boneco de acerto */
+  .hitbox{display:flex;gap:22px;align-items:center;justify-content:center;flex-wrap:wrap}
+  .hitbox .legend{display:flex;flex-direction:column;gap:7px;font-family:var(--mono);font-size:12px}
+  .hitbox .legend div{display:flex;align-items:center;gap:8px}
+  .hitbox .legend i{width:9px;height:9px;border-radius:2px;display:block}
+
+  /* matriz/duelos */
+  .h2h td.name{font-family:var(--sans);color:var(--text)}
+  .h2h .bar{display:flex;height:6px;border-radius:2px;overflow:hidden;min-width:90px}
+  .h2h .bar i{display:block}
+
+  /* radar */
+  .radar-wrap{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  /* A imagem e o SVG ocupam exatamente a mesma caixa: os pontos vêm em 0..100
+     (fração da imagem de radar), então basta o SVG cobrir a <img> inteira. */
+  /* A coluna precisa de largura própria: .radar usa width:min(100%,360px),
+     e sem base definida no flex item o 100% resolve contra largura
+     indeterminada e o radar colapsa. */
+  .radar-col{flex:0 1 360px;min-width:min(100%,260px)}
+  .radar{width:100%;max-width:360px;aspect-ratio:1;background:#0d1214;
+       border:1px solid var(--line-soft);border-radius:3px;position:relative;overflow:hidden}
+  .radar img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}
+  .radar svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .levels{display:flex;gap:4px;margin-bottom:8px}
+  .levels button{background:var(--chip);color:var(--muted);border:1px solid var(--line-soft);
+       border-radius:2px;padding:5px 11px;font-family:var(--sans);font-size:10.5px;
+       font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+  .levels button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);
+       border-color:var(--accent)}
+  .levels button span{font-family:var(--mono);opacity:.7;margin-left:4px}
+  .radar-legend{display:flex;flex-direction:column;gap:8px;font-family:var(--mono);font-size:11.5px}
+  .radar-legend label{display:flex;align-items:center;gap:8px;cursor:pointer}
+
+  /* timeline de rounds */
+  .rounds{display:flex;flex-direction:column;gap:5px}
+  .rnd{display:grid;grid-template-columns:34px 30px 1fr auto auto;gap:11px;align-items:center;
+       padding:8px 11px;border-radius:2px;border-left:3px solid var(--line);background:#0e1316}
+  .rnd.win{border-left-color:var(--win)}
+  .rnd.loss{border-left-color:var(--loss)}
+  .rnd .n{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .rnd .why{width:24px;height:24px;border-radius:50%;border:1px solid var(--line);
+       display:grid;place-items:center;font-size:11px}
+  .rnd .desc{font-size:12px;color:#9bb5b0;overflow:hidden;text-overflow:ellipsis}
+  .rnd .kd{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+  .rnd .run{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:44px;text-align:right}
+
+  /* economia e tempo cego: só existem nas partidas lidas do .dem com
+     PLAYER_PROPS, então o grid ganha as duas colunas só quando há dado */
+  .rounds.with-buy .rnd{grid-template-columns:34px 30px 1fr 112px 54px auto auto}
+  .rnd .buy{display:flex;flex-direction:column;gap:3px}
+  .rnd .buy-top{display:flex;justify-content:space-between;gap:6px;
+       font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.08em}
+  .rnd .buy-val{color:var(--muted);font-weight:400}
+  .rnd .buy .minibar{margin-top:0}
+  .rnd .blind{font-family:var(--mono);font-size:10.5px;color:#a78bfa;text-align:right}
+  .rnd .blind.empty-slot{color:transparent}
+
+  /* feed */
+  .feed{display:flex;flex-direction:column;gap:4px}
+  .fe{display:flex;align-items:center;gap:10px;padding:6px 11px;border-radius:2px;
+       background:#0e1316;font-family:var(--mono);font-size:12.5px}
+  .fe img{width:34px;height:14px;object-fit:contain;opacity:.85}
+  .fe .r{color:var(--muted);font-size:10.5px;min-width:26px}
+  .fe .who{font-weight:700}
+  .fe .hs{color:var(--amber);font-size:11px}
+
+  .wicon{width:40px;height:15px;object-fit:contain;vertical-align:middle;margin-right:9px;opacity:.85}
+  .foot-note{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:10px}
+
+  @media (max-width:780px){
+    .row-main,.row-info{grid-template-columns:1fr}
+    .hero .bigscore{text-align:left}
+    .hero .verdict{text-align:left}
+    .rnd,.rounds.with-buy .rnd{grid-template-columns:30px 26px 1fr auto;row-gap:6px}
+    .rnd .run{display:none}
+    .rnd .buy{grid-column:1/-1}
+    .rnd .blind{text-align:left}
+  }

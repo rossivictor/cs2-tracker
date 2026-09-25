@@ -1,0 +1,72 @@
+{% extends "wizard_modal.html" %}
+{% block title %}CS2 Tracker — Mapas{% endblock %}
+{% block extra_style %}
+  /* Duas opções grandes (item 7, 2026-09-20): escolha direta ou veto — a
+     tela inicial só decide qual caminho; quem escolhe direto abre num modal
+     (mesmo padrão visual do modal de troca em Lineups). O veto é um mini
+     fluxo de várias rodadas (bot incluso via HTMX) — em vez de reimplementar
+     esse fluxo dentro de um overlay, ele segue como tela própria (/veto),
+     só que com o mesmo tratamento visual de "caixa em destaque".*/
+  .mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:8px 0 16px}
+  .mode-grid > form{display:contents}
+  @media (max-width:640px){.mode-grid{grid-template-columns:1fr}}
+  .mode-card{background:var(--bg);border:1px solid var(--line);border-radius:6px;
+       padding:24px 20px;text-align:left;display:flex;flex-direction:column;gap:8px;
+       cursor:pointer;height:100%;width:100%;text-decoration:none;color:var(--text)}
+  .mode-card:hover{border-color:var(--accent-dim)}
+  .mode-card .icon{font-size:28px}
+  .mode-card h3{margin:0;font-size:15px;color:var(--text)}
+  .mode-card p{margin:0;font-size:12px;color:var(--muted);line-height:1.5}
+{% endblock %}
+{% block wizard_content %}
+<div class="box">
+  <h1>Mapas</h1>
+  <p class="hint">{{ session.format.upper() }} — escolha como quer decidir o(s) mapa(s).</p>
+
+  <div class="mode-grid">
+    <a class="mode-card" href="/maps?open=direct">
+      <span class="icon">&#128506;&#65039;</span>
+      <h3>{{ "Escolher o mapa pra jogar" if maps_needed == 1 else "Escolher " ~ maps_needed ~ " mapas pra jogar" }}</h3>
+      <p>Você escolhe direto, na ordem em que quer jogar.</p>
+    </a>
+    <form method="post" action="/maps/veto/start">
+      <button type="submit" class="mode-card">
+        <span class="icon">&#9878;&#65039;</span>
+        <h3>Fazer veto (picks &amp; bans)</h3>
+        <p>Bans e picks alternando com o bot, igual campeonato de verdade.</p>
+      </button>
+    </form>
+  </div>
+
+  <div class="error">{{ error or "" }}</div>
+  <div class="actions">
+    <form method="post" action="/back"><button type="submit">Voltar</button></form>
+  </div>
+
+  {% if open_direct %}
+  <div class="modal-overlay">
+    <div class="modal-box">
+      <a class="icon-btn modal-close" href="/maps" title="Fechar" aria-label="Fechar">&#10005;</a>
+      <h3>Escolha {{ maps_needed }} mapa(s)</h3>
+      <p class="hint">
+        Selecionados: {{ selected|length }}/{{ maps_needed }} — a ordem do clique é a ordem de jogo.
+      </p>
+      <div class="map-grid">
+        {% for map_name in pool %}
+        <form method="post" action="/maps/toggle">
+          <input type="hidden" name="map_name" value="{{ map_name }}">
+          <button type="submit" class="map-btn {{ 'selected' if map_name in selected else '' }}"
+                  style="background-image:url('/static/{{ map_bg[map_name] }}')">
+            <span>{% if map_name in selected %}{{ selected.index(map_name) + 1 }}. {% endif %}{{ map_label[map_name] }}</span>
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+      <div class="actions">
+        <form method="post" action="/maps/confirm"><button type="submit" class="primary">Continuar</button></form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
