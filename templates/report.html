@@ -1,0 +1,489 @@
+{% extends "shell.html" %}
+{% block title %}CS2 Tracker — Minhas partidas{% endblock %}
+
+{% block extra_style %}
+{% include "_home_content_style.html" %}
+  /* .match/.crest/.score/.mapch/.stats/.stat/.when acima vêm do mesmo
+     parcial da home (docs/features/M3.5-home.md) — a lista de "Partidas"
+     abaixo reusa o estilo do "Meu histórico" em vez de uma tabela, item
+     pedido explicitamente (2026-09-20). */
+  .matches .match{cursor:pointer}
+  .matches .match:hover{background:#151b1f}
+
+  h1{margin:0 0 8px;font-size:18px;font-weight:700;color:var(--text);letter-spacing:.02em}
+  h2.section{font-size:13px;color:var(--accent);margin:0 0 12px;letter-spacing:.1em;
+       text-transform:uppercase;font-weight:700}
+  .sub{font-size:12px;color:var(--muted)}
+  .back{display:inline-block;margin-bottom:12px;cursor:pointer;color:var(--accent-dim);font-size:13px}
+
+  .cards{display:flex;gap:12px;flex-wrap:wrap}
+  .card{background:var(--chip);border:1px solid var(--line-soft);border-radius:3px;padding:12px 16px;min-width:132px}
+  .card .value{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--accent)}
+  .card .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:6px;font-weight:600}
+  .card .sub{font-size:11px;color:var(--muted);margin-top:6px}
+
+  .table-wrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%}
+  th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line-soft);font-size:13px;white-space:nowrap}
+  td{font-family:var(--mono)}
+  th{color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:10.5px;font-family:var(--sans)}
+  tr:last-child td{border-bottom:0}
+  .clickable-row{cursor:pointer}
+  .clickable-row:hover{background:#151b1f}
+
+  .pill{display:inline-block;padding:2px 9px;border:1px solid currentColor;border-radius:2px;
+       font-size:10.5px;font-weight:700;letter-spacing:.05em;font-family:var(--sans)}
+  .pill.win{color:var(--win)}
+  .pill.loss{color:var(--loss)}
+  .pill.neutral{color:var(--muted)}
+  .kill{color:var(--win)}
+  .death{color:var(--loss)}
+
+  .side-toggle{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .side-toggle button{background:var(--chip);color:var(--muted);border:1px solid var(--line-soft);
+       padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--sans);
+       letter-spacing:.06em;border-radius:2px}
+  .side-toggle button.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+  canvas{max-width:100%;background:transparent}
+  #match-view{display:none}
+{% endblock %}
+
+{% block content %}
+<div id="dashboard-view">
+  <h1>Minhas partidas</h1>
+  <p class="sub" style="margin-bottom:16px">Dashboard local · gerado a partir do banco · sem servidor</p>
+  <div class="side-toggle" id="dashboard-toggle"></div>
+
+  <div class="box">
+    <header><h2>Resumo</h2></header>
+    <div class="body"><div class="cards" id="summary-cards"></div></div>
+  </div>
+
+  <div class="box">
+    <header><h2>Recordes pessoais</h2></header>
+    <div class="body"><div class="cards" id="records-cards"></div></div>
+  </div>
+
+  <div class="box">
+    <header><h2>Ranking por mapa</h2></header>
+    <div class="body">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Mapa</th><th>Partidas</th><th>K/D</th><th>ADR</th><th>HS%</th><th>Win%</th><th>Entry%</th></tr>
+          </thead>
+          <tbody id="maps-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="box">
+    <header><h2>Vitória por bombsite</h2></header>
+    <div class="body">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Site</th><th>Plants</th><th>Vitórias</th><th>Win%</th></tr></thead>
+          <tbody id="bombsites-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="box">
+    <header><h2>Tendência</h2></header>
+    <div class="body"><canvas id="trend" height="90"></canvas></div>
+  </div>
+
+  <div class="box">
+    <header><h2>Partidas</h2></header>
+    <div class="body"><div class="matches" id="matches-list"></div></div>
+  </div>
+</div>
+
+<div id="match-view">
+  <span class="back" onclick="location.hash=''">&lt; voltar ao dashboard</span>
+  <h1 id="match-title"></h1>
+  <div class="side-toggle" id="match-toggle"></div>
+
+  <div class="box">
+    <header><h2>Resumo da partida</h2></header>
+    <div class="body"><div class="cards" id="match-cards"></div></div>
+  </div>
+
+  <div class="box">
+    <header><h2>Armas</h2></header>
+    <div class="body">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Arma</th><th>Kills</th><th>Headshots</th><th>HS%</th><th>Dano</th></tr></thead>
+          <tbody id="weapons-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="box">
+    <header><h2>Vitória por bombsite</h2></header>
+    <div class="body">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Site</th><th>Plants</th><th>Vitórias</th><th>Win%</th></tr></thead>
+          <tbody id="match-bombsites-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="box">
+    <header><h2>Linha do tempo de rounds</h2></header>
+    <div class="body">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Round</th><th>Seu lado</th><th>Resultado</th><th>Entry</th><th>Vencedor</th><th>Motivo</th><th>Bomba</th><th>Seu K/D no round</th></tr></thead>
+          <tbody id="rounds-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="box">
+    <header><h2>Feed de kills/mortes</h2></header>
+    <div class="body">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Round</th><th>Evento</th><th>Contra</th><th>Arma</th><th>HS</th><th>Distância</th></tr></thead>
+          <tbody id="feed-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+const PAYLOAD = {{ payload_json | safe }};
+const DATA = PAYLOAD.matches;
+const MAPS = PAYLOAD.maps;
+const RECORDS = PAYLOAD.records;
+const BOMBSITES = PAYLOAD.bombsites;
+
+const SIDES = [["all", "Geral"], ["ct", "CT"], ["t", "TR"]];
+let currentSide = "all";
+
+const REASON_LABEL = {
+  bomb_defused: "Bomba defusada",
+  bomb_exploded: "Bomba explodiu",
+  t_killed: "Terroristas eliminados",
+  ct_killed: "CTs eliminados",
+};
+const SIDE_LABEL = { ct: "CT", t: "TR" };
+const ENTRY_LABEL = { for: "você", against: "contra", other: "bots" };
+const WEAPON_LABEL = {
+  hkp2000: "P2000", glock: "Glock-18", usp_silencer: "USP-S", p250: "P250",
+  fiveseven: "Five-SeveN", tec9: "Tec-9", cz75a: "CZ75-Auto", deagle: "Desert Eagle",
+  elite: "Dual Berettas", revolver: "R8 Revolver",
+  mac10: "MAC-10", mp9: "MP9", mp7: "MP7", mp5sd: "MP5-SD", ump45: "UMP-45", p90: "P90", bizon: "PP-Bizon",
+  ak47: "AK-47", m4a1: "M4A4", m4a1_silencer: "M4A1-S", famas: "FAMAS", galilar: "Galil AR",
+  aug: "AUG", sg556: "SG 553", awp: "AWP", ssg08: "SSG 08", scar20: "SCAR-20", g3sg1: "G3SG1",
+  nova: "Nova", xm1014: "XM1014", mag7: "MAG-7", sawedoff: "Sawed-Off",
+  m249: "M249", negev: "Negev",
+  hegrenade: "Granada HE", flashbang: "Flashbang", smokegrenade: "Smoke", molotov: "Molotov",
+  inferno: "Incendiário/Molotov", decoy: "Decoy", knife: "Faca", knife_t: "Faca",
+  planted_c4: "Bomba (C4)", taser: "Zeus x27",
+};
+function label(map, key) { return map[key] || key; }
+
+function fmtDate(iso) { return iso ? iso.replace("T", " ").slice(0, 16) : ""; }
+function fmtNum(x, digits) { return x == null ? "-" : x.toFixed(digits); }
+function fmtPct(x) { return x == null ? "-" : x.toFixed(0) + "%"; }
+// Placar do SEU time. score_ct/score_t são rounds por lado — num MR12 os
+// times trocam de lado no intervalo, então aquela soma não é placar de
+// ninguém. Fica disponível como detalhe em fmtSideScore.
+function fmtScore(m) {
+  if (m.score_mine == null || m.score_theirs == null) return "-";
+  const star = (m.score_source || "").startsWith("rounds-") &&
+               m.score_source !== "rounds-render" ? "*" : "";
+  return `${m.score_mine} × ${m.score_theirs}${star}`;
+}
+function fmtSideScore(m) {
+  return (m.score_ct == null || m.score_t == null) ? "-" : `CT ${m.score_ct} : TR ${m.score_t}`;
+}
+function outcomePill(m) {
+  if (!m.outcome) return "";
+  const txt = { win: "Vitória", loss: "Derrota", tie: "Empate" }[m.outcome] || m.outcome;
+  const cls = m.outcome === "win" ? "win" : m.outcome === "loss" ? "loss" : "";
+  return `<span class="pill ${cls}">${txt}</span>`;
+}
+// Placar com a mesma marcação de <span class="x"> que a home usa, pra
+// herdar exatamente o estilo mono/cor de "Meu histórico" (a home não
+// escreve "Vitória"/"Derrota" — a cor do score e a borda já carregam o
+// resultado, ver docs/features/M3.5-home.md).
+function scoreHtml(m) {
+  if (m.score_mine == null || m.score_theirs == null) {
+    return `<span class="score">-<span class="x">×</span>-</span>`;
+  }
+  const star = (m.score_source || "").startsWith("rounds-") &&
+               m.score_source !== "rounds-render" ? "*" : "";
+  return `<span class="score">${m.score_mine}<span class="x">×</span>${m.score_theirs}${star}</span>`;
+}
+function scoreNote(m) {
+  const notes = {
+    "rounds-reconciled": "placar reconstruído; um round da subida do servidor foi contado pelo jogo",
+    "rounds-partial": "placar parcial: algum round ficou sem lado do humano",
+    "rounds-render": "placar reconstruído na renderização (partida não reprocessada)",
+  };
+  return notes[m.score_source] || "";
+}
+function fmtMap(name) { return name ? name.replace(/^de_/, "") : "?"; }
+// null em partidas ingeridas antes desta coluna existir (ver parser.py,
+// _NEW_MATCH_COLUMNS) — nesse caso não mostra nada, não "BO?".
+function seriesLabel(numMaps) { return numMaps ? `BO${numMaps}` : ""; }
+
+function card(value, lbl, sub) {
+  return `<div class="card"><div class="value">${value}</div><div class="label">${lbl}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
+}
+
+function sideToggle(containerId, onChange) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = SIDES.map(([key, lbl]) =>
+    `<button data-side="${key}" class="${key === currentSide ? 'active' : ''}">${lbl}</button>`
+  ).join("");
+  el.querySelectorAll("button").forEach(btn => {
+    btn.onclick = () => { currentSide = btn.dataset.side; onChange(); };
+  });
+}
+
+function statsSummary(statsList) {
+  const present = statsList.filter(s => s);
+  if (present.length === 0) return null;
+  const totalKills = present.reduce((s, m) => s + m.kills, 0);
+  const totalDeaths = present.reduce((s, m) => s + m.deaths, 0);
+  const withRounds = present.filter(m => m.rounds_played != null);
+  const totalRounds = withRounds.reduce((s, m) => s + m.rounds_played, 0);
+  const totalDmg = withRounds.reduce((s, m) => s + (m.dmg_total != null ? m.dmg_total : m.adr * m.rounds_played), 0);
+  const totalWins = withRounds.reduce((s, m) => s + m.round_wins, 0);
+  const totalHs = present.reduce((s, m) => s + (m.hs_kills != null ? m.hs_kills : Math.round(m.hs_pct / 100 * m.kills)), 0);
+  const withEntry = present.filter(m => m.entry_for != null);
+  const entryFor = withEntry.reduce((s, m) => s + m.entry_for, 0);
+  const entryAgainst = withEntry.reduce((s, m) => s + m.entry_against, 0);
+  const entryTotal = entryFor + entryAgainst;
+  return {
+    kills: totalKills,
+    deaths: totalDeaths,
+    kd: totalDeaths ? totalKills / totalDeaths : totalKills,
+    adr: totalRounds ? totalDmg / totalRounds : null,
+    hs_pct: totalKills ? 100 * totalHs / totalKills : 0,
+    rounds_played: totalRounds || null,
+    round_win_pct: totalRounds ? 100 * totalWins / totalRounds : null,
+    entry_pct: entryTotal ? 100 * entryFor / entryTotal : null,
+  };
+}
+
+function summaryCardsHtml(s, matchCount) {
+  if (!s) return "<p class='empty'>Sem rounds nesse lado ainda.</p>";
+  return [
+    matchCount != null ? card(matchCount, "Partidas") : null,
+    card(s.kd.toFixed(2), "K/D"),
+    card(fmtNum(s.adr, 1), "ADR médio"),
+    card(s.hs_pct.toFixed(0) + "%", "Headshot %"),
+    card(fmtPct(s.round_win_pct), "Round win rate"),
+    card(fmtPct(s.entry_pct), "Entry %"),
+  ].filter(Boolean).join("");
+}
+
+function recordSub(rec) {
+  if (!rec) return "";
+  const bits = [fmtMap(rec.map), fmtDate(rec.played_at)].filter(Boolean);
+  return bits.join(" · ");
+}
+
+function recordsHtml(rec) {
+  if (!rec) return "<p class='empty'>Sem recordes nesse lado ainda.</p>";
+  const lk = rec.longest_kill;
+  return [
+    rec.best_kd ? card(rec.best_kd.value.toFixed(2), "Melhor K/D", recordSub(rec.best_kd)) : null,
+    rec.best_adr ? card(rec.best_adr.value.toFixed(1), "Melhor ADR", recordSub(rec.best_adr)) : null,
+    card(rec.max_kill_streak || 0, "Maior streak"),
+    card(rec.current_kill_streak || 0, "Streak atual"),
+    lk ? card(Math.round(lk.distance) + "u", "Kill mais longa", `${label(WEAPON_LABEL, lk.weapon)} · ${fmtMap(lk.map)}`) : card("-", "Kill mais longa"),
+  ].filter(Boolean).join("");
+}
+
+function bombsiteRows(rows) {
+  if (!rows || !rows.length) return `<tr><td colspan="4" class="empty">Sem plants nesse recorte.</td></tr>`;
+  return rows.map(r => `<tr><td>${r.site}</td><td>${r.plants}</td><td>${r.wins}</td><td>${fmtPct(r.win_pct)}</td></tr>`).join("");
+}
+
+function renderDashboard() {
+  document.getElementById("dashboard-view").style.display = "block";
+  document.getElementById("match-view").style.display = "none";
+
+  if (DATA.length === 0) {
+    document.getElementById("summary-cards").innerHTML = "<p class='empty'>Nenhuma partida no banco ainda.</p>";
+    document.getElementById("records-cards").innerHTML = "";
+    document.getElementById("maps-tbody").innerHTML = "";
+    document.getElementById("bombsites-tbody").innerHTML = "";
+    return;
+  }
+
+  sideToggle("dashboard-toggle", renderDashboard);
+
+  const agg = statsSummary(DATA.map(m => m.stats[currentSide]));
+  document.getElementById("summary-cards").innerHTML = summaryCardsHtml(agg, DATA.length);
+  document.getElementById("records-cards").innerHTML = recordsHtml(RECORDS[currentSide]);
+
+  document.getElementById("maps-tbody").innerHTML = MAPS.map(row => {
+    const s = row.stats[currentSide];
+    if (!s) {
+      return `<tr><td>${fmtMap(row.map)}</td><td colspan="6" class="empty">— sem rounds nesse lado —</td></tr>`;
+    }
+    return `<tr>
+      <td>${fmtMap(row.map)}</td>
+      <td>${s.matches}</td>
+      <td>${s.kd.toFixed(2)}</td>
+      <td>${fmtNum(s.adr, 1)}</td>
+      <td>${s.hs_pct.toFixed(0)}%</td>
+      <td>${fmtPct(s.round_win_pct)}</td>
+      <td>${fmtPct(s.entry_pct)}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="7" class="empty">Sem mapas.</td></tr>`;
+
+  document.getElementById("bombsites-tbody").innerHTML = bombsiteRows(BOMBSITES[currentSide]);
+
+  // Mesmo markup de linha que "Meu histórico" na home (_home_content.html)
+  // — borda colorida à esquerda pelo resultado, placar grande em mono,
+  // K/D/ADR/HS como secundários, mapa e data no fim. m.map_icon/map_label
+  // vêm prontos do payload (report.build_payload), calculados com os
+  // mesmos helpers de stats.py que a home usa.
+  document.getElementById("matches-list").innerHTML = DATA.map(m => {
+    const s = m.stats[currentSide];
+    const outcomeClass = m.outcome === "win" ? "w" : m.outcome === "loss" ? "l" : "";
+    const statsHtml = s
+      ? `<div class="stat"><b>${s.kills}/${s.deaths}</b><span>K/D</span></div>
+         <div class="stat"><b>${fmtNum(s.adr, 1)}</b><span>ADR</span></div>
+         <div class="stat"><b>${s.hs_pct.toFixed(0)}%</b><span>HS</span></div>`
+      : `<span class="empty">— sem rounds nesse lado —</span>`;
+    return `<div class="match ${outcomeClass}" onclick="location.hash='match-${m.id}'">
+      <div class="ctx">
+        <span class="crest tip" data-tip="Competitivo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18"/></svg>
+        </span>
+        ${scoreHtml(m)}
+      </div>
+      <div class="stats">${statsHtml}</div>
+      <span class="mapch tip" data-tip="${m.map_label}"><img src="/static/${m.map_icon}" alt="${m.map_label}"></span>
+      ${m.series_num_maps ? `<span class="pill neutral">${seriesLabel(m.series_num_maps)}</span>` : ""}
+      <span class="when">${fmtDate(m.played_at)}</span>
+    </div>`;
+  }).join("") || `<p class="empty">Nenhuma partida no banco ainda.</p>`;
+
+  const trendMatches = DATA.filter(m => m.stats[currentSide]);
+  const tickColor = '#7a908c';
+  if (window._trendChart) window._trendChart.destroy();
+  window._trendChart = new Chart(document.getElementById('trend'), {
+    type: 'line',
+    data: {
+      labels: trendMatches.map(m => fmtDate(m.played_at)),
+      datasets: [
+        { label: 'K/D', data: trendMatches.map(m => Math.round(m.stats[currentSide].kd * 100) / 100), borderColor: '#5eead4', backgroundColor: 'rgba(94,234,212,.12)', yAxisID: 'y', tension: 0.25 },
+        { label: 'ADR', data: trendMatches.map(m => m.stats[currentSide].adr == null ? null : Math.round(m.stats[currentSide].adr * 10) / 10), borderColor: '#fbbf24', yAxisID: 'y1', tension: 0.25, spanGaps: true }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: tickColor, font: { family: 'Archivo, sans-serif' } } }
+      },
+      scales: {
+        x: { ticks: { color: tickColor }, grid: { color: '#1a2a27' } },
+        y: { type: 'linear', position: 'left', title: { display: true, text: 'K/D', color: tickColor }, ticks: { color: tickColor }, grid: { color: '#1a2a27' } },
+        y1: { type: 'linear', position: 'right', title: { display: true, text: 'ADR', color: tickColor }, ticks: { color: tickColor }, grid: { drawOnChartArea: false } }
+      }
+    }
+  });
+}
+
+function renderMatch(id) {
+  const m = DATA.find(x => x.id === id);
+  if (!m) { location.hash = ''; return; }
+
+  document.getElementById("dashboard-view").style.display = "none";
+  document.getElementById("match-view").style.display = "block";
+
+  document.getElementById("match-title").innerHTML =
+    `${fmtMap(m.map)}${m.series_num_maps ? ` (${seriesLabel(m.series_num_maps)})` : ""} — ${fmtScore(m)} ${outcomePill(m)} — ${fmtDate(m.played_at)}` +
+    `<div class="sub" style="margin-top:4px">por lado: ${fmtSideScore(m)}` +
+    (scoreNote(m) ? ` · ${scoreNote(m)}` : "") + `</div>`;
+
+  sideToggle("match-toggle", () => renderMatch(id));
+
+  const s = m.stats[currentSide];
+  document.getElementById("match-cards").innerHTML = s
+    ? [
+        card(s.kills, "Kills"),
+        card(s.deaths, "Deaths"),
+        card(s.kd.toFixed(2), "K/D"),
+        s.adr != null ? card(fmtNum(s.adr, 1), "ADR") : (s.dmg_total != null ? card(s.dmg_total, "Dano total") : null),
+        card(s.hs_pct.toFixed(0) + "%", "Headshot %"),
+        s.round_win_pct != null ? card(fmtPct(s.round_win_pct), "Round win rate") : null,
+        s.entry_pct != null ? card(fmtPct(s.entry_pct), "Entry %") : null,
+        s.max_streak != null ? card(s.max_streak, "Streak na partida") : null,
+        s.rounds_played != null ? card(s.rounds_played, "Rounds") : null,
+        s.assists != null ? card(s.assists, "Assists") : null,
+      ].filter(Boolean).join("")
+    : "<p class='empty'>Você não jogou nesse lado nessa partida.</p>";
+
+  const weapons = m.weapons[currentSide];
+  document.getElementById("weapons-tbody").innerHTML = weapons.map(w => `
+    <tr>
+      <td>${label(WEAPON_LABEL, w.weapon)}</td>
+      <td>${w.kills}</td>
+      <td>${w.headshots}</td>
+      <td>${fmtPct(w.hs_pct)}</td>
+      <td>${w.dmg}</td>
+    </tr>`).join("") || `<tr><td colspan="5" class="empty">Sem dados de arma.</td></tr>`;
+
+  document.getElementById("match-bombsites-tbody").innerHTML = bombsiteRows((m.bombsites || {})[currentSide]);
+
+  const rounds = currentSide === "all" ? m.rounds : m.rounds.filter(r => r.human_side === currentSide);
+  document.getElementById("rounds-tbody").innerHTML = rounds.map(r => `
+    <tr>
+      <td>${r.round_num}</td>
+      <td>${r.human_side ? label(SIDE_LABEL, r.human_side) : '-'}</td>
+      <td><span class="pill ${r.result}">${r.result === 'win' ? 'Vitória' : r.result === 'loss' ? 'Derrota' : '-'}</span></td>
+      <td class="${r.entry === 'for' ? 'kill' : r.entry === 'against' ? 'death' : ''}">${r.entry ? (ENTRY_LABEL[r.entry] || r.entry) : '-'}</td>
+      <td>${label(SIDE_LABEL, r.winner_side)}</td>
+      <td>${label(REASON_LABEL, r.reason)}</td>
+      <td>${r.bomb_plant ? ('Sim (' + (r.bomb_site || '?') + ')') : '-'}</td>
+      <td><span class="kill">${r.kills}</span> / <span class="death">${r.deaths}</span></td>
+    </tr>`).join("") || `<tr><td colspan="8" class="empty">Sem rounds nesse lado.</td></tr>`;
+
+  const feed = currentSide === "all" ? m.kill_feed : m.kill_feed.filter(e => e.human_side === currentSide);
+  document.getElementById("feed-tbody").innerHTML = feed.map(e => `
+    <tr>
+      <td>${e.round_num}</td>
+      <td class="${e.type}">${e.type === 'kill' ? 'Kill' : 'Morte'}</td>
+      <td>${e.opponent}</td>
+      <td>${label(WEAPON_LABEL, e.weapon)}</td>
+      <td>${e.headshot ? 'HS' : '-'}</td>
+      <td>${e.distance != null ? e.distance + 'u' : '-'}</td>
+    </tr>`).join("") || `<tr><td colspan="6" class="empty">Sem eventos.</td></tr>`;
+}
+
+function render() {
+  const hash = location.hash.slice(1);
+  if (hash.startsWith("match-")) {
+    renderMatch(parseInt(hash.slice(6), 10));
+  } else {
+    renderDashboard();
+  }
+}
+window.addEventListener("hashchange", render);
+render();
+</script>
+{% endblock %}

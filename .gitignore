@@ -13,8 +13,8 @@ docker/plugins-src/*/bin/
 docker/plugins-src/*/obj/
 .venv/
 *.db
-report.html
-index.html
+/report.html
+/index.html
 .env
 # Perfil local salvo pelo wizard web (D8, docs/features/M3-web-paridade.md
 # F3.2) — nick/SteamID64 de quem roda o app, não é dado do projeto.
