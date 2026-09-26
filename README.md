@@ -244,9 +244,16 @@ em [docs/SPEC.md §10](docs/SPEC.md) (Passo 0).
 A imagem já traz as três variantes em `overrides/{Low,Medium,High}/`. Este
 projeto fixa **Low**. Pra trocar:
 
+**Pare o servidor ANTES de copiar.** O jogo mantém o VPK mapeado em memória
+enquanto roda; sobrescrever o arquivo por baixo de um processo vivo derruba o
+servidor com `FATAL ERROR: Error reading from loaded packed store` seguido de
+`Segmentation fault` (reproduzido em 26/09/2026). O processo volta sozinho e o
+perfil novo passa a valer, mas a partida em andamento morre junto.
+
 ```bash
-docker exec cs2-spike cp /home/steam/cs2-dedicated/game/csgo/overrides/Medium/botprofile.vpk /home/steam/cs2-dedicated/game/csgo/overrides/botprofile.vpk
-docker restart cs2-spike
+docker stop cs2-spike
+docker run --rm -v cs2-tracker_cs2-data:/d alpine cp /d/game/csgo/overrides/Medium/botprofile.vpk /d/game/csgo/overrides/botprofile.vpk
+docker start cs2-spike
 ```
 
 Troque `Medium` por `High` pro perfil mais agressivo. Na prática: `Low`
