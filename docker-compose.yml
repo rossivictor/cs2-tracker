@@ -52,16 +52,15 @@ services:
       # funcionarem sem editar admins.json na mão) — mesmo valor que vai
       # em docker/match_config.spike.json.
       - MATCHZY_ADMINS=${MATCHZY_ADMINS}
-      # Sem isso a imagem busca "latest" do Metamod/CSSharp a cada boot —
-      # container ficou parado uns dias e, ao subir de novo, pegou um
-      # Metamod mais novo (interface 18) incompatível com os plugins
-      # nativos instalados (CounterStrikeSharp, RayTrace, BotHider, todos
-      # compilados pra interface 17): "[META] Loaded 0 plugins." no log,
-      # matchzy_loadmatch/css_start viravam "Unknown command". Fixando nas
-      # versões que sabíamos que funcionavam juntas (as que já estavam
-      # instaladas antes desse auto-update quebrar tudo).
-      - MMSOURCE_FIXED_VERSION=2.0.0.1411
-      - CSSHARP_FIXED_VERSION=v1.0.373
+      # Versões fixadas: sem pin, a imagem baixa o "latest" a cada boot, e
+      # isso já derrubou MatchZy e captura uma vez ("[META] Loaded 0 plugins").
+      # Metamod e CSSharp formam um par que não se separa: Metamod >= 1459
+      # recusa plugins da interface 17, e a CSSharp >= 1.0.375 exige Metamod
+      # com KHook (interface 18, build >= 1467). Pares válidos: 1411 com
+      # CSSharp <= 1.0.374, ou 1469 com 1.0.375. Troca e volta:
+      # docs/runbooks/b1.3-cssharp-1.0.375.md (B1.3r).
+      - MMSOURCE_FIXED_VERSION=2.0.0.1469
+      - CSSHARP_FIXED_VERSION=v1.0.375
       - MATCHZY_FIXED_VERSION=0.8.15
     volumes:
       # Dados persistentes do servidor (jogo + addons instalados pela imagem).
