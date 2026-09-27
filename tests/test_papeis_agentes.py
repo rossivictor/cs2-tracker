@@ -21,18 +21,34 @@ Por que cada checagem existe:
 - Relatório de formato fixo por papel, e board só pelo CLI (H1.3).
 - Nenhuma linha copiada do AGENTS.md: regra universal mora lá, e o papel
   guarda só o próprio procedimento (kalendas, L38).
+- As passagens de bastão que a revisão do H1.6 achou quebradas: todo
+  comando do board citado nos papéis passa pelo parser do CLI de verdade;
+  G6/G7 RUIM reprova sem tirar o card de "Aguardando partida" (senão o
+  trilho aparece livre com o candidato ruim na main); o QA separa a fase
+  antes do merge da fase da partida; Agente+Humano é despachado; a
+  retomada tem comando; e a estrutura do servidor segue a numeração do
+  runbook do B1.3r, com a pausa para o merge do tech-manager.
 
 Só leitura de arquivo versionado: nada de processo, rede, Docker ou banco.
 """
 import json
 import re
+import shlex
+import sys
 from pathlib import Path
 
 import pytest
 
 RAIZ = Path(__file__).resolve().parent.parent
+if str(RAIZ) not in sys.path:
+    sys.path.insert(0, str(RAIZ))
+
+from tools.board.cli import ler_argumentos  # noqa: E402
+from tools.board.modelo import STATUS  # noqa: E402
+
 AGENTES = RAIZ / ".claude" / "agents"
 AGENTS_MD = RAIZ / "AGENTS.md"
+RUNBOOK_B13R = RAIZ / "docs" / "runbooks" / "b1.3-cssharp-1.0.375.md"
 PYTHON = "C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe"
 TOPO = "Este arquivo e o AGENTS.md já estão no seu contexto; não os abra com Read"
 MAX_LINHAS = 120
@@ -77,15 +93,25 @@ RELATORIO = {
 # poda de texto derruba o teste.
 REGRAS_DO_PAPEL = {
     "dev": ["não consulta o board", "Docker", "`wizard_tui.py`", "`start_match.py`",
-            "Não abre PR, não mergeia", "Não edita critério de aceite"],
+            "Não abre PR, não mergeia", "Não edita critério de aceite",
+            "fora de card de CI", "**Retomada**", "git switch --detach origin/<branch>",
+            "git push origin HEAD:<branch>", "git revert <sha do revert>", "DEPOIS DO MERGE"],
     "qa": ["nunca edita código", "tools/evidencia_partida.py", "cópias",
-           "**Reprovação:**", "**Devolução técnica:**", "2ª reprovação", "3ª devolução"],
+           "**Reprovação:**", "**Devolução técnica:**", "2ª reprovação", "3ª devolução",
+           "**Fase 1, card em `Em testes`**", "**Fase 2, card em `Aguardando partida`**",
+           "DEPOIS DO MERGE", "**sem `--status`**", "Sem Edit nem Write"],
     "tech-manager": ["--merge --delete-branch", "Squash ou rebase, nunca", "candidato-N",
                      "jogavel-<AAAA-MM-DD", "Trilho único", "janela aberta (preflight 4)",
-                     "devolução técnica", "3ª devolução"],
+                     "devolução técnica", "3ª devolução", "`aguardando merge`",
+                     "Executor `Agente` ou `Agente+Humano`", "**Retomada**",
+                     "git revert -m 1 <merge>", "OK explícito do PM", "o runbook vence",
+                     "DEPOIS DO MERGE", "coleta do servidor salvou"],
     "servidor": ["docs/runbooks/", "tools/jogavel.py", "pode mexer no servidor", "Backup",
                  "Snapshot", "--force-recreate", "G6", "Fechamento (checklist G6)",
-                 "Rollback", "sem worktree"],
+                 "Rollback", "sem worktree", "**Pausa para o merge (entre os passos 2 e 3).**",
+                 "aguardando merge", "não rode o passo 0 nem recrie a marca",
+                 "Antes do recreate (passo 7), qualquer 3 aborta", "rev-parse HEAD",
+                 "anterior ao H1.3"],
 }
 
 
@@ -262,7 +288,9 @@ def test_dev_nao_toca_no_board():
     assert "tools.board" not in texto
 
 
-def test_qa_e_so_leitura_por_ferramenta_e_nao_so_por_regra():
+def test_qa_nao_tem_edit_nem_write():
+    # Bash e PowerShell ainda escrevem em disco: o que impede é a regra do
+    # papel. A ferramenta só tira o caminho mais curto (Edit/Write).
     chaves, _ = ler_frontmatter(_texto("qa"))
     ferramentas = {f.strip() for f in chaves["tools"].split(",")}
     assert not ferramentas & FERRAMENTAS_DE_ESCRITA
@@ -294,3 +322,78 @@ def test_nao_copia_regra_do_agents_md(papel):
             if len(regra) >= 30 and regra in texto:
                 copiadas.append(regra[:60])
     assert not copiadas, f"regra universal fica só no AGENTS.md: {copiadas}"
+
+
+# --------------------------------------------------------------- passagens de bastão
+
+
+_COMANDOS_DO_BOARD = ("validar", "fila", "reclassificar", "criar", "mover", "historico")
+
+
+def _comandos_do_board(texto):
+    """Todo comando do tools.board citado no papel, em bloco ou em `crase`."""
+    achados = []
+    for bloco in _blocos_de_codigo(texto):
+        achados += [linha.split("-m tools.board ", 1)[1] for linha in bloco.splitlines()
+                    if "-m tools.board " in linha]
+    prosa = re.sub(r"^```[^\n]*\n.*?^```", "", texto, flags=re.MULTILINE | re.DOTALL)
+    for trecho in re.findall(r"`([^`\n]+)`", prosa):
+        if "-m tools.board " in trecho:
+            achados.append(trecho.split("-m tools.board ", 1)[1])
+        elif trecho.split(" ", 1)[0] in _COMANDOS_DO_BOARD:
+            achados.append(trecho)
+    return [ler_argumentos(shlex.split(cmd)) + (cmd,) for cmd in achados]
+
+
+@pytest.mark.parametrize("papel", ["tech-manager", "qa", "servidor"])
+def test_todo_comando_do_board_passa_pelo_parser_do_cli(papel):
+    # ler_argumentos é o parser do H1.3: opção que ele não conhece levanta
+    # ErroBoard, e o agente ficaria preso num comando que o CLI recusa.
+    comandos = _comandos_do_board(_texto(papel))
+    assert comandos, f"{papel}.md não cita comando do board"
+    for comando, opcoes, bruto in comandos:
+        assert comando in _COMANDOS_DO_BOARD, bruto
+        if "status" in opcoes:
+            assert opcoes["status"] in STATUS, f"status fora dos oito: {bruto}"
+
+
+def test_parser_dos_comandos_pega_opcao_que_o_cli_nao_conhece():
+    from tools.board.modelo import ErroBoard
+    with pytest.raises(ErroBoard):
+        _comandos_do_board("`mover --card=<ID> --estado=Concluída`")
+
+
+def test_g6_ou_g7_ruim_reprova_sem_tirar_o_card_de_aguardando_partida():
+    # Com --status, o card sairia de "Aguardando partida": o NO_TRILHO do
+    # modelo só olha o status, o trilho apareceria livre com o candidato
+    # ruim na main e a fila despacharia o card antes do revert.
+    comandos = [o for c, o, _ in _comandos_do_board(_texto("qa")) if c == "mover"]
+    assert any(o.get("reprovacao") and "status" not in o for o in comandos)
+    assert "O card fica em `Aguardando partida`, segurando o trilho" in _texto("qa")
+
+
+def test_tech_manager_so_libera_o_trilho_depois_do_revert():
+    comandos = [o for c, o, _ in _comandos_do_board(_texto("tech-manager")) if c == "mover"]
+    depois_do_revert = [o for o in comandos if o.get("candidato") == "null"]
+    assert depois_do_revert, "falta o mover que limpa o candidato depois do revert"
+    assert all(o.get("status") == "Pronta para começar" and o.get("branch") == "null"
+               and o.get("pr") == "null" for o in depois_do_revert)
+
+
+def test_tech_manager_nao_segura_agente_mais_humano_pela_parte_do_victor():
+    # A parte do Victor (janela, partida) vem DEPOIS do merge: exigir que
+    # ela esteja feita antes do despacho trava o trilho B1 inteiro.
+    texto = _texto("tech-manager")
+    assert "vem depois do merge" in texto
+    assert "`Agente+Humano` só com" not in texto
+
+
+def test_estrutura_do_servidor_segue_a_numeracao_do_runbook_do_b13r():
+    runbook = dict(re.findall(r"^### (\d+)\. (.+)$", RUNBOOK_B13R.read_text(encoding="utf-8"),
+                              re.MULTILINE))
+    papel = dict(re.findall(r"^(\d+)\. \*\*(.+?)\*\*", _texto("servidor"), re.MULTILINE))
+    assert sorted(runbook, key=int) == [str(n) for n in range(12)], "o runbook mudou"
+    assert sorted(papel, key=int) == sorted(runbook, key=int)
+    for numero, titulo in runbook.items():
+        primeira = re.sub(r"\W", "", titulo.split()[0]).lower()
+        assert primeira in papel[numero].lower(), f"passo {numero}: {titulo!r} x {papel[numero]!r}"
