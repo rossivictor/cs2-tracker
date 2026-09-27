@@ -7,19 +7,28 @@ carona"; runbook do B1.3r, "Depois da janela").
 
 Só leitura e só biblioteca padrão. Todas as entradas são explícitas:
 
-  --log ARQ       docker logs salvos desde o StartedAt, de preferência com
-                  `docker logs -t` (sem carimbo não dá para separar overflow
-                  de signon de overflow em jogo). Também lê a timeline do
-                  tools/live_watch.py, onde só as linhas [docker] contam.
-  --eventos DIR   cópia da pasta de captura: events_<matchid>_map<N>.jsonl
-                  arquivados e current.jsonl.
-  --db ARQ        banco SQLite, aberto com mode=ro e sem padrão. O banco real
-                  do checkout principal é recusado sem --leitura-banco-real, e
-                  mesmo com ele abre só leitura; o relatório diz se o mtime
-                  ficou intacto.
+  --log ARQ       docker logs salvos desde o StartedAt, com `docker logs -t`:
+                  só o carimbo de cada linha separa overflow de signon de
+                  overflow em jogo. Linha sem carimbo próprio fica sem tempo
+                  (não herda o da anterior). A timeline do tools/live_watch.py
+                  também é lida (só as linhas [docker]), mas o live_watch
+                  filtra o docker por round, jogador, warmup, MatchZy, fim e
+                  bot: crash, overflow, SIGNONSTATE e a carga da captura nunca
+                  chegam nela, e com ela o veredito é no máximo SEM EVIDÊNCIA.
+  --eventos DIR   CÓPIA da pasta de captura: events_<matchid>_map<N>.jsonl
+                  arquivados e current.jsonl. A docker/events-live do checkout
+                  principal é recusada (AGENTS.md, zonas proibidas). O sufixo
+                  __<utc> do P1.1a já é listado; casar a partida do log com o
+                  arquivo sufixado fica para o P1.1a (DoD 4).
+  --db ARQ        CÓPIA do banco SQLite pedida ao PM, aberta com mode=ro; o
+                  relatório diz se o mtime ficou intacto. O banco real do
+                  checkout principal é sempre recusado (AGENTS.md; runbook da
+                  trilha de bots, critério 4).
   --sha-montados, --sha-referencia   saídas de sha256sum (dentro do container
                   e do checkout ou do registro da janela), casadas pelo nome.
-  --config-hash, --config-hash-janela   o config-hash de agora e o da janela.
+                  Os 5 arquivos do protocolo §3 precisam estar conferidos.
+  --config-hash, --config-hash-janela   o config-hash de agora e o da janela;
+                  sem os dois não há OK (G7).
   --partida DEMO  julga só esta partida (repetível). Sem ela, julga as que
                   terminaram no log ("MAP ENDED").
   --assinatura-proibida NOME, --fatal-esperado PLUGIN   critérios do card.
@@ -30,16 +39,24 @@ Veredito, na última linha:
                  reiniciou), Fatal error de plugin não esperado, overflow
                  depois de SIGNONSTATE_FULL + 60 s, assinatura proibida, mapa
                  NULL, placar fora do MR12, times fora de 5x5, colisão de
-                 demo_name, current.jsonl com rounds não arquivados;
-  SEM EVIDÊNCIA  falta entrada, nenhuma partida terminou, partida não
-                 arquivada ou não ingerida, log sem as linhas de carga, build
-                 que mudou no meio, overflow sem carimbo, sha montado ou
-                 config-hash divergente (ou não conferido);
+                 demo_name, current.jsonl com rounds não arquivados quando
+                 todas as partidas do log terminaram em MAP ENDED;
+  SEM EVIDÊNCIA  falta entrada, nenhuma partida terminou, partida abandonada
+                 (current.jsonl com os rounds da partida sem fim), partida não
+                 arquivada ou não ingerida, placar parcial, log sem as linhas
+                 de carga, timeline do live_watch, overflow sem carimbo, sha
+                 ou config-hash não conferido;
   OK             nenhum dos dois.
-RUIM vence SEM EVIDÊNCIA. O que o acervo mostra fora das partidas julgadas
-(JSONL antigo sem linha no banco, por exemplo) é informativo.
+RUIM vence SEM EVIDÊNCIA, menos quando a evidência é inválida: sha montado
+divergente, arquivo da referência que não foi conferido no container, build
+que mudou no log ou config-hash diferente do da janela. Aí o servidor não
+rodava o candidato, ou mudaram 2 variáveis: o veredito é SEM EVIDÊNCIA e os
+motivos de RUIM ficam listados (protocolo §6; runbook da trilha de bots,
+confundidor 3). O que o acervo mostra fora das partidas julgadas (JSONL antigo
+sem linha no banco, por exemplo) é informativo.
 
-Saída: 0 OK, 1 RUIM, 3 SEM EVIDÊNCIA, 2 uso errado ou recusa.
+Saída: 0 OK, 1 RUIM, 3 SEM EVIDÊNCIA, 2 uso errado ou recusa, 4 erro interno
+(a ferramenta quebrou: não é veredito e não é motivo de revert).
 """
 from __future__ import annotations
 
@@ -53,21 +70,69 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-BANCO_REAL = Path("C:/Users/Victor/Projetos/cs2-tracker/cs2_tracker.db")
+CHECKOUT = Path("C:/Users/Victor/Projetos/cs2-tracker")
+BANCO_REAL = CHECKOUT / "cs2_tracker.db"
+EVENTOS_REAL = CHECKOUT / "docker" / "events-live"
 OK, RUIM, SEM = "OK", "RUIM", "SEM EVIDÊNCIA"
 CODIGO = {OK: 0, RUIM: 1, SEM: 3}
+ERRO_INTERNO = 4
 SEGUNDOS_SIGNON = 60
 # mp_overtime_limit em server-configs/cfg/gamemode_competitive_server.cfg.
 LIMITE_PRORROGACOES = 3
 # Depois do arquivamento o plugin ainda escreve isto no current.jsonl: é normal.
 TIPOS_DA_CAUDA = frozenset({"snapshot", "round_stats", "round_officially_ended"})
 GRANADAS = frozenset({"hegrenade", "inferno", "molotov", "incgrenade"})
-# Linhas de overflow mais próximas que isto são o mesmo episódio.
+# Linhas de overflow da mesma classe mais próximas que isto são o mesmo episódio.
 EPISODIO_S, EPISODIO_LINHAS = 5.0, 20
+# Protocolo §3 e G6: sha256 lido DENTRO do container destes arquivos.
+SHA_DO_PROTOCOLO = ("gamemode_competitive_server.cfg", "pre.sh", "match_config.spike.json",
+                    "Cs2TrackerEvents.dll", "Cs2TrackerEvents.deps.json")
+# Fontes de placar em que score_ct + score_t = score_mine + score_theirs. No
+# rounds-partial o round sem lado do humano fica fora do placar da partida.
+SOMA_CONFERE = frozenset({"rounds", "rounds-reconciled"})
+# O parser grava played_at com datetime.now() ao ingerir, uns 10 s depois do
+# MAP ENDED (reingestão mantém o original). Linha mais velha que o fim da
+# partida menos isto é de outra partida: matchid reusado.
+TOLERANCIA_PLAYED_AT_S = 15 * 60
+# Fuso do Windows onde rodam o watcher (played_at) e o live_watch (cabeçalho
+# da sessão). None = o fuso desta máquina, que é a do Victor.
+FUSO_LOCAL = None
 
 
 class Recusa(Exception):
-    """Entrada que a ferramenta não lê (banco real sem a flag, arquivo ausente)."""
+    """Entrada que a ferramenta não lê (banco real, events-live viva, arquivo ausente)."""
+
+
+def _epoch_local(dt: datetime) -> float:
+    """Epoch de uma data ingênua na hora local do Windows (FUSO_LOCAL)."""
+    if dt.tzinfo is None and FUSO_LOCAL is not None:
+        dt = dt.replace(tzinfo=FUSO_LOCAL)
+    return dt.timestamp()
+
+
+def _data_local(epoch: float) -> datetime:
+    return datetime.fromtimestamp(epoch, FUSO_LOCAL).replace(tzinfo=None)
+
+
+def _int(valor):
+    """int de verdade (bool não conta) ou None: o JSONL vem de fora."""
+    return valor if isinstance(valor, int) and not isinstance(valor, bool) else None
+
+
+def _texto(valor):
+    return valor if isinstance(valor, str) else None
+
+
+def _contagem(valor) -> int:
+    try:
+        return int(valor or 0)
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
+def _jogadores(evento) -> list:
+    jogadores = evento.get("players")
+    return [p for p in jogadores if isinstance(p, dict)] if isinstance(jogadores, list) else []
 
 
 # ------------------------------------------------------------------ log
@@ -118,14 +183,18 @@ def ler_texto(caminho) -> str:
     return bruto.decode("utf-8-sig", errors="replace")
 
 
-def ler_linhas(texto: str):
-    """([(número, segundos ou None, texto sem prefixo)], formato do carimbo).
+def _ler(texto: str):
+    """([(número, segundos ou None, texto sem prefixo, absoluto)], formatos,
+    linhas sem carimbo).
 
-    Linha sem carimbo próprio herda o último visto (o log é cronológico). Na
-    timeline do live_watch as linhas [evento], [placar] e [setup] não são do
-    servidor e ficam de fora."""
-    linhas, formatos = [], set()
-    base = ultimo = hora_anterior = None
+    Cada linha fica com o próprio carimbo ou sem tempo: herdar o da anterior
+    num log carimbado só em parte (L, hora) daria a um FULL e a um overflow
+    10 min depois o mesmo tempo. `absoluto` diz se o tempo é epoch de verdade
+    (docker -t, em UTC; live_watch com o cabeçalho da sessão). Na timeline do
+    live_watch as linhas [evento], [placar] e [setup] não são do servidor e
+    ficam de fora."""
+    linhas, formatos, sem_carimbo = [], set(), 0
+    base = hora_anterior = None
     dia = 0
     for n, bruta in enumerate(texto.splitlines(), 1):
         bruta = bruta.rstrip()
@@ -133,38 +202,56 @@ def ler_linhas(texto: str):
             continue
         if m := _T_SESSAO.match(bruta):
             try:
-                base = datetime.fromisoformat(m.group(1)).timestamp()
+                base = _epoch_local(datetime.fromisoformat(m.group(1)))
             except ValueError:
                 base = None
             continue
-        t, corpo = None, bruta
+        t, corpo, absoluto, formato = None, bruta, False, None
         if m := _T_DOCKER.match(bruta):
-            micro = int((m.group(2) or "0")[:6].ljust(6, "0"))
-            inicio = datetime.fromisoformat(m.group(1)).replace(tzinfo=timezone.utc)
-            t, corpo = inicio.timestamp() + micro / 1e6, m.group(3)
-            formatos.add("docker -t")
+            try:
+                inicio = datetime.fromisoformat(m.group(1)).replace(tzinfo=timezone.utc)
+            except ValueError:
+                inicio = None   # carimbo malformado: a linha fica sem tempo
+            if inicio is not None:
+                micro = int((m.group(2) or "0")[:6].ljust(6, "0"))
+                t, corpo = inicio.timestamp() + micro / 1e6, m.group(3)
+                absoluto, formato = True, "docker -t"
         elif m := _T_LIVE.match(bruta):
             if m.group(2) != "docker":
                 continue
             t, corpo = (base or 0.0) + float(m.group(1)), m.group(3)
-            formatos.add("live_watch")
+            absoluto, formato = base is not None, "live_watch"
         elif m := _T_L.match(bruta):
-            t = datetime.strptime(m.group(1), "%m/%d/%Y - %H:%M:%S").timestamp()
-            corpo = m.group(2)
-            formatos.add("L")
+            try:
+                t = _epoch_local(datetime.strptime(m.group(1), "%m/%d/%Y - %H:%M:%S"))
+                corpo, formato = m.group(2), "L"
+            except ValueError:
+                t = None
         elif m := _T_HORA.match(bruta):
             s = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
             if hora_anterior is not None and s < hora_anterior - 43200:
                 dia += 1   # passou da meia-noite
             hora_anterior = s
-            t, corpo = dia * 86400 + s, m.group(4)
-            formatos.add("hora")
-        if t is None:
-            t = ultimo
+            t, corpo, formato = dia * 86400 + s, m.group(4), "hora"
+        if formato:
+            formatos.add(formato)
         else:
-            ultimo = t
-        linhas.append((n, t, corpo))
-    return linhas, " + ".join(sorted(formatos)) or "sem carimbo"
+            sem_carimbo += 1
+        linhas.append((n, t, corpo, absoluto))
+    return linhas, formatos, sem_carimbo
+
+
+def _rotulo(formatos, sem_carimbo) -> str:
+    if not formatos:
+        return "sem carimbo"
+    rotulo = " + ".join(sorted(formatos))
+    return rotulo + (f" ({sem_carimbo} linha(s) sem carimbo)" if sem_carimbo else "")
+
+
+def ler_linhas(texto: str):
+    """([(número, segundos ou None, texto sem prefixo)], rótulo do carimbo)."""
+    linhas, formatos, sem_carimbo = _ler(texto)
+    return [(n, t, corpo) for n, t, corpo, _ in linhas], _rotulo(formatos, sem_carimbo)
 
 
 def _plugin(corpo: str) -> str:
@@ -183,7 +270,7 @@ def _novo_trecho(inicio):
 
 
 def analisar_log(texto: str) -> dict:
-    linhas, formato = ler_linhas(texto)
+    linhas, formatos, sem_carimbo = _ler(texto)
     crash = {chave: 0 for chave, _, _ in _CRASH}
     crash_linhas, fatal_plugin, recusados, builds = [], [], [], []
     assinaturas: dict[str, Counter] = {}
@@ -191,7 +278,7 @@ def analisar_log(texto: str) -> dict:
     boots = prontos = 0
     sinais, overflows, partidas = [], [], []
     trecho = _novo_trecho(1)
-    for n, t, corpo in linhas:
+    for n, t, corpo, absoluto in linhas:
         for chave, _, rx in _CRASH:
             if rx.search(corpo):
                 crash[chave] += 1
@@ -237,6 +324,7 @@ def analisar_log(texto: str) -> dict:
             partidas.append({
                 "demo_name": f"events_{matchid}_map{num}", "matchid": matchid, "mapa_num": num,
                 "mapa": trecho["mapa_demo"] or trecho["mapa"], "inicio_demo": trecho["demo"],
+                "fim_epoch": t if absoluto else None,
                 "linha_inicio": trecho["inicio"], "linha_fim": n,
             })
             trecho = _novo_trecho(n + 1)
@@ -246,8 +334,9 @@ def analisar_log(texto: str) -> dict:
                    "linha_inicio": trecho["inicio"]}
     nomes = Counter(p["demo_name"] for p in partidas)
     return {
-        "linhas": len(linhas), "carimbo": formato, "crash": crash, "crash_linhas": crash_linhas,
-        "fatal_plugin": fatal_plugin,
+        "linhas": len(linhas), "carimbo": _rotulo(formatos, sem_carimbo),
+        "timeline_live_watch": "live_watch" in formatos,
+        "crash": crash, "crash_linhas": crash_linhas, "fatal_plugin": fatal_plugin,
         "assinaturas": {p: dict(c) for p, c in sorted(assinaturas.items())},
         "recusados": recusados, "carregados": carregados, "boots_matchzy": boots,
         "prontos": prontos, "versoes": versoes, "builds": builds,
@@ -281,10 +370,16 @@ def _dono(n, partidas, sem_fim):
 
 
 def _episodios(overflows, sinais, partidas, sem_fim) -> dict:
+    """Agrupa linhas de overflow em episódios. Cada linha é classificada antes
+    de agrupar, e só entra no episódio anterior se tem a mesma classe e a
+    mesma partida: uma série que atravessa FULL + 60 s vira um episódio de
+    signon e outro em jogo, e o em jogo não some dentro do primeiro."""
     episodios = []
     for n, t, corpo in overflows:
+        classe, delta = _classe(n, t, sinais)
+        dono = _dono(n, partidas, sem_fim)
         ult = episodios[-1] if episodios else None
-        if ult is not None:
+        if ult is not None and ult["classe"] == classe and ult["partida"] == dono:
             perto = (t - ult["_t"] <= EPISODIO_S) if (t is not None and ult["_t"] is not None) \
                 else (n - ult["_n"] <= EPISODIO_LINHAS)
             # Um FULL no meio é reconexão: o overflow seguinte é outro episódio.
@@ -293,9 +388,8 @@ def _episodios(overflows, sinais, partidas, sem_fim) -> dict:
                 ult["_t"], ult["_n"] = t, n
                 ult["linhas"] += 1
                 continue
-        classe, delta = _classe(n, t, sinais)
         episodios.append({"linha": n, "classe": classe, "segundos_apos_full": delta,
-                          "partida": _dono(n, partidas, sem_fim), "texto": corpo[:160],
+                          "partida": dono, "texto": corpo[:160],
                           "linhas": 1, "_t": t, "_n": n})
     por_partida: dict = {}
     for e in episodios:
@@ -309,7 +403,8 @@ def _episodios(overflows, sinais, partidas, sem_fim) -> dict:
 
 # ------------------------------------------------------------------ eventos
 
-_ARQUIVADO = re.compile(r"^events_(\d+)_map(\d+)\.jsonl$")
+# O sufixo __<utc> é o do P1.1a (colisão de demo_name nunca descarta partida).
+_ARQUIVADO = re.compile(r"^events_(\d+)_map(\d+)(?:__[\w-]+)?\.jsonl$")
 
 
 def ler_jsonl(caminho):
@@ -332,7 +427,13 @@ def ler_jsonl(caminho):
 
 
 def arquivados(pasta: Path) -> dict:
-    return {p.stem: p for p in sorted(pasta.iterdir()) if _ARQUIVADO.match(p.name)}
+    return {p.stem: p for p in sorted(pasta.iterdir())
+            if _ARQUIVADO.match(p.name) and p.is_file()}
+
+
+def _tipo(evento) -> str:
+    tipo = evento.get("type")
+    return tipo if isinstance(tipo, str) else str(tipo)
 
 
 def analisar_current(pasta: Path) -> dict:
@@ -345,11 +446,11 @@ def analisar_current(pasta: Path) -> dict:
     eventos, ruins = ler_jsonl(caminho)
     if not eventos:
         return {"estado": "vazio", "linhas_ruins": ruins}
-    tipos = Counter(e.get("type") for e in eventos)
-    fora = [e for e in eventos if e.get("type") not in TIPOS_DA_CAUDA]
-    rounds = {e.get("round_num") for e in (fora or eventos)}
+    tipos = Counter(_tipo(e) for e in eventos)
+    fora = [e for e in eventos if _tipo(e) not in TIPOS_DA_CAUDA]
+    rounds = {_int(e.get("round_num")) for e in (fora or eventos)}
     return {"estado": "com_rounds" if fora else "cauda_normal", "tipos": dict(tipos),
-            "rounds": sorted(r for r in rounds if isinstance(r, int)), "linhas_ruins": ruins}
+            "rounds": sorted(r for r in rounds if r is not None), "linhas_ruins": ruins}
 
 
 def times(eventos) -> tuple:
@@ -359,8 +460,8 @@ def times(eventos) -> tuple:
     for tipo in ("round_stats", "freeze_end"):
         for e in eventos:
             if e.get("type") == tipo:
-                lados = Counter(p.get("side") for p in e.get("players") or [])
-                por_round[e.get("round_num")] = (lados.get("ct", 0), lados.get("t", 0))
+                lados = Counter(_texto(p.get("side")) for p in _jogadores(e))
+                por_round[_int(e.get("round_num"))] = (lados.get("ct", 0), lados.get("t", 0))
         if por_round:
             break
     if not por_round:
@@ -378,8 +479,8 @@ def granadas_bot(eventos):
     o dano de granada e as cegueiras causadas por bot, da partida inteira."""
     bots, humanos = set(), set()
     for e in eventos:
-        for p in e.get("players") or []:
-            nome, bot = p.get("name", p.get("n")), p.get("is_bot", p.get("b"))
+        for p in _jogadores(e):
+            nome, bot = _texto(p.get("name", p.get("n"))), p.get("is_bot", p.get("b"))
             # Sem lado ct/t é o bot do GOTV, que não joga.
             if nome is not None and bot is not None and p.get("side", p.get("s")) in ("ct", "t"):
                 (bots if bot else humanos).add(nome)
@@ -387,18 +488,19 @@ def granadas_bot(eventos):
     if not bots:
         return None
     dano = sum(1 for e in eventos if e.get("type") == "player_hurt"
-               and e.get("weapon") in GRANADAS and e.get("attacker_name") in bots)
+               and _texto(e.get("weapon")) in GRANADAS
+               and _texto(e.get("attacker_name")) in bots)
     cegueiras = sum(1 for e in eventos if e.get("type") == "player_blind"
-                    and e.get("attacker_name") in bots)
+                    and _texto(e.get("attacker_name")) in bots)
     stats = [e for e in eventos if e.get("type") == "round_stats"]
     motor = None
     if stats:
-        ultimo = max(stats, key=lambda e: e.get("round_num") or 0)
-        jog = [p for p in ultimo.get("players") or []
+        ultimo = max(stats, key=lambda e: _int(e.get("round_num")) or 0)
+        jog = [p for p in _jogadores(ultimo)
                if p.get("is_bot") and p.get("side") in ("ct", "t")]
-        motor = {"utility": sum(int(p.get("utility_count") or 0) for p in jog),
-                 "flash": sum(int(p.get("flash_count") or 0) for p in jog),
-                 "ate_round": ultimo.get("round_num")}
+        motor = {"utility": sum(_contagem(p.get("utility_count")) for p in jog),
+                 "flash": sum(_contagem(p.get("flash_count")) for p in jog),
+                 "ate_round": _int(ultimo.get("round_num"))}
     return {"bots": len(bots), "dano_de_granada": dano, "cegueiras": cegueiras, "motor": motor}
 
 
@@ -411,32 +513,35 @@ def _mesmo_arquivo(a, b) -> bool:
         return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
 
 
-def _checar_banco(caminho: Path, permitir_real: bool):
+def _checar_banco(caminho: Path):
     if not caminho.is_file():
         raise Recusa(f"banco não encontrado: {caminho}")
-    if _mesmo_arquivo(caminho, BANCO_REAL) and not permitir_real:
-        raise Recusa("é o banco real do checkout principal; use uma cópia mode=ro pedida "
-                     "ao PM, ou passe --leitura-banco-real (abre só leitura)")
+    if _mesmo_arquivo(caminho, BANCO_REAL):
+        raise Recusa("é o banco real do checkout principal, que agente nunca abre "
+                     "(AGENTS.md, zonas proibidas): peça ao PM uma cópia mode=ro")
 
 
-def abrir_banco(caminho, permitir_real=False) -> sqlite3.Connection:
-    """Conexão mode=ro + query_only. O banco real só com a flag explícita."""
+def abrir_banco(caminho) -> sqlite3.Connection:
+    """Conexão mode=ro + query_only numa cópia; o banco real é recusado."""
     caminho = Path(caminho)
-    _checar_banco(caminho, permitir_real)
+    _checar_banco(caminho)
     conn = sqlite3.connect(caminho.resolve().as_uri() + "?mode=ro", uri=True)
     conn.execute("PRAGMA query_only = 1")
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def ler_matches(caminho, permitir_real=False) -> tuple:
+def ler_matches(caminho) -> tuple:
     """({demo_name: linha}, intacto): lê a tabela matches e confere que o
     mtime e o tamanho do arquivo não mudaram."""
-    _checar_banco(Path(caminho), permitir_real)
+    _checar_banco(Path(caminho))
     antes = os.stat(caminho)
-    conn = abrir_banco(caminho, permitir_real)
+    conn = abrir_banco(caminho)
     try:
-        linhas = {r["demo_name"]: dict(r) for r in conn.execute("SELECT * FROM matches")}
+        cursor = conn.execute("SELECT * FROM matches")
+        if "demo_name" not in [d[0] for d in cursor.description]:
+            raise Recusa("tabela matches sem a coluna demo_name")
+        linhas = {r["demo_name"]: dict(r) for r in cursor if isinstance(r["demo_name"], str)}
     except sqlite3.Error as exc:
         raise Recusa(f"banco sem tabela matches legível: {exc}") from exc
     finally:
@@ -446,11 +551,28 @@ def ler_matches(caminho, permitir_real=False) -> tuple:
     return linhas, intacto
 
 
+def _placar(valor):
+    """Placar como int, aceitando o texto de dígitos; senão None."""
+    if isinstance(valor, bool):
+        return None
+    if isinstance(valor, int):
+        return valor
+    if isinstance(valor, float) and valor.is_integer():
+        return int(valor)
+    if isinstance(valor, str) and valor.strip().isdigit():
+        return int(valor)
+    return None
+
+
 def motivo_placar(a, b):
     """None se a x b fecha MR12 com prorrogação MR3 (até LIMITE_PRORROGACOES,
     e empate depois dela); senão, o motivo."""
     if a is None or b is None:
         return "placar vazio"
+    na, nb = _placar(a), _placar(b)
+    if na is None or nb is None:
+        return f"{a!r}x{b!r}: placar não numérico"
+    a, b = na, nb
     alto, baixo = max(a, b), min(a, b)
     if alto == 13 and baixo <= 11:
         return None
@@ -490,7 +612,15 @@ def colisoes(partida: dict, linha, repetidos) -> list:
     if partida.get("mapa") and linha.get("map") and linha["map"] != partida["mapa"]:
         motivos.append(f"mapa do banco ({linha['map']}) difere do log ({partida['mapa']})")
     jogada, inicio = _data(linha.get("played_at")), _data(partida.get("inicio_demo"))
-    if jogada and inicio and jogada < inicio - timedelta(days=1):
+    fim = partida.get("fim_epoch")
+    if jogada and fim is not None:
+        # Mesmo dia e mesmo mapa também pega: snapshot restaurado reusa o
+        # matchid, o watcher pula o arquivamento e o parser, a ingestão.
+        if _epoch_local(jogada) < fim - TOLERANCIA_PLAYED_AT_S:
+            motivos.append(f"linha do banco é de {jogada:%Y-%m-%d %H:%M}, antes do fim da "
+                           f"partida no log ({_data_local(fim):%Y-%m-%d %H:%M})")
+    elif jogada and inicio and jogada < inicio - timedelta(days=1):
+        # Sem carimbo absoluto no log, só a data da demo (UTC do container).
         motivos.append(f"linha do banco é de {jogada:%Y-%m-%d}, antes da partida do log "
                        f"({inicio:%Y-%m-%d})")
     return motivos
@@ -500,6 +630,8 @@ def acervo(linhas: dict, arquivos) -> dict:
     """O que está errado no banco e na pasta, fora das partidas julgadas."""
     placar = {}
     for dn, r in linhas.items():
+        if r.get("score_source") == "rounds-partial":
+            continue   # placar parcial não diz nada sobre o MR12
         if r.get("score_mine") is not None and r.get("score_theirs") is not None:
             if motivo := motivo_placar(r["score_mine"], r["score_theirs"]):
                 placar[dn] = motivo
@@ -527,6 +659,9 @@ def ler_sha(caminho) -> dict:
 
 
 def comparar_sha(montados: dict, referencia: dict) -> dict:
+    """`so_na_referencia` é arquivo que devia estar montado e não foi conferido
+    no container: o `docker exec sha256sum` manda o arquivo ausente para o
+    stderr, então a DLL não montada some da lista sem erro."""
     comuns = sorted(set(montados) & set(referencia))
     return {"conferidos": comuns,
             "divergentes": [n for n in comuns if montados[n] != referencia[n]],
@@ -536,21 +671,30 @@ def comparar_sha(montados: dict, referencia: dict) -> dict:
 
 # ------------------------------------------------------------------ juntar
 
+def _checar_eventos(pasta: Path):
+    if not pasta.is_dir():
+        raise Recusa(f"pasta de eventos não encontrada: {pasta}")
+    if _mesmo_arquivo(pasta, EVENTOS_REAL):
+        # No Windows, o open() do Python não compartilha FILE_SHARE_DELETE: com
+        # o current.jsonl aberto aqui, o rename do watcher para arquivar falha.
+        raise Recusa("é a docker/events-live viva do checkout principal (AGENTS.md, zonas "
+                     "proibidas): use uma cópia da pasta")
+
+
 def avaliar(log=None, eventos=None, db=None, partidas=(), sha_montados=None,
             sha_referencia=None, config_hash=None, config_hash_janela=None,
-            assinaturas_proibidas=(), fatais_esperados=(), leitura_banco_real=False) -> dict:
+            assinaturas_proibidas=(), fatais_esperados=()) -> dict:
     res = {"entradas": {"log": log and str(log), "eventos": eventos and str(eventos),
                         "db": db and str(db)}}
     res["log"] = analisar_log(ler_texto(log)) if log else None
     linhas = arquivos = None
     if eventos:
         pasta = Path(eventos)
-        if not pasta.is_dir():
-            raise Recusa(f"pasta de eventos não encontrada: {pasta}")
+        _checar_eventos(pasta)
         arquivos = arquivados(pasta)
         res["current"] = analisar_current(pasta)
     if db:
-        linhas, res["entradas"]["banco_intacto"] = ler_matches(db, leitura_banco_real)
+        linhas, res["entradas"]["banco_intacto"] = ler_matches(db)
         res["acervo"] = acervo(linhas, arquivos)
     res["sha"] = (comparar_sha(ler_sha(sha_montados), ler_sha(sha_referencia))
                   if sha_montados and sha_referencia else None)
@@ -561,13 +705,14 @@ def avaliar(log=None, eventos=None, db=None, partidas=(), sha_montados=None,
     repetidos = (res["log"] or {}).get("repetidos", [])
     julgadas = []
     for dn in dict.fromkeys(nomes):
-        p = dict(do_log.get(dn) or {"demo_name": dn, "mapa": None, "inicio_demo": None})
+        p = dict(do_log.get(dn) or {"demo_name": dn, "mapa": None, "inicio_demo": None,
+                                    "fim_epoch": None})
         linha = (linhas or {}).get(dn)
         p["arquivado"] = None if arquivos is None else dn in arquivos
         p["ingerida"] = None if linhas is None else linha is not None
         p["banco"] = linha and {k: linha.get(k) for k in (
             "id", "map", "played_at", "score_mine", "score_theirs", "score_ct", "score_t",
-            "demo_path")}
+            "score_source", "demo_path")}
         p["colisoes"] = colisoes(p, linha, repetidos)
         p["times_5x5"], p["fora_de_5x5"], p["granadas_bot"] = None, {}, None
         if p["arquivado"]:
@@ -581,7 +726,13 @@ def avaliar(log=None, eventos=None, db=None, partidas=(), sha_montados=None,
 
 
 def veredito(res: dict, proibidas: set, fatais_esperados: set) -> dict:
-    ruim, sem = [], []
+    ruim, sem, invalidam = [], [], []
+
+    def invalida(motivo):
+        """SEM EVIDÊNCIA que vence RUIM: a partida não testou o candidato."""
+        sem.append(motivo)
+        invalidam.append(motivo)
+
     log = res["log"]
     if log is None:
         sem.append("sem --log")
@@ -599,6 +750,9 @@ def veredito(res: dict, proibidas: set, fatais_esperados: set) -> dict:
         if total.get("sem_carimbo"):
             sem.append(f"{total['sem_carimbo']} overflow(s) depois de FULL sem carimbo de "
                        "tempo: salve o log com docker logs -t")
+        if log.get("timeline_live_watch"):
+            sem.append("timeline do live_watch não captura crash nem overflow: salve o log "
+                       "com docker logs -t")
         vistas = {n for nomes in log["assinaturas"].values() for n in nomes}
         for nome in sorted(proibidas & vistas):
             ruim.append(f"assinatura proibida no log: {nome}")
@@ -611,7 +765,7 @@ def veredito(res: dict, proibidas: set, fatais_esperados: set) -> dict:
         if not log["prontos"]:
             sem.append("log sem [Cs2TrackerEvents] Pronto: colete desde o StartedAt")
         if len(log["builds"]) > 1:
-            sem.append(f"build mudou no log ({' -> '.join(log['builds'])}): 2 variáveis")
+            invalida(f"build mudou no log ({' -> '.join(log['builds'])}): 2 variáveis")
     if not res["partidas"]:
         sem.append("nenhuma partida terminou no log (MAP ENDED)")
     for p in res["partidas"]:
@@ -623,14 +777,20 @@ def veredito(res: dict, proibidas: set, fatais_esperados: set) -> dict:
         if b := p["banco"]:
             if not b["map"]:
                 ruim.append(f"{dn}: mapa NULL no banco")
-            if motivo := motivo_placar(b["score_mine"], b["score_theirs"]):
+            if b.get("score_source") == "rounds-partial":
+                sem.append(f"{dn}: placar parcial ({b['score_mine']}x{b['score_theirs']}): "
+                           "round sem lado do humano (score_source rounds-partial)")
+            elif motivo := motivo_placar(b["score_mine"], b["score_theirs"]):
                 ruim.append(f"{dn}: placar {motivo}")
-            elif None not in (b["score_ct"], b["score_t"]) and \
-                    b["score_ct"] + b["score_t"] != b["score_mine"] + b["score_theirs"]:
-                ruim.append(f"{dn}: placar por lado ({b['score_ct']}+{b['score_t']}) não soma "
-                            f"o placar da partida ({b['score_mine']}+{b['score_theirs']})")
+            elif b.get("score_source") in SOMA_CONFERE:
+                ct, t, mine, theirs = (_placar(b[k]) for k in (
+                    "score_ct", "score_t", "score_mine", "score_theirs"))
+                if None not in (ct, t) and ct + t != mine + theirs:
+                    ruim.append(f"{dn}: placar por lado ({b['score_ct']}+{b['score_t']}) não "
+                                f"soma o placar da partida ({b['score_mine']}+"
+                                f"{b['score_theirs']})")
         if p["times_5x5"] is False:
-            ruim.append(f"{dn}: times fora de 5x5 nos rounds {sorted(p['fora_de_5x5'])}")
+            ruim.append(f"{dn}: times fora de 5x5 nos rounds {list(p['fora_de_5x5'])}")
         elif p["arquivado"] and p["times_5x5"] is None:
             sem.append(f"{dn}: JSONL sem round_stats nem freeze_end para conferir o 5x5")
         for c in p["colisoes"]:
@@ -638,19 +798,40 @@ def veredito(res: dict, proibidas: set, fatais_esperados: set) -> dict:
     if res["entradas"]["eventos"] is None:
         sem.append("sem --eventos")
     elif res["current"]["estado"] == "com_rounds":
-        ruim.append(f"current.jsonl com rounds não arquivados (rounds {res['current']['rounds']})")
+        rounds = f"current.jsonl com rounds não arquivados (rounds {res['current']['rounds']})"
+        if log is None:
+            sem.append(f"{rounds}: sem --log não dá para saber se a partida foi abandonada")
+        elif sf := log["partida_sem_fim"]:
+            # Protocolo §6: abandonada é sem evidência; e o P1 trata o órfão da
+            # partida interrompida como normal.
+            sem.append(f"partida abandonada: current.jsonl com rounds da partida sem fim "
+                       f"({sf['mapa'] or '?'}, desde a linha {sf['linha_inicio']}; rounds "
+                       f"{res['current']['rounds']})")
+        else:
+            # Todas terminaram em MAP ENDED e ainda há rounds: o arquivamento
+            # falhou ou houve colisão.
+            ruim.append(rounds)
     if res["entradas"]["db"] is None:
         sem.append("sem --db")
     sha = res["sha"]
     if sha is None or not sha["conferidos"]:
         sem.append("sha montados não conferidos (--sha-montados e --sha-referencia)")
-    elif sha["divergentes"]:
-        sem.append(f"sha montado divergente: {', '.join(sha['divergentes'])}")
+    else:
+        if sha["divergentes"]:
+            invalida(f"sha montado divergente: {', '.join(sha['divergentes'])}")
+        if sha["so_na_referencia"]:
+            invalida(f"sha não conferido no container: {', '.join(sha['so_na_referencia'])}")
+        faltam = [n for n in SHA_DO_PROTOCOLO
+                  if n not in sha["conferidos"] and n not in sha["so_na_referencia"]]
+        if faltam:
+            sem.append(f"sha sem os arquivos do protocolo §3: {', '.join(faltam)}")
     ch = res["config_hash"]
-    if ch["agora"] and ch["janela"] and ch["agora"] != ch["janela"]:
-        sem.append("config-hash diferente do da janela")
-    g7 = RUIM if ruim else SEM if sem else OK
-    return {"g7": g7, "ruim": ruim, "sem_evidencia": sem}
+    if not (ch["agora"] and ch["janela"]):
+        sem.append("config-hash não conferido (--config-hash e --config-hash-janela)")
+    elif ch["agora"] != ch["janela"]:
+        invalida("config-hash diferente do da janela")
+    g7 = SEM if invalidam else RUIM if ruim else SEM if sem else OK
+    return {"g7": g7, "ruim": ruim, "sem_evidencia": sem, "invalidam": invalidam}
 
 
 # ------------------------------------------------------------------ texto
@@ -669,9 +850,12 @@ def formatar(res: dict) -> str:
     if log := res["log"]:
         c = log["crash"]
         s += ["", "== Servidor (log) ==",
-              f"Linhas: {log['linhas']} · carimbo: {log['carimbo']}",
-              f"Crash: segfault {c['segfault']} · Stack overflow {c['stack_overflow']} · "
-              f"core dumped {c['core_dumped']} · FATAL ERROR {c['fatal_motor']}"]
+              f"Linhas: {log['linhas']} · carimbo: {log['carimbo']}"]
+        if log.get("timeline_live_watch"):
+            s.append("Aviso: a timeline do live_watch não guarda crash, overflow, SIGNONSTATE "
+                     "nem a carga da captura; as contagens abaixo não valem (use docker logs -t)")
+        s.append(f"Crash: segfault {c['segfault']} · Stack overflow {c['stack_overflow']} · "
+                 f"core dumped {c['core_dumped']} · FATAL ERROR {c['fatal_motor']}")
         s += [f"  linha {x['linha']}: {x['texto']}" for x in log["crash_linhas"][:5]]
         s.append("Fatal error de plugin: " + _lista(
             [f"{f['plugin']} (linha {f['linha']})" for f in log["fatal_plugin"]]))
@@ -693,8 +877,8 @@ def formatar(res: dict) -> str:
         for epi in ov["episodios"]:
             quando = ("" if epi["segundos_apos_full"] is None
                       else f", {epi['segundos_apos_full']} s após FULL")
-            s.append(f"  linha {epi['linha']} ({epi['classe']}{quando}; "
-                     f"{epi['partida'] or 'fora de partida'}): {epi['texto']}")
+            s.append(f"  linha {epi['linha']} ({epi['classe']}{quando}; {epi['linhas']} "
+                     f"linha(s); {epi['partida'] or 'fora de partida'}): {epi['texto']}")
         for dn, q in ov["por_partida"].items():
             s.append(f"  por partida: {dn}: " + ", ".join(f"{k} {n}" for k, n in sorted(q.items())))
         if sf := log["partida_sem_fim"]:
@@ -739,11 +923,17 @@ def formatar(res: dict) -> str:
         s.append("sha: não informado")
     s.append(f"config-hash: agora {ch['agora'] or '-'} · janela {ch['janela'] or '-'}")
     v = res["veredito"]
+    anulado = v["g7"] == SEM and bool(v["ruim"])
     s.append("")
-    s += [f"  RUIM: {m}" for m in v["ruim"]]
-    s += [f"  sem evidência: {m}" for m in v["sem_evidencia"]]
-    # A linha final traz os motivos que decidiram: os de RUIM, se houver.
-    motivos = v["ruim"] or v["sem_evidencia"]
+    s += [f"  RUIM{' (anulado: evidência inválida)' if anulado else ''}: {m}" for m in v["ruim"]]
+    s += [f"  sem evidência{' (invalida)' if m in v['invalidam'] else ''}: {m}"
+          for m in v["sem_evidencia"]]
+    # A linha final traz os motivos que decidiram: os que invalidam a
+    # evidência, os de RUIM, ou os de sem evidência.
+    if anulado:
+        motivos = v["invalidam"] + ["RUIM anulado: " + "; ".join(v["ruim"])]
+    else:
+        motivos = v["ruim"] or v["sem_evidencia"]
     s.append(f"VEREDITO G7: {v['g7']}" + (" — " + "; ".join(motivos) if motivos else ""))
     return "\n".join(s)
 
@@ -752,14 +942,19 @@ def _sn(valor):
     return {True: "sim", False: "NÃO", None: "-"}[valor]
 
 
+def _erro(mensagem: str):
+    try:
+        print(mensagem, file=sys.stderr)
+    except UnicodeEncodeError:
+        print(ascii(mensagem), file=sys.stderr)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         description="Evidência de partida para o G7 (card H1.1), só leitura.")
-    ap.add_argument("--log", help="docker logs salvos (de preferência com -t)")
-    ap.add_argument("--eventos", help="pasta com events_*_map*.jsonl e current.jsonl")
-    ap.add_argument("--db", help="banco SQLite (cópia); aberto com mode=ro")
-    ap.add_argument("--leitura-banco-real", action="store_true",
-                    help="aceita o banco real do checkout principal, ainda só leitura")
+    ap.add_argument("--log", help="docker logs -t salvos desde o StartedAt")
+    ap.add_argument("--eventos", help="cópia da pasta com events_*_map*.jsonl e current.jsonl")
+    ap.add_argument("--db", help="cópia mode=ro do banco pedida ao PM (o real é recusado)")
     ap.add_argument("--partida", action="append", default=[], metavar="DEMO_NAME")
     ap.add_argument("--sha-montados", help="sha256sum de dentro do container")
     ap.add_argument("--sha-referencia", help="sha256sum do checkout ou da janela")
@@ -780,10 +975,14 @@ def main(argv=None) -> int:
             sha_montados=args.sha_montados, sha_referencia=args.sha_referencia,
             config_hash=args.config_hash, config_hash_janela=args.config_hash_janela,
             assinaturas_proibidas=args.assinatura_proibida,
-            fatais_esperados=args.fatal_esperado, leitura_banco_real=args.leitura_banco_real)
+            fatais_esperados=args.fatal_esperado)
+        texto = json.dumps(res, ensure_ascii=False, indent=1) if args.json else formatar(res)
     except Recusa as exc:
-        print(f"recusado: {exc}", file=sys.stderr)
+        _erro(f"recusado: {exc}")
         return 2
+    except Exception as exc:  # noqa: BLE001 - erro interno não pode virar RUIM (código 1)
+        _erro(f"erro: {type(exc).__name__}: {exc} (sem veredito)")
+        return ERRO_INTERNO
     try:
         # Mesmo cuidado do preflight: em pipe o padrão seria cp1252.
         if sys.stdout.isatty():
@@ -792,7 +991,7 @@ def main(argv=None) -> int:
             sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except (AttributeError, ValueError, OSError):
         pass
-    print(json.dumps(res, ensure_ascii=False, indent=1) if args.json else formatar(res))
+    print(texto)
     return CODIGO[res["veredito"]["g7"]]
 
 
