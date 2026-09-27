@@ -56,10 +56,12 @@ def _python(linha, pid=100, nome="python.exe"):
     return Processo(pid=pid, nome=nome, linha=linha)
 
 
-def _abrir_janela(raiz):
+def _abrir_janela(raiz, idade_s=60):
     marca = raiz / "logs" / "janelas" / "ABERTA"
     marca.parent.mkdir(parents=True)
     marca.write_text("", encoding="utf-8")
+    os.utime(marca, (AGORA - idade_s, AGORA - idade_s))
+    return marca
 
 
 def _current_jsonl(raiz, idade_s):
@@ -172,10 +174,47 @@ def test_varios_sinais_aparecem_no_motivo(raiz):
 # ----------------------------------------------- 4 janela aberta
 
 def test_janela_aberta_da_4(raiz):
-    _abrir_janela(raiz)
+    _abrir_janela(raiz, idade_s=5 * 60)
     r = avaliar(raiz=raiz, agora=AGORA, listar=_lista())
     assert r.codigo == JANELA
     assert "logs/janelas/ABERTA" in r.motivo
+    assert "criada há 5 min" in r.motivo
+
+
+# ------------------------------------ janela vencida (Q4=A, 45 min)
+
+def test_limite_de_45_minutos(raiz):
+    marca = _abrir_janela(raiz, idade_s=45 * 60 - 1)
+    assert avaliar(raiz=raiz, agora=AGORA, listar=_lista()).codigo == JANELA
+    os.utime(marca, (AGORA - 45 * 60, AGORA - 45 * 60))
+    assert avaliar(raiz=raiz, agora=AGORA, listar=_lista()).codigo == LIVRE
+
+
+def test_marca_esquecida_nao_vira_janela_aberta(raiz):
+    # Janela nunca abre por ausência de processo (protocolo 8): uma marca
+    # esquecida de ontem não libera o servidor.
+    _abrir_janela(raiz, idade_s=24 * 3600)
+    r = avaliar(raiz=raiz, agora=AGORA, listar=_lista())
+    assert r.codigo == LIVRE
+    assert r.motivo.startswith("livre")
+    assert "janela vencida" in r.motivo
+    assert "criada há 1440 min" in r.motivo
+
+
+def test_marca_com_data_no_futuro(raiz):
+    marca = _abrir_janela(raiz, idade_s=-30)
+    assert avaliar(raiz=raiz, agora=AGORA, listar=_lista()).codigo == JANELA
+    os.utime(marca, (AGORA + 5 * 60, AGORA + 5 * 60))
+    r = avaliar(raiz=raiz, agora=AGORA, listar=_lista())
+    assert r.codigo == LIVRE
+    assert "janela vencida" in r.motivo and "no futuro" in r.motivo
+
+
+def test_janela_vencida_aparece_mesmo_com_victor_jogando(raiz):
+    _abrir_janela(raiz, idade_s=3 * 3600)
+    r = avaliar(raiz=raiz, agora=AGORA, listar=_lista(Processo(9, "cs2.exe", None)))
+    assert r.codigo == JOGANDO
+    assert "cs2.exe" in r.motivo and "janela vencida" in r.motivo
 
 
 # ------------------------------------------------- precedência
@@ -248,6 +287,22 @@ def test_stat_do_current_jsonl_com_erro_da_3(raiz, monkeypatch):
     r = avaliar(raiz=raiz, agora=AGORA, listar=_lista())
     assert r.codigo == JOGANDO
     assert "current.jsonl" in r.motivo
+
+
+def test_stat_da_marca_da_janela_com_erro_da_3(raiz, monkeypatch):
+    _abrir_janela(raiz)
+    original = Path.stat
+
+    def stat_falho(self, *args, **kwargs):
+        if self.name == "ABERTA":
+            raise PermissionError("negado")
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", stat_falho)
+    r = avaliar(raiz=raiz, agora=AGORA, listar=_lista())
+    assert r.codigo == JOGANDO
+    assert r.motivo.startswith("falha segura")
+    assert "logs/janelas/ABERTA" in r.motivo
 
 
 def test_checkout_sem_git_da_3(tmp_path):

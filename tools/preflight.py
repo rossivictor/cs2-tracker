@@ -21,7 +21,14 @@ Sinais de "Victor jogando" (qualquer um basta):
   - docker/events-live/current.jsonl modificado há menos de 10 min. Só o
     mtime é consultado; o conteúdo nunca é lido.
 
-Janela aberta: existe logs/janelas/ABERTA.
+Janela aberta: existe logs/janelas/ABERTA, criada há menos de 45 min (Q4=A).
+A idade vem do mtime da marca. Marca mais velha que isso (ou com data mais
+de 1 min no futuro) é janela vencida: esquecida, não aberta. Aí o
+preflight não devolve 4 e diz no motivo que a marca venceu, porque janela
+nunca abre por ausência de processo (protocolo 8).
+
+Qualquer código diferente de 0 e 4 conta como 3 para quem chama: o
+argparse sai com 2 e um crash do interpretador, com 1.
 
 Se a própria detecção falhar (nenhum jeito de listar processos, python com
 linha de comando ilegível, erro de E/S), a resposta é 3: sem certeza, trata
@@ -57,6 +64,10 @@ JANELA = 4
 
 # current.jsonl mexido há menos que isso = partida em curso (seção 10).
 JANELA_CURRENT_JSONL_S = 10 * 60
+# Janela de manutenção dura no máximo isso (Q4=A); marca mais velha venceu.
+DURACAO_MAX_JANELA_S = 45 * 60
+# Folga pra relógio: marca com mtime até isso no futuro ainda vale.
+FOLGA_RELOGIO_S = 60
 
 CURRENT_JSONL = Path("docker") / "events-live" / "current.jsonl"
 MARCA_JANELA = Path("logs") / "janelas" / "ABERTA"
@@ -317,16 +328,31 @@ def sinal_current_jsonl(raiz: Path, agora: float) -> Optional[str]:
     return None
 
 
-def janela_aberta(raiz: Path) -> bool:
+def idade_da_marca(raiz: Path, agora: float) -> Optional[float]:
+    """Segundos desde o mtime de logs/janelas/ABERTA, ou None sem marca."""
     marca = raiz / MARCA_JANELA
     try:
-        marca.stat()
+        mtime = marca.stat().st_mtime
     except FileNotFoundError:
-        return False
+        return None
     except OSError as exc:
         raise DeteccaoFalhou(f"não deu pra consultar {MARCA_JANELA.as_posix()}: "
                              f"{exc.__class__.__name__}") from exc
-    return True
+    return agora - mtime
+
+
+def janela_vale(idade: float) -> bool:
+    return -FOLGA_RELOGIO_S <= idade < DURACAO_MAX_JANELA_S
+
+
+def _janela_vencida(idade: float) -> str:
+    limite = DURACAO_MAX_JANELA_S // 60
+    if idade < 0:
+        quando = f"com data {int(-idade // 60)} min no futuro"
+    else:
+        quando = f"criada há {int(idade // 60)} min"
+    return (f"janela vencida: {MARCA_JANELA.as_posix()} {quando}, o limite é "
+            f"{limite} min; não vale como janela aberta, só o papel servidor apaga a marca")
 
 
 # ----------------------------------------------------------- decisão
@@ -341,20 +367,29 @@ def avaliar(raiz: Optional[Path] = None,
         recente = sinal_current_jsonl(principal, momento)
         if recente:
             sinais.append(recente)
-        aberta = janela_aberta(principal)
+        idade_janela = idade_da_marca(principal, momento)
     except DeteccaoFalhou as exc:
         return Resultado(JOGANDO, f"falha segura, tratando como Victor jogando: {exc}")
     except Exception as exc:  # qualquer surpresa também é falha segura
         return Resultado(JOGANDO, "falha segura, tratando como Victor jogando: "
                                   f"erro inesperado ({exc.__class__.__name__}: {exc})")
 
+    aberta = idade_janela is not None and janela_vale(idade_janela)
+    vencida = _janela_vencida(idade_janela) if idade_janela is not None and not aberta else None
+
     if sinais:
         motivo = "Victor jogando: " + "; ".join(sinais)
         if aberta:
             motivo += " (a janela aberta não vale enquanto ele joga)"
+        elif vencida:
+            motivo += f" ({vencida})"
         return Resultado(JOGANDO, motivo)
     if aberta:
-        return Resultado(JANELA, f"janela de manutenção aberta ({MARCA_JANELA.as_posix()})")
+        minutos = max(0, int(idade_janela // 60))
+        return Resultado(JANELA, f"janela de manutenção aberta ({MARCA_JANELA.as_posix()}, "
+                                 f"criada há {minutos} min)")
+    if vencida:
+        return Resultado(LIVRE, f"livre: nenhum sinal de partida; {vencida}")
     return Resultado(LIVRE, "livre: nenhum sinal de partida e nenhuma janela aberta")
 
 
