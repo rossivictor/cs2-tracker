@@ -1,0 +1,8 @@
+{"type":"round_start","round_num":1,"tick":5573,"human_side":"t"}
+{"type":"round_start","round_num":2,"tick":5677,"human_side":"t"}
+{"type":"player_hurt","round_num":2,"tick":7688,"attacker_name":"Wolf","attacker_steamid":null,"victim_name":"Muhlik","victim_steamid":null,"weapon":"p250","hitgroup":2,"dmg_health":23,"dmg_armor":6}
+{"type":"player_hurt","round_num":2,"tick":7689,"attacker_name":"Rebel","attacker_steamid":null,"victim_name":"Muhlik","victim_steamid":null,"weapon":"elite","hitgroup":1,"dmg_health":133,"dmg_armor":0}
+{"type":"player_death","round_num":2,"tick":7689,"attacker_name":"Rebel","attacker_steamid":null,"attacker_side":"t","victim_name":"Muhlik","victim_steamid":null,"victim_side":"ct","weapon":"elite","headshot":true,"distance":7.4287505}
+{"type":"player_hurt","round_num":2,"tick":7858,"attacker_name":"Wolf","attacker_steamid":null,"victim_name":"Rock","victim_steamid":null,"weapon":"p250","hitgroup":4,"dmg_health":23,"dmg_armor":6}
+{"type":"player_death","round_num":20,"tick":98498,"attacker_name":"Rock","attacker_steamid":null,"attacker_side":"t","victim_name":"Rebel","victim_steamid":null,"victim_side":"ct","weapon":"xm1014","headshot":false,"distance":2.744527}
+{"type":"round_end","round_num":20,"tick":98498,"winner":"t","reason":"ct_killed"}

@@ -1,0 +1,8 @@
+{"type":"round_start","round_num":1,"tick":1591,"human_side":"t"}
+{"type":"round_start","round_num":2,"tick":1709,"human_side":"t"}
+{"type":"player_death","round_num":2,"tick":1793,"attacker_name":"FL4MUS","attacker_steamid":"76561190000000002","attacker_side":"ct","victim_name":"FL4MUS","victim_steamid":"76561190000000002","victim_side":"ct","weapon":"world","headshot":false,"distance":0}
+{"type":"player_hurt","round_num":2,"tick":3852,"attacker_name":"KraiS","attacker_steamid":null,"victim_name":"markEgo","victim_steamid":null,"weapon":"fiveseven","hitgroup":2,"dmg_health":17,"dmg_armor":0}
+{"type":"player_hurt","round_num":2,"tick":3896,"attacker_name":"KraiS","attacker_steamid":null,"victim_name":"wfn","victim_steamid":null,"weapon":"fiveseven","hitgroup":2,"dmg_health":22,"dmg_armor":1}
+{"type":"player_hurt","round_num":2,"tick":3912,"attacker_name":"wfn","attacker_steamid":null,"victim_name":"KraiS","victim_steamid":null,"weapon":"glock","hitgroup":2,"dmg_health":24,"dmg_armor":0}
+{"type":"player_death","round_num":22,"tick":132108,"attacker_name":"slaxejezzz","attacker_steamid":null,"attacker_side":"t","victim_name":"wfn","victim_steamid":null,"victim_side":"ct","weapon":"ak47","headshot":true,"distance":4.727268}
+{"type":"round_end","round_num":22,"tick":132108,"winner":"t","reason":"ct_killed"}
