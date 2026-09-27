@@ -140,9 +140,11 @@ services:
       # instalados à mão no volume em 05/09. Religar um por vez pela trilha de
       # bots (docs/runbooks/trilha-de-bots.md), uma partida por passo.
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAI
-      # B1.4: BotAimImprover religado (guarda explícita; sem a assinatura ele
-      # se desativa sozinho). Volta: descomentar a linha abaixo.
-      # - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAimImprover
+      # B1.4b: BotAimImprover compilado do upstream (ed0ard/CS2-Bullseye-Bot
+      # c3d10f5: offsets Linux corrigidos e trace pela API da CSSharp, sem o
+      # RayTrace nativo). A pasta é gerada fora do repo (AGPL, gitignored);
+      # build e volta: docs/runbooks/b1.4b-botaimimprover-upstream.md.
+      - ./docker/plugins/BotAimImprover:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAimImprover
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotBuy
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotHiderImpl
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotRandomizer
