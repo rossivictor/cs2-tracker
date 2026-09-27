@@ -277,16 +277,20 @@ O veredito de cada passo é um destes:
 
 ## Como um passo chega ao jogo
 
-1. O PR do card traz a linha. O merge na main vira o `candidato-N`, feito com a janela aberta
-   para que nenhum boot fora dela aplique a mudança.
+1. O PR do card traz a linha. O tech-manager o mergeia logo depois do QA, a qualquer hora, e o
+   merge na main vira o `candidato-N`. Nenhum boot fora da janela aplica a mudança: um boot só
+   aplica o que está no checkout principal, e só o servidor leva o candidato até lá, pelo ff
+   feito dentro da janela (fora dela, o ff recusa infra).
 2. A janela abre depois do "terminei" (pós-partida, até 30 min) ou do "pode mexer no
-   servidor" (pré-partida, até 45 min). Nela: preflight, backup, snapshot,
-   `--force-recreate`, G6 e, quando o card pede, smoke só de bots. Passo que não cabe em
-   30 min, como o B1.3r, espera uma janela "pode mexer no servidor".
+   servidor" (pré-partida, até 45 min). Nela: preflight, backup, ff do checkout para o
+   candidato, snapshot, `--force-recreate`, G6 e, quando o card pede, smoke só de bots. Passo
+   que não cabe em 30 min, como o B1.3r, espera uma janela "pode mexer no servidor".
 3. O Victor recebe o aviso do que a próxima partida valida.
 4. Ele joga uma partida normal. Depois vêm a coleta dos logs e a evidência (G7).
 5. Com o G7 ok: tag `jogavel-<data>` e uma linha no registro abaixo. Com o G7 ruim: volta pelo
-   runbook do passo, e o plugin volta a ficar mascarado.
+   runbook do passo, e o plugin volta a ficar mascarado. O checkout fica na tag até o revert
+   e só sai dela pelo ff sem janela, com o delta conferido: infra no delta espera o passo 3
+   da próxima janela.
 
 A via rápida (Q0=A) valeu para o passo 1. Enquanto o `tools/jogavel.py` (B0.7/B0.7b) não existir, os passos seguem runbooks próprios com comandos à mão (decisão do PM em 27/09, para a trilha não parar): [B1.4](b1.4-botaimimprover.md). Quando o `jogavel.py` chegar, ele substitui os comandos crus.
 

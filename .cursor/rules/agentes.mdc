@@ -34,6 +34,7 @@ processo.
 - `docker compose up`/`stop`/`restart`/`exec`/`cp`/`rm`, `docker run`/`exec`/`cp` ou RCON sem janela aberta. Exceção: a coleta só leitura pós-partida do papel servidor (`jogavel.py coletar`) basta preflight 0.
 - Criar, apagar ou renovar (`touch`) `logs/janelas/ABERTA` sem ser o papel servidor.
 - `git clean` em qualquer forma (inclusive `git -C`); `git add -A` ou `git add .`; push na `main`; `--force`; `git reset --hard`.
+- `git pull`/`merge` da `main` no checkout principal quando `git diff --stat HEAD origin/main` tiver arquivo de infra (compose, `docker/`, `server-configs/`): o candidato de infra só chega ao checkout pelo papel servidor, dentro de janela.
 - Usar a porta 8000 (é do Victor); use a 8010.
 - Trocar `botprofile.vpk` ou a DLL do plugin com o servidor vivo.
 - `docker logs` com partida em curso.
