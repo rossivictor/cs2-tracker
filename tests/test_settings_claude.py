@@ -197,16 +197,20 @@ def test_nenhuma_regra_de_comando_comeca_com_curinga(permissoes):
                 assert not padrao.startswith("*"), padrao
 
 
-def test_sem_allow_e_sem_hook_ainda(permissoes):
-    # Allow amplia poder e depende de confiança no workspace; o hook é o B0.5.
+def test_sem_allow(permissoes):
+    # Allow amplia poder e depende de confiança no workspace. O registro do
+    # hook de guarda (B0.5) é conferido em tests/test_guarda.py.
     assert "allow" not in permissoes
-    assert "hooks" not in json.loads(SETTINGS.read_text(encoding="utf-8"))
 
 
 def test_arquivos_proibidos_tem_deny_de_read_e_edit(permissoes):
     for ferramenta in ("Read", "Edit"):
         assert sorted(_padroes(permissoes["deny"], ferramenta)) == sorted(ARQUIVOS_PROIBIDOS)
-        assert not _padroes(permissoes["ask"], ferramenta)
+    assert not _padroes(permissoes["ask"], "Read")
+    # A própria guarda (B0.5) no checkout principal: editar pede confirmação ao
+    # Victor. Nas worktrees o caminho é outro, e o card que mexe nela segue livre.
+    assert sorted(_padroes(permissoes["ask"], "Edit")) == sorted(
+        [f"{PRINCIPAL}/.claude/settings.json", f"{PRINCIPAL}/tools/hooks/**"])
     # O .env.example é o que o agente usa no lugar do .env: fica liberado.
     assert ".env.example" not in _padroes(permissoes["deny"], "Read")
 
