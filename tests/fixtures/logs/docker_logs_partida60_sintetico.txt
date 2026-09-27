@@ -1,0 +1,21 @@
+2026-09-26T16:20:01.100000000Z [METAMOD SETUP] complete: version 2.0.0.1469 installed.
+2026-09-26T16:20:01.200000000Z [CSSHARP SETUP] complete: version v1.0.375 installed.
+2026-09-26T16:20:30.000000000Z Success! App '730' already up to date.
+2026-09-26T16:20:40.000000000Z ServerVersion=2000918  PatchVersion=1.41.8.5
+2026-09-26T16:21:05.000000000Z CSSharp: Failed to find signature for 'CEntityIOOutput_FireOutputInternal'
+2026-09-26T16:21:06.000000000Z [MatchZy 0.8.15 LOADED]
+2026-09-26T16:21:06.500000000Z [Cs2TrackerEvents] Pronto — gravando em /home/steam/cs2-dedicated/game/csgo/events-live/current.jsonl
+2026-09-26T16:22:10.000000000Z [MatchZy] [ChangeMap] Changing map to de_anubis with delay 0
+2026-09-26T16:22:15.000000000Z [MatchZy] [LoadMatchFromJSON] Success with matchid: -1!
+2026-09-26T16:24:00.761000000Z [SignonState] Client 1 'Jogador' signon state SIGNONSTATE_SPAWN -> SIGNONSTATE_FULL
+2026-09-26T16:24:01.742000000Z [MatchZy] [FULL CONNECT] First player has connected, starting warmup!
+2026-09-26T16:24:01.880000000Z [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+2026-09-26T16:24:01.887000000Z [Jogador] DISCONNECTING. ProcessMessages has taken more than 237ms to process 5 messages
+2026-09-26T16:24:01.905000000Z Long frame: 256.89ms elapsed, 256.20ms sim time
+2026-09-26T16:24:40.000000000Z [SignonState] Client 1 'Jogador' signon state SIGNONSTATE_SPAWN -> SIGNONSTATE_FULL
+2026-09-26T16:24:40.500000000Z [MatchZy] [FULL CONNECT] Player ID: 1, Name: Jogador has connected!
+2026-09-26T16:26:00.000000000Z [MatchZy] [InsertMatchData] Data inserted into matchzy_stats_matches with match_id: 60
+2026-09-26T16:26:00.100000000Z [MatchZy] [StartDemoRecoding] Starting demo recording, path: MatchZy/2026-09-26_16-26-00_60_de_anubis_Jogador_vs_Bots.dem
+2026-09-26T16:26:00.200000000Z [MatchZy] [StartLive] Starting Live! Executing Live CFG from MatchZy/live.cfg
+2026-09-26T16:37:51.000000000Z [MatchZy] [HandleMatchEnd] MAP ENDED, isMatchSetup: True matchid: 60 currentMapNumber: 0 tvFlushDelay: 15
+2026-09-26T16:37:51.100000000Z [MatchZy] [WritePlayerStatsToCsv] Match stats for ID: 60 written successfully at: /home/steam/cs2-dedicated/game/csgo/MatchZy_Stats/60/match_data_map0_60.csv

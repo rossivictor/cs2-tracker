@@ -1,0 +1,70 @@
+===== sessão iniciada 2026-09-19T14:31:32.676575 =====
+[    0.1s] [setup  ] container=cs2-spike eventos=docker\events-live\current.jsonl
+[    0.1s] [evento ] observando docker\events-live\current.jsonl
+[   99.7s] [docker ] (matchzy) [MatchZy] [LOADMATCH] MinPlayersToReady: 2 SeriesClinch: True
+[   99.7s] [docker ] (matchzy) [MatchZy] [LOADMATCH] MapsPool: de_nuke, de_dust2, de_ancient MapsLeftInVetoPool: de_nuke, de_dust2, de_ancient
+[   99.7s] [docker ] (matchzy) [MatchZy] [ChangeMap] Changing map to de_nuke with delay 0
+[   99.7s] [docker ] (warmup) [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+[   99.7s] [docker ] (matchzy) [MatchZy] [UpdatePlayersMap] CCSPlayerController count: 11 matchModeOnly: False
+[   99.7s] [docker ] (matchzy) [MatchZy] [UpdatePlayersMap] CCSPlayerController count: 11, RealPlayersCount: 0
+[   99.7s] [docker ] (matchzy) [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+[   99.7s] [docker ] (matchzy) [MatchZy] [LoadMatchFromJSON] Success with matchid: -1!
+[  107.1s] [evento ] --- arquivo truncado (troca de mapa) ---
+[  110.8s] [docker ] (warmup) [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+[  110.8s] [docker ] (warmup) execing MatchZy/warmup.cfg
+[  157.6s] [docker ] (matchzy) [MatchZy] [FULL CONNECT] Player ID: 1, Name: Jogador has connected!
+[  157.6s] [docker ] (warmup) [MatchZy] [FULL CONNECT] First player has connected, starting warmup!
+[  157.6s] [docker ] (matchzy) [MatchZy] [AutoStart] autoStartMode: 1
+[  157.6s] [docker ] (warmup) [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+[  157.6s] [docker ] (warmup) execing MatchZy/warmup.cfg
+[  157.6s] [docker ] (round) "CS2 Tracker - Spike MatchZy CSTV<0><BOT><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 49.19
+[  199.9s] [docker ] (matchzy) [MatchZy] [InsertMatchData] Data inserted into matchzy_stats_matches with match_id: 45
+[  199.9s] [docker ] (matchzy) [MatchZy] [GetCoachSpawns] Loaded 2 coach spawns
+[  199.9s] [docker ] (matchzy) [MatchZy] [StartDemoRecoding] Starting demo recording, path: MatchZy/2026-09-19_17-34-52_45_de_nuke_Jogador_vs_Bots.dem
+[  199.9s] [docker ] (matchzy) [MatchZy] [StartLive] Starting Live! Executing Live CFG from MatchZy/live.cfg
+[  199.9s] [docker ] (matchzy) [MatchZy] [StartDemoRecording] Demo recording is already in progress.
+[  200.1s] [docker ] (matchzy) [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+[  200.2s] [docker ] (matchzy) [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+[  200.2s] [docker ] (matchzy) [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round00.json fileUplo
+[  200.2s] [docker ] (matchzy) execing MatchZy/live_override.cfg
+[  203.8s] [docker ] (round) "Rebel<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 88.70
+[  203.8s] [docker ] (round) "Muhlik<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 88.70
+[  278.3s] [docker ] (matchzy) [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round01.txt and lastMatchZyBackupFileName to matchzy_45_0_round01.json
+[  278.3s] [docker ] (matchzy) [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+[  278.3s] [evento ] round 2: Crusher matou Rip (elite)
+[  278.3s] [evento ] round 2 TERMINOU — vencedor t (ct_killed)
+[  278.3s] [docker ] (matchzy) [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+[ 1704.0s] [docker ] (matchzy) [MatchZy] [HandleMatchEnd] MAP ENDED, isMatchSetup: True matchid: 45 currentMapNumber: 0 tvFlushDelay: 15
+[ 1704.0s] [docker ] (matchzy) [MatchZy] [StopDemoRecording] Going to stop demorecording in 14.5s
+[ 1704.0s] [docker ] (matchzy) [MatchZy] [HandleMatchEnd] MATCH ENDED, remainingMaps: 2, NumMaps: 3, Team1SeriesScore: 0, Team2SeriesScore: 1
+[ 1704.0s] [docker ] (matchzy) [MatchZy] [SetMapEndData] Data updated for matchId: 45 mapNumber: 0 winnerName: Bots
+[ 1704.1s] [docker ] (matchzy) [MatchZy] [WritePlayerStatsToCsv] Match stats for ID: 45 written successfully at: /home/steam/cs2-dedicated/game/csgo/MatchZy_Stats/45/match_data_map0_45.csv
+[ 1714.6s] [evento ] --- arquivo truncado (troca de mapa) ---
+[ 1725.0s] [docker ] (matchzy) [MatchZy] [ChangeMap] Changing map to de_dust2 with delay 3
+[ 1731.1s] [evento ] --- arquivo truncado (troca de mapa) ---
+[ 1775.6s] [docker ] (matchzy) [MatchZy] [StartDemoRecoding] Starting demo recording, path: MatchZy/2026-09-19_18-01-08_45_de_dust2_Jogador_vs_Bots.dem
+[ 1775.6s] [docker ] (matchzy) [MatchZy] [StartLive] Starting Live! Executing Live CFG from MatchZy/live.cfg
+[ 1775.6s] [docker ] (matchzy) [MatchZy] [StartDemoRecording] Demo recording is already in progress.
+[ 3837.1s] [docker ] (matchzy) [MatchZy] [HandleMatchEnd] MAP ENDED, isMatchSetup: True matchid: 45 currentMapNumber: 1 tvFlushDelay: 15
+[ 3837.1s] [docker ] (matchzy) [MatchZy] [StopDemoRecording] Going to stop demorecording in 14.5s
+[ 3837.1s] [docker ] (matchzy) [MatchZy] [HandleMatchEnd] MATCH ENDED, remainingMaps: 1, NumMaps: 3, Team1SeriesScore: 1, Team2SeriesScore: 1
+[ 3837.2s] [docker ] (matchzy) [MatchZy] [SetMapEndData] Data updated for matchId: 45 mapNumber: 1 winnerName: Jogador
+[ 3837.2s] [docker ] (matchzy) [MatchZy] [WritePlayerStatsToCsv] Match stats for ID: 45 written successfully at: /home/steam/cs2-dedicated/game/csgo/MatchZy_Stats/45/match_data_map1_45.csv
+[ 3858.2s] [docker ] (matchzy) [MatchZy] [ChangeMap] Changing map to de_ancient with delay 3
+[ 3858.2s] [docker ] (warmup) [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+[ 3864.5s] [evento ] --- arquivo truncado (troca de mapa) ---
+[ 6293.8s] [docker ] (matchzy) [MatchZy] [StartDemoRecoding] Starting demo recording, path: MatchZy/2026-09-19_19-16-26_45_de_ancient_Jogador_vs_Bots.dem
+[ 6293.8s] [docker ] (matchzy) [MatchZy] [StartLive] Starting Live! Executing Live CFG from MatchZy/live.cfg
+[ 6293.8s] [docker ] (matchzy) [MatchZy] [StartDemoRecording] Demo recording is already in progress.
+[ 8112.7s] [docker ] (matchzy) [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+[ 8113.1s] [evento ] round 21: Buckshot matou Jogador (ak47)
+[ 8113.1s] [evento ] round 21 TERMINOU — vencedor t (ct_killed)
+[ 8115.7s] [docker ] (matchzy) [MatchZy] [HandleMatchEnd] MAP ENDED, isMatchSetup: True matchid: 45 currentMapNumber: 2 tvFlushDelay: 15
+[ 8115.7s] [docker ] (matchzy) [MatchZy] [StopDemoRecording] Going to stop demorecording in 14.5s
+[ 8115.7s] [docker ] (matchzy) [MatchZy] [HandleMatchEnd] MATCH ENDED, remainingMaps: 0, NumMaps: 3, Team1SeriesScore: 1, Team2SeriesScore: 2
+[ 8115.7s] [docker ] (matchzy) [MatchZy] [SetMapEndData] Data updated for matchId: 45 mapNumber: 2 winnerName: Bots
+[ 8115.7s] [docker ] (matchzy) [MatchZy] [SetMatchEndData] Data updated for matchId: 45 winnerName: Bots
+[ 8115.7s] [docker ] (matchzy) [MatchZy] [WritePlayerStatsToCsv] Match stats for ID: 45 written successfully at: /home/steam/cs2-dedicated/game/csgo/MatchZy_Stats/45/match_data_map2_45.csv
+[ 8116.1s] [evento ] --- arquivo truncado (troca de mapa) ---
+[ 8137.8s] [docker ] (round) "Jogador<0><STEAM_ID_PENDING><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+[ 9195.9s] [setup  ] encerrado.

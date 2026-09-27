@@ -1,0 +1,8 @@
+{"type":"round_start","round_num":1,"tick":155057,"human_side":"t"}
+{"type":"round_start","round_num":2,"tick":155184,"human_side":"t"}
+{"type":"player_hurt","round_num":2,"tick":157079,"attacker_name":"Shamat","attacker_steamid":null,"victim_name":"Stone","victim_steamid":null,"weapon":"hkp2000","hitgroup":7,"dmg_health":23,"dmg_armor":0}
+{"type":"player_hurt","round_num":2,"tick":157100,"attacker_name":"Buckshot","attacker_steamid":null,"victim_name":"Stone","victim_steamid":null,"weapon":"hkp2000","hitgroup":2,"dmg_health":16,"dmg_armor":8}
+{"type":"player_hurt","round_num":2,"tick":157103,"attacker_name":"Shamat","attacker_steamid":null,"victim_name":"Stone","victim_steamid":null,"weapon":"hkp2000","hitgroup":2,"dmg_health":15,"dmg_armor":7}
+{"type":"player_hurt","round_num":2,"tick":157112,"attacker_name":"Stone","attacker_steamid":null,"victim_name":"Buckshot","victim_steamid":null,"weapon":"glock","hitgroup":1,"dmg_health":105,"dmg_armor":0}
+{"type":"player_death","round_num":21,"tick":271216,"attacker_name":"Buckshot","attacker_steamid":null,"attacker_side":"t","victim_name":"Jogador","victim_steamid":"76561190000000001","victim_side":"ct","weapon":"ak47","headshot":true,"distance":5.9155216}
+{"type":"round_end","round_num":21,"tick":271216,"winner":"t","reason":"ct_killed"}
