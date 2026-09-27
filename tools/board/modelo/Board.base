@@ -1,0 +1,84 @@
+filters:
+  and:
+    - file.ext == "md"
+    - file.hasProperty("Status")
+formulas:
+  deps_pendentes: if(note["Depende de"].isEmpty(), 0, note["Depende de"].filter(value.asFile().properties.Status != "Concluída").length)
+  status_valido: '["Backlog", "Bloqueada", "Pronta para começar", "Em andamento", "Em testes", "PR aberta", "Aguardando partida", "Concluída"].contains(note.Status)'
+  verificacao_valida: '["Offline", "Servidor", "Partida"].contains(note["Verificação"])'
+  executor_valido: '["Agente", "Humano", "Agente+Humano"].contains(note.Executor)'
+  camada_valida: '["Infra/Harness", "Bots/Servidor", "Captura", "Dados", "Orquestração", "TUI", "Web", "Docs/KB"].contains(note.Camada)'
+  fora_da_lista: if(!(formula.status_valido && formula.verificacao_valida && formula.executor_valido && formula.camada_valida), "valor fora da lista, rode o validar")
+  jogo: if(note["Caminho de jogo"] == true, "caminho de jogo")
+  sinal: if(note.Reprovada == true, if(note["Reprovações"], note["Reprovações"], 0) + "x")
+  aguardando: if(formula.deps_pendentes > 0, formula.deps_pendentes + " card(s)")
+properties:
+  formula.deps_pendentes:
+    displayName: Deps pendentes
+  formula.status_valido:
+    displayName: Status ok
+  formula.verificacao_valida:
+    displayName: Verificação ok
+  formula.executor_valido:
+    displayName: Executor ok
+  formula.camada_valida:
+    displayName: Camada ok
+  formula.fora_da_lista:
+    displayName: Conferência
+  formula.jogo:
+    displayName: Trilho
+  formula.sinal:
+    displayName: Reprovada
+  formula.aguardando:
+    displayName: Depende de
+views:
+  - type: kanban
+    name: Esteira
+    groupBy:
+      property: Status
+      direction: ASC
+    order:
+      - file.name
+      - ID
+      - Verificação
+      - Executor
+      - Camada
+      - formula.jogo
+      - formula.sinal
+      - formula.aguardando
+      - formula.fora_da_lista
+    sort:
+      - property: Reprovada
+        direction: DESC
+      - property: Ordem
+        direction: ASC
+    showEmptyProperties: false
+    kanbanState:
+      columnOrders:
+        note.Status:
+          - Backlog
+          - Bloqueada
+          - Pronta para começar
+          - Em andamento
+          - Em testes
+          - PR aberta
+          - Aguardando partida
+          - Concluída
+      columnSettings:
+        note.Status:
+          Backlog:
+            color: gray
+          Bloqueada:
+            color: red
+          Pronta para começar:
+            color: blue
+          Em andamento:
+            color: yellow
+          Em testes:
+            color: orange
+          PR aberta:
+            color: purple
+          Aguardando partida:
+            color: cyan
+          Concluída:
+            color: green

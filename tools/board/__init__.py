@@ -12,5 +12,6 @@ por caminho absoluto; `--board=<pasta>` troca (testes usam tmp_path).
 
 Porte de `kalendas/scripts/lib/board.ts`. Partes: `frontmatter` (leitura e
 escrita linha a linha), `modelo` (valores, grafo, validar, fila,
-reclassificar, criar) e `cli` (comandos). Só biblioteca padrão.
+reclassificar, criar), `vault` (o `iniciar`, que cria o vault a partir da
+pasta `modelo/`, card H1.4) e `cli` (comandos). Só biblioteca padrão.
 """
