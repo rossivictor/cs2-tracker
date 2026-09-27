@@ -17,27 +17,45 @@ Bloqueia:
     worktree de agente) ou com projeto (-p, COMPOSE_PROJECT_NAME) que não
     seja cs2-tracker: sem `name:`, o compose cria projeto e volume vazios;
   - compose run e compose down (com ou sem -v/--volumes);
+  - compose config sem -q (e afins) e docker inspect sem --format: imprimem
+    os valores do .env na conversa;
   - docker volume rm/remove/prune e docker system prune;
-  - git clean (qualquer forma) e git stash --all (tira os ignorados do disco);
-  - pip install/uninstall, python -m pip, uv pip install/uninstall/sync;
+  - git clean (qualquer forma, inclusive por alias) e git stash --all (tira
+    os ignorados do disco);
+  - pip install/uninstall, python -m pip, uv pip install/uninstall/sync,
+    uv add/remove/sync;
   - uvicorn, http.server e afins ouvindo na 8000 (a porta do Victor),
-    inclusive pela porta padrão; docker run -p 8000:...;
+    inclusive pela porta padrão; docker run -p 8000:...; preview_start do
+    navegador do Claude com configuração do launch.json na 8000;
   - escrita em cs2_tracker.db (qualquer caminho; apagar o lixo de uma
     worktree pode), .env, data/profile.json, docker/events-live/**,
-    C:/cs2server/** e o volume do Docker, por ferramenta de arquivo,
-    redirecionamento ou comando (rm, cp, mv, tee, Set-Content...);
+    docker/match_config.spike.json do checkout principal, C:/cs2server/** e
+    o volume do Docker, por ferramenta de arquivo, redirecionamento, comando
+    (rm, cp, mv, ln, tee, Set-Content...), curinga (rm -rf docker/*),
+    chamada .NET ([IO.File]::Delete) ou código inline (python -c);
   - docker logs / compose logs quando tools/preflight.py não devolve 0 ou 4;
-  - no Write/Edit em docs/** e tests/fixtures/**, dado pessoal e segredo
-    (tools/hooks/pii.py).
+  - no Write/Edit, dado pessoal e segredo (tools/hooks/pii.py): segredo do
+    .env em qualquer arquivo do repositório; SteamID em docs/**, tests/**,
+    .cursor/**, .env.example e *.md da raiz; IPv4 nos mesmos, menos tests/
+    fora de tests/fixtures/.
+
+Variável é resolvida quando o valor está no próprio comando (PY=...; $PY,
+$py = '...'; & $py, export, Set-Variable), assim como alias e função
+definidos nele: as ferramentas Bash e PowerShell não guardam estado entre
+chamadas, então o valor sempre está no texto. Programa que não dá pra
+resolver ($X sem valor, embrulho desconhecido como setsid ou flock) ainda
+tem as palavras seguintes conferidas (docker, git, pip, python, uvicorn).
 
 Falha fechada com escopo: exceção ao analisar um comando que menciona
-docker, git ou pip sai com 2. Qualquer outro erro interno sai com 0 e um
-aviso (systemMessage): bug no hook não pode travar o trabalho normal.
+docker, git ou pip (palavra inteira) sai com 2. Qualquer outro erro interno
+sai com 0 e um aviso (systemMessage): bug no hook não pode travar o trabalho
+normal.
 
 Só biblioteca padrão. Sem `docker logs` no comando, fica abaixo de 150 ms.
 """
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
 import posixpath
@@ -52,7 +70,8 @@ TIMEOUT_PREFLIGHT_S = 45
 
 DIALETO = {"Bash": "bash", "PowerShell": "ps"}
 FERRAMENTAS_DE_ARQUIVO = ("Write", "Edit", "MultiEdit", "NotebookEdit")
-_SENSIVEL = re.compile(r"docker|git|pip", re.IGNORECASE)
+# Palavra inteira: "digit", "github", "pipe" e "Pipfile" não contam.
+_SENSIVEL = re.compile(r"\b(?:docker(?:-compose)?|git|pip\d*)\b", re.IGNORECASE)
 
 
 class Bloqueio(Exception):
@@ -129,6 +148,11 @@ class Contexto:
         self.preflight = preflight or _rodar_preflight
         self.arquivo_env = arquivo_env or (self.principal + "/.env")
         self.env = {}
+        # Alias e função definidos no próprio comando (nome em minúsculas).
+        # Compartilhados com os filhos: sobra definição, nunca falta.
+        self.apelidos = {}
+        self.funcoes = {}
+        self.expandindo = frozenset()  # funções já abertas nesta cadeia (recursão)
         self.profundidade = 0
 
     def filho(self):
@@ -153,7 +177,8 @@ class Contexto:
     def protegidos(self):
         p = self.principal
         return [f"{p}/cs2_tracker.db", f"{p}/.env", f"{p}/data/profile.json",
-                f"{p}/docker/events-live", "c:/cs2server"]
+                f"{p}/docker/events-live", f"{p}/docker/match_config.spike.json",
+                "c:/cs2server"]
 
 
 ALT_BANCO = ("banco em tmp_path ou fixture; dado real só numa cópia mode=ro pedida ao PM "
@@ -163,12 +188,24 @@ ALT_PERFIL = "perfil em tmp_path nos testes"
 ALT_EVENTS = "fixture anonimizada em tests/fixtures/"
 ALT_CS2SERVER = "nada: C:/cs2server é a única semente de recuperação do servidor"
 ALT_VOLUME = "nada: o volume cs2-tracker_cs2-data não é reproduzível"
+ALT_SPIKE = ("deixe como está: é estado de runtime do start_match, que o reescreve a cada "
+             "partida; git add só por caminho")
 _EVENTS_LIVE = re.compile(r"(^|/)docker/events-live(/|$)")
+_CURINGA = re.compile(r"[*?\[]")
+_NOMES_DO_BANCO = ("cs2_tracker.db", "cs2_tracker.db-wal", "cs2_tracker.db-shm",
+                   "cs2_tracker.db-journal")
 
 
 def _motivo_protegido(bruto, ctx, modo="escrita"):
     """(motivo, alternativa) se `bruto` é caminho protegido, senão None.
     modo: escrita, apagar (o cs2_tracker.db fora do principal pode) ou mover."""
+    if bruto.startswith("(") and bruto.endswith(")"):  # (Join-Path $PWD 'x') do PowerShell
+        for caminho in _caminhos_de_expressao(bruto[1:-1], ctx):
+            achado = _motivo_protegido(caminho, ctx, modo)
+            if achado:
+                return achado
+        return None
+    bruto = _expandir(bruto, ctx.env, ctx, "caminho", sistema=True)
     forma = _barras(bruto).rstrip("/")
     absoluto = _absoluto(bruto, ctx.cwd)
     chaves = [forma.lower()] + ([absoluto.lower()] if absoluto else [])
@@ -180,6 +217,8 @@ def _motivo_protegido(bruto, ctx, modo="escrita"):
             return "é o banco cs2_tracker.db", ALT_BANCO
     if nome == ".env":
         return "é o .env (segredos do servidor)", ALT_ENV
+    if absoluto and absoluto.lower() == f"{ctx.principal}/docker/match_config.spike.json".lower():
+        return "é o docker/match_config.spike.json do checkout principal", ALT_SPIKE
     for chave in chaves:
         if chave == "data/profile.json" or chave.endswith("/data/profile.json"):
             return "é o data/profile.json (perfil do Victor)", ALT_PERFIL
@@ -196,7 +235,57 @@ def _motivo_protegido(bruto, ctx, modo="escrita"):
             if protegido == alvo or protegido.startswith(alvo + "/"):
                 return (f"leva junto {protegido}",
                         "apague ou mova só o que você criou, pelo nome")
+    if _CURINGA.search(forma):
+        return _motivo_curinga(forma, absoluto, ctx, modo)
     return None
+
+
+def _segmentos_casam(padrao, alvo):
+    """O padrão (lista de segmentos com curinga; ** vale qualquer número de
+    segmentos) casa o caminho `alvo` inteiro?"""
+    if not padrao:
+        return not alvo
+    if padrao[0] == "**":
+        return any(_segmentos_casam(padrao[1:], alvo[k:]) for k in range(len(alvo) + 1))
+    return (bool(alvo) and fnmatch.fnmatchcase(alvo[0], padrao[0])
+            and _segmentos_casam(padrao[1:], alvo[1:]))
+
+
+def _motivo_curinga(forma, absoluto, ctx, modo):
+    """rm -rf *, docker/*, cs2_*.db: o curinga alcança algo protegido? Com a
+    pasta conhecida, casa segmento a segmento com os caminhos protegidos; sem
+    ela, vale o nome (banco e .env)."""
+    if absoluto is None:
+        nome = forma.lower().rsplit("/", 1)[-1]
+        if any(fnmatch.fnmatchcase(banco, nome) for banco in _NOMES_DO_BANCO):
+            return f"o curinga {forma} casa o banco cs2_tracker.db", ALT_BANCO
+        if nome.startswith(".") and fnmatch.fnmatchcase(".env", nome):
+            return f"o curinga {forma} casa o .env", ALT_ENV
+        return None
+    padrao = absoluto.lower().split("/")
+    lados = [f"{ctx.principal}/{banco}" for banco in _NOMES_DO_BANCO[1:]]
+    for protegido in ctx.protegidos() + lados:
+        alvo = protegido.lower().split("/")
+        # Apagar ou mover uma pasta leva o que tem dentro: vale casar um ancestral.
+        tamanhos = range(1, len(alvo) + 1) if modo in ("apagar", "mover") else [len(alvo)]
+        if any(_segmentos_casam(padrao, alvo[:k]) for k in tamanhos):
+            return (f"o curinga {forma} alcança {protegido}",
+                    "apague ou mova só o que você criou, pelo nome, sem curinga")
+    return None
+
+
+def _caminhos_de_expressao(texto, ctx):
+    """Caminhos candidatos de uma expressão (...) do PowerShell: o resultado
+    do Join-Path, ou cada palavra dela."""
+    palavras = _palavras(texto, "ps")
+    if palavras and palavras[0].lower() == "join-path":
+        nomeados, pos = _args_ps(palavras[1:])
+        partes = [v for nome, v in nomeados
+                  if nome in ("path", "childpath", "additionalchildpath")] + pos
+        partes = [_expandir(p, ctx.env, ctx, "ps", sistema=True) for p in partes]
+        if partes:
+            return ["/".join([partes[0].rstrip("/\\")] + [p.strip("/\\") for p in partes[1:]])]
+    return palavras
 
 
 def _checar_caminho(alvo, ctx, modo, acao):
@@ -328,6 +417,14 @@ class _Leitor:
                         j += 1
                     toks.append(_Tok("r", t[self.i:j]))
                     self.i = j
+            elif c == "(" and d == "ps" and (tem or (toks and toks[-1].tipo != "s")):
+                # Expressão em posição de argumento: Remove-Item (Join-Path $PWD 'x').
+                # Vira uma palavra (o texto cru) com o conteúdo aninhado.
+                ini = self.i
+                self.i += 1
+                anin.append(self.ler(fecha=True))
+                pal.append(t[ini:self.i])
+                tem = True
             elif c == "(":
                 separar()
                 prof += 1
@@ -521,7 +618,127 @@ def _palavras(texto, dialeto="bash"):
 # ---------------------------------------------------------------- análise
 
 def analisar_comando(texto, dialeto, ctx):
+    _registrar_funcoes(texto, dialeto, ctx)
+    if dialeto == "ps" and "::" in texto:
+        _chamadas_dotnet(texto, ctx)
     _analisar_tokens(_Leitor(texto, dialeto).ler(), dialeto, ctx)
+
+
+# ------------------------------------------------ variáveis, alias e funções
+
+_VAR = re.compile(r"\$(?:\{(?:env:)?([A-Za-z_][A-Za-z0-9_]*)\}|(?:env:)?([A-Za-z_][A-Za-z0-9_]*))",
+                  re.IGNORECASE)
+_SUBST_PWD = re.compile(r"\$\(\s*(?:pwd|get-location|gl)\s*\)", re.IGNORECASE)
+# Automáticas do PowerShell ($_ no Where-Object...) nunca vêm do ambiente.
+_AUTOMATICAS = {"_", "ARGS", "INPUT", "THIS", "PSITEM", "TRUE", "FALSE", "NULL", "MATCHES",
+                "ERROR", "HOST", "LASTEXITCODE", "PSSCRIPTROOT"}
+# Do ambiente do sistema, nunca: listas de pastas viram lixo quando expandidas.
+_SISTEMA_NAO = {"_", "PATH", "PATHEXT", "PSMODULEPATH"}
+
+
+def _expandir(palavra, env, ctx, dialeto, sistema=False):
+    """$NOME, ${NOME}, $env:NOME, $PWD e $(pwd) trocados pelo valor conhecido:
+    o que o comando definiu (env) e, com `sistema`, o ambiente do processo.
+    Variável sem valor conhecido fica como está."""
+    if "$" not in palavra or dialeto == "cmd":
+        return palavra
+    if ctx.cwd:
+        palavra = _SUBST_PWD.sub(lambda _m: ctx.cwd, palavra)
+
+    def troca(m):
+        nome = (m.group(1) or m.group(2)).upper()
+        if nome == "PWD":
+            return ctx.cwd or m.group(0)
+        if nome in env:
+            return env[nome]
+        if nome in _AUTOMATICAS:
+            return m.group(0)
+        if sistema and nome not in _SISTEMA_NAO:
+            valor = os.environ.get(nome)
+            if valor is not None:
+                return valor
+        return m.group(0)
+
+    return _VAR.sub(troca, palavra)
+
+
+_FUNCAO = {
+    "bash": re.compile(r"(?:^|[\s;&|(])(?:function\s+([A-Za-z_][\w.:-]*)\s*(?:\(\s*\))?"
+                       r"|([A-Za-z_][\w.:-]*)\s*\(\s*\))\s*\{"),
+    "ps": re.compile(r"(?:^|[\s;&|({])(?:function|filter)\s+([\w.:-]+)\s*(?:\([^)]*\))?\s*\{",
+                     re.IGNORECASE),
+}
+
+
+def _bloco(texto, ini):
+    """Texto de `ini` até a chave que fecha o bloco aberto antes de `ini`."""
+    prof = 1
+    for j in range(ini, len(texto)):
+        if texto[j] == "{":
+            prof += 1
+        elif texto[j] == "}":
+            prof -= 1
+            if prof == 0:
+                return texto[ini:j]
+    return texto[ini:]
+
+
+def _registrar_funcoes(texto, dialeto, ctx):
+    """d(){ docker "$@"; } e function d { docker @args }: guarda o corpo pra
+    analisar quando `d` for chamado."""
+    regex = _FUNCAO.get(dialeto)
+    if regex is None or "{" not in texto:
+        return
+    for m in regex.finditer(texto):
+        nome = next(g for g in m.groups() if g)
+        ctx.funcoes[nome.lower()] = _bloco(texto, m.end())
+
+
+_SIMPLES = re.compile(r"^[\w./:=@%+,-]+$")
+
+
+def _citar(palavra, dialeto):
+    if _SIMPLES.match(palavra):
+        return palavra
+    if dialeto == "ps":
+        return "'" + palavra.replace("'", "''") + "'"
+    return "'" + palavra.replace("'", "'\\''") + "'"
+
+
+def _corpo_com_args(corpo, args, dialeto):
+    """Corpo da função com "$@", $*, $1..$9, @args e $args trocados pelos argumentos."""
+    citados = " ".join(_citar(a, dialeto) for a in args)
+    crus = " ".join(args)
+    corpo = re.sub(r'"\$\{?[@*]\}?"|@args\b', lambda _m: citados, corpo, flags=re.IGNORECASE)
+    corpo = re.sub(r"\$\{?[@*]\}?|\$args\b|\$input\b", lambda _m: crus, corpo,
+                   flags=re.IGNORECASE)
+    return re.sub(r"\$\{?([1-9])\}?",
+                  lambda m: args[int(m.group(1)) - 1] if int(m.group(1)) <= len(args) else "",
+                  corpo)
+
+
+_DOTNET = re.compile(r"\[(?:system\.)?io\.(file|directory|fileinfo|directoryinfo)\]\s*::\s*(\w+)"
+                     r"\s*\(", re.IGNORECASE)
+_SO_LEITURA_DOTNET = ("read", "exists", "get", "enumerate", "openread", "opentext")
+
+
+def _chamadas_dotnet(texto, ctx):
+    """[IO.File]::WriteAllText('.env', ...), [IO.File]::Delete(...) e afins."""
+    for m in _DOTNET.finditer(texto):
+        metodo = m.group(2).lower()
+        if metodo.startswith(_SO_LEITURA_DOTNET):
+            continue
+        modo = ("apagar" if "delete" in metodo
+                else "mover" if metodo in ("move", "replace") else "escrita")
+        dentro = _bloco(texto.replace("(", "{").replace(")", "}"), m.end())
+        # Caminho é o 1º argumento; em Move, Copy e Replace, o 2º também.
+        quantos = 2 if metodo in ("move", "copy", "replace") else 1
+        for arg in dentro.split(",")[:quantos]:
+            caminho = arg.strip()
+            if len(caminho) >= 2 and caminho[0] == caminho[-1] and caminho[0] in "'\"":
+                caminho = caminho[1:-1]
+            _checar_caminho(_expandir(caminho, ctx.env, ctx, "ps", sistema=True), ctx, modo,
+                            f"[IO.{m.group(1)}]::{m.group(2)}")
 
 
 def _analisar_tokens(toks, dialeto, ctx):
@@ -555,6 +772,7 @@ def _analisar_segmento(segmento, dialeto, ctx):
         if (op in (">", ">>", ">|", "&>", "&>>") or (op == ">&" and not alvo.isdigit()
                                                       and alvo != "-")):
             if alvo.lower() not in _NULOS:
+                alvo = _expandir(alvo, ctx.env, ctx, dialeto, sistema=True)
                 _checar_caminho(alvo, ctx, "escrita", f"redirecionamento {op}")
     if palavras:
         _analisar_palavras(palavras, dialeto, ctx)
@@ -568,6 +786,8 @@ _EXTENSOES = (".exe", ".cmd", ".bat", ".com", ".ps1")
 _RE_PYTHON = re.compile(r"^(python(\d+(\.\d+)*)?w?|pyw?)$")
 _RE_PIP = re.compile(r"^pip(\d+(\.\d+)*)?$")
 _DINAMICOS = ("docker-compose", "docker", "git", "pip", "uvicorn", "python")
+# Programas que a rede de palavras procura depois de um programa desconhecido.
+_VIGIADOS = {"docker", "docker-compose", "com.docker.cli", "git", "pip", "python", "uvicorn"}
 
 
 def _programa(palavra):
@@ -578,7 +798,30 @@ def _programa(palavra):
     return nome
 
 
-def _analisar_palavras(palavras, dialeto, ctx, env_local=None):
+def _normalizar(prog):
+    if _RE_PYTHON.match(prog):
+        return "python"
+    if _RE_PIP.match(prog):
+        return "pip"
+    return prog
+
+
+def _adivinhar(args):
+    """Programa provável quando o nome não se resolve ($X sem valor): pelo
+    primeiro argumento. Sobra bloqueio, nunca falta."""
+    primeiro = args[0].lower() if args else ""
+    if primeiro in ("compose", "volume", "system", "logs", "inspect", "container"):
+        return "docker"
+    if primeiro in ("clean", "stash"):
+        return "git"
+    if primeiro in ("install", "uninstall"):
+        return "pip"
+    if primeiro == "-m" or primeiro.startswith("-c"):
+        return "python"
+    return None
+
+
+def _analisar_palavras(palavras, dialeto, ctx, env_local=None, expandido=False):
     env = dict(ctx.env)
     env.update(env_local or {})
     i, atrib = 0, {}
@@ -589,7 +832,8 @@ def _analisar_palavras(palavras, dialeto, ctx, env_local=None):
             continue
         m = _ATRIB.match(w) if dialeto != "ps" else None
         if m:
-            atrib[m.group(1).upper()] = m.group(2)
+            atrib[m.group(1).upper()] = _expandir(m.group(2), {**env, **atrib}, ctx, dialeto,
+                                                  sistema=True)
             i += 1
             continue
         break
@@ -606,18 +850,37 @@ def _analisar_palavras(palavras, dialeto, ctx, env_local=None):
             if direita and direita[0].startswith("="):
                 direita[0] = direita[0][1:]
             direita = [w for w in direita if w]
-            if bruto.lower().startswith("$env:"):
-                ctx.env[m.group(1).upper()] = " ".join(direita)
+            # $env:X = ... e $x = '<literal>': o valor fica pro `& $x` seguinte.
+            if bruto.lower().startswith("$env:") or len(direita) == 1:
+                ctx.env[m.group(1).upper()] = " ".join(
+                    _expandir(w, env, ctx, dialeto, sistema=True) for w in direita)
             if direita:  # $x = docker ... executa o lado direito
                 _analisar_palavras(direita, dialeto, ctx)
             return
+    chave = bruto.lower()
+    if not expandido and chave in ctx.apelidos:
+        novas = _palavras(ctx.apelidos[chave], "ps" if dialeto == "ps" else "bash")
+        _analisar_palavras(novas + args, dialeto, ctx.filho(), env, expandido=True)
+        return
+    if chave in ctx.funcoes and chave not in ctx.expandindo:
+        filho = ctx.filho()
+        # git(){ command git "$@"; }: dentro do corpo, `git` é o programa de novo.
+        filho.expandindo = ctx.expandindo | {chave}
+        analisar_comando(_corpo_com_args(ctx.funcoes[chave], args, dialeto), dialeto, filho)
+        return
+    args = [_expandir(a, env, ctx, dialeto) for a in args]
+    if "$" in bruto:
+        valor = _expandir(bruto, env, ctx, dialeto, sistema=True)
+        # DC='docker compose'; $DC down: sem aspas, o bash quebra o valor em palavras.
+        if valor != bruto and not expandido and len(valor.split()) > 1:
+            _analisar_palavras(valor.split() + args, dialeto, ctx.filho(), env, expandido=True)
+        bruto = valor.strip()
     prog = _programa(bruto)
-    if ("$" in bruto or "`" in bruto) and prog not in _TRATADORES:
-        prog = next((k for k in _DINAMICOS if k in bruto.lower()), prog)
-    if _RE_PYTHON.match(prog):
-        prog = "python"
-    elif _RE_PIP.match(prog):
-        prog = "pip"
+    desconhecido = ("$" in bruto or "`" in bruto) and prog not in _TRATADORES
+    if desconhecido:
+        prog = next((k for k in _DINAMICOS if k in bruto.lower()), None) or _adivinhar(args) \
+            or prog
+    prog = _normalizar(prog)
     tratador = _TRATADORES.get(prog)
     if tratador:
         tratador(prog, args, dialeto, ctx, env)
@@ -626,6 +889,18 @@ def _analisar_palavras(palavras, dialeto, ctx, env_local=None):
             _checar_caminho(alvo, ctx, modo, prog)
     if prog not in _SEM_PORTA:
         _porta_generica(prog, args)
+    if (tratador is None or desconhecido) and prog not in _SO_TEXTO:
+        _rede_de_palavras(args, dialeto, ctx, env)
+
+
+def _rede_de_palavras(args, dialeto, ctx, env):
+    """setsid docker ..., flock x git clean, $X -m pip install: programa
+    desconhecido na frente não esconde docker, git, pip, python ou uvicorn
+    nas palavras seguintes."""
+    for k, palavra in enumerate(args):
+        prog = _normalizar(_programa(palavra))
+        if prog in _VIGIADOS:
+            _TRATADORES[prog](prog, args[k + 1:], dialeto, ctx, env)
 
 
 # ------------------------------------------------------------- opções
@@ -701,7 +976,9 @@ def _args_ps(args):
 
 _APAGAR = {"rm", "del", "erase", "rmdir", "rd", "remove-item", "ri", "unlink", "rimraf"}
 _MOVER = {"mv", "move", "move-item", "mi", "ren", "rename", "rename-item", "rni"}
-_COPIAR = {"cp", "copy", "copy-item", "cpi", "xcopy", "robocopy", "install", "rsync", "scp"}
+# ln: o destino (o link criado) é o último argumento, como no cp.
+_COPIAR = {"cp", "copy", "copy-item", "cpi", "xcopy", "robocopy", "install", "rsync", "scp",
+           "ln"}
 _GRAVAR = {"tee", "tee-object", "set-content", "sc", "add-content", "ac", "out-file",
            "clear-content", "clc", "new-item", "ni", "touch", "truncate", "mkdir", "md",
            "chmod", "chown", "attrib", "icacls", "takeown", "set-acl", "shred", "sqlite3",
@@ -817,8 +1094,19 @@ def _h_compose(prog, args, dialeto, ctx, env):
     for absoluto, bruto in lugares:
         if not ctx.no_principal(absoluto):
             _bloquear_compose_fora(absoluto or bruto)
+    if sub == "config" and not any(a.split("=", 1)[0] in _CONFIG_SEGURO for a in resto):
+        raise Bloqueio("docker compose config imprime os valores do .env (SRCDS_TOKEN, senha "
+                       "do RCON) na conversa",
+                       "docker compose config -q pra validar, --hash '*' pra comparar, "
+                       "--services ou --volumes pra listar")
     if sub == "logs":
         _checar_preflight(ctx, "docker compose logs")
+
+
+# Formas do compose config que não imprimem valor interpolado do .env.
+_CONFIG_SEGURO = {"-q", "--quiet", "--services", "--volumes", "--profiles", "--images", "--hash",
+                  "--networks", "--no-interpolate"}
+_FORMATO_COM_ENV = re.compile(r"env|\{\{\s*(?:json\s+)?\.\s*(?:config\s*)?\}\}", re.IGNORECASE)
 
 
 def _checar_preflight(ctx, oque):
@@ -859,6 +1147,12 @@ def _h_docker(prog, args, dialeto, ctx, env):
     acao = resto[j].lower() if j < len(resto) else ""
     if sub == "container" and acao:
         sub, resto = acao, resto[j + 1:]
+    if sub == "inspect":
+        formatos = _valores_opcao(resto, "-f", "--format")
+        if not formatos or any(_FORMATO_COM_ENV.search(f) for f in formatos):
+            raise Bloqueio("docker inspect sem --format (ou com o Env no formato) imprime o "
+                           "ambiente do container, com SRCDS_TOKEN e a senha do RCON",
+                           "docker inspect --format '{{.State.Status}}' (só o campo que precisa)")
     if sub == "volume" and acao in ("rm", "remove", "prune"):
         raise Bloqueio(f"docker volume {acao} apaga o volume do jogo (~73 GB, não reproduzível)",
                        "nada: o volume cs2-tracker_cs2-data só é tocado pelo Victor")
@@ -880,6 +1174,19 @@ def _h_git(prog, args, dialeto, ctx, env):
                                    "--super-prefix", "--config-env"})
     sub = args[i].lower() if i < len(args) else ""
     resto = args[i + 1:]
+    apelidos = {}
+    for valor in _valores_opcao(args[:i], "-c"):  # git -c alias.x=clean x
+        chave, igual, corpo = valor.partition("=")
+        if igual and chave.lower().startswith("alias."):
+            apelidos[chave[6:].lower()] = corpo
+    if sub in apelidos:
+        _expandir_alias_git(apelidos[sub], resto, dialeto, ctx, env)
+        return
+    if sub == "config":  # git config alias.x '!docker compose down -v'
+        for k, a in enumerate(resto):
+            if a.lower().startswith("alias.") and k + 1 < len(resto):
+                _expandir_alias_git(" ".join(resto[k + 1:]), [], dialeto, ctx, env)
+                break
     if sub == "clean":
         raise Bloqueio("git clean apaga não rastreados e ignorados: banco, events-live, .env e "
                        "a DLL (critic, risco 1)",
@@ -889,6 +1196,16 @@ def _h_git(prog, args, dialeto, ctx, env):
                               for a in resto):
         raise Bloqueio("git stash --all tira do disco os ignorados (banco, events-live, .env)",
                        "git stash push -m <tag> só com o que é rastreado, ou um commit WIP")
+
+
+def _expandir_alias_git(corpo, resto, dialeto, ctx, env):
+    """Alias do git: `!cmd` roda no shell; senão é um subcomando do git."""
+    corpo = corpo.strip()
+    if corpo.startswith("!"):
+        analisar_comando(" ".join([corpo[1:]] + [_citar(a, "bash") for a in resto]), "bash",
+                         ctx.filho())
+    elif corpo:
+        _h_git("git", _palavras(corpo) + resto, dialeto, ctx.filho(), env)
 
 
 def _h_pip(prog, args, dialeto, ctx, env):
@@ -905,6 +1222,9 @@ def _h_uv(prog, args, dialeto, ctx, env):
     if sub == "pip" and any(a.lower() in ("install", "uninstall", "sync") for a in resto):
         raise Bloqueio("uv pip install/uninstall/sync mexe na .venv do jogo",
                        "precisa de dependência? pare e peça ao Victor")
+    if sub in ("add", "remove", "sync"):
+        raise Bloqueio(f"uv {sub} mexe nas dependências e na .venv",
+                       "precisa de dependência? pare e peça ao Victor")
     if sub == "run":
         j = _primeiro_nao_opcao(resto, {"--with", "--python", "-p", "--directory", "--project",
                                         "--env-file", "--extra", "--group", "--package", "--index"})
@@ -919,55 +1239,135 @@ _REDE = [
     (re.compile(r"\bvolume\W{1,6}(rm|remove|prune)\b", re.I), "docker volume rm/prune"),
     (re.compile(r"\bsystem\W{1,6}prune\b", re.I), "docker system prune"),
     (re.compile(r"\bgit\W{1,6}(?:-C\W+\S+\W+)?clean\b", re.I), "git clean"),
+    (re.compile(r"\bgit\W{1,6}-c\W+alias\.", re.I), "git -c alias"),
     (re.compile(r"\bpip\d*(?:\.exe)?\W{1,6}(?:un)?install\b", re.I), "pip install"),
+    (re.compile(r"\bpip\s*\.\s*main\b|\bpip\._internal\b", re.I), "pip install (pip.main)"),
 ]
+# Chamada com texto no 1º argumento (e talvez no 2º): a tabela diz o que ela
+# faz com cada um. remove/replace/rename/move/copy/truncate são comuns demais
+# (list.remove, str.replace) e só contam com os, shutil ou fs na frente.
+_CODIGO_ARQUIVO = re.compile(
+    r"(?:\b(?P<mod>\w+)\s*\.\s*)?\b(?P<f>\w+)\s*\(\s*[rbuf]*(?P<q1>['\"])(?P<a>.*?)(?P=q1)"
+    r"(?:\s*,\s*[rbuf]*(?P<q2>['\"])(?P<b>.*?)(?P=q2))?")
+_FUNCOES_DE_ARQUIVO = {
+    **dict.fromkeys(("rmtree", "removedirs", "unlink", "unlinksync", "rmdir", "rmdirsync",
+                     "rmsync"), ("apagar", None)),
+    **dict.fromkeys(("renamesync",), ("mover", "escrita")),
+    **dict.fromkeys(("copyfile", "copytree", "copyfilesync", "cpsync"), (None, "escrita")),
+    **dict.fromkeys(("writefile", "writefilesync", "appendfile", "appendfilesync",
+                     "truncatesync"), ("escrita", None)),
+}
+_FUNCOES_COM_MODULO = {
+    "remove": ("apagar", None), "rm": ("apagar", None), "rename": ("mover", "escrita"),
+    "replace": ("mover", "escrita"), "move": ("mover", "escrita"), "copy": (None, "escrita"),
+    "copy2": (None, "escrita"), "cp": (None, "escrita"), "truncate": ("escrita", None),
+}
+_MODULOS_DE_ARQUIVO = {"os", "shutil", "fs", "fsp", "promises"}
+_CODIGO_OPEN = re.compile(r"\bopen\s*\(\s*[rbuf]*(['\"])(.*?)\1\s*,\s*(?:mode\s*=\s*)?[rbuf]*"
+                          r"(['\"])([^'\"]*)\3", re.IGNORECASE)
+_CODIGO_PATH = re.compile(r"\bPath\s*\(\s*[rbuf]*(['\"])(.*?)\1\s*\)\s*\.\s*(write_text|"
+                          r"write_bytes|unlink|rmdir|touch|rename|replace|open\s*\(\s*['\"]"
+                          r"[^'\"]*[wax+])", re.IGNORECASE)
+_UVICORN_RUN = re.compile(r"\buvicorn\s*\.\s*run\s*\(", re.IGNORECASE)
 
 
-def _rede_codigo(codigo, origem):
+def _modo_da_funcao(modulo, funcao):
+    """(modo do 1º argumento, modo do 2º) da chamada, ou (None, None)."""
+    f = funcao.lower()
+    if f in _FUNCOES_DE_ARQUIVO:
+        return _FUNCOES_DE_ARQUIVO[f]
+    if f in _FUNCOES_COM_MODULO and (modulo or "").lower() in _MODULOS_DE_ARQUIVO:
+        return _FUNCOES_COM_MODULO[f]
+    return None, None
+
+
+def _rede_codigo(codigo, origem, ctx=None):
     """Código inline (python -c, node -e...) não é analisável: procura o texto."""
+    codigo = codigo or ""
     for regex, oque in _REDE:
-        if regex.search(codigo or ""):
+        if regex.search(codigo):
             raise Bloqueio(f"código inline ({origem}) chama {oque}",
                            "rode o comando direto, onde a guarda vê, e só o que as regras permitem")
+    m = _UVICORN_RUN.search(codigo)
+    if m:
+        porta = re.search(r"\bport\s*=\s*(\d+)", codigo[m.end():])
+        if porta is None or int(porta.group(1)) == PORTA_DO_VICTOR:
+            raise Bloqueio(f"código inline ({origem}) sobe o uvicorn na 8000, que é do Victor",
+                           "uvicorn.run(..., port=8010) com banco de fixture")
+    if ctx is None:
+        return
+    for m in _CODIGO_ARQUIVO.finditer(codigo):
+        modo_a, modo_b = _modo_da_funcao(m.group("mod"), m.group("f"))
+        if modo_a:
+            _checar_caminho(m.group("a"), ctx, modo_a, f"{origem}: {m.group('f')}")
+        if modo_b and m.group("b") is not None:
+            _checar_caminho(m.group("b"), ctx, modo_b, f"{origem}: {m.group('f')}")
+    for m in _CODIGO_OPEN.finditer(codigo):
+        if any(c in m.group(4).lower() for c in "wax+"):
+            _checar_caminho(m.group(2), ctx, "escrita", f"{origem}: open(..., {m.group(4)!r})")
+    for m in _CODIGO_PATH.finditer(codigo):
+        modo = "apagar" if m.group(3).lower() in ("unlink", "rmdir") else (
+            "mover" if m.group(3).lower() in ("rename", "replace") else "escrita")
+        _checar_caminho(m.group(2), ctx, modo, f"{origem}: Path.{m.group(3).split('(')[0]}")
+
+
+# Opções do python que levam valor; -c e -m encerram as opções.
+_PY_COM_VALOR = "cmWX"
 
 
 def _h_python(prog, args, dialeto, ctx, env):
     i = 0
     while i < len(args):
         a = args[i]
-        if a == "-m" or (a.startswith("-m") and len(a) > 2 and not a.startswith("--")):
-            modulo = (a[2:] if len(a) > 2 else (args[i + 1] if i + 1 < len(args) else "")).lower()
-            resto = args[i + 1:] if len(a) > 2 else args[i + 2:]
-            if modulo in ("pip", "pip.__main__"):
-                _h_pip("pip", resto, dialeto, ctx, env)
-            elif modulo in ("http.server", "simplehttpserver"):
-                _checar_servidor("http.server", resto, env)
-            elif modulo == "django":
-                _checar_servidor("django-admin", resto, env)
-            elif modulo in _SERVIDORES:
-                _checar_servidor(modulo, resto, env)
-            else:
-                _porta_generica(modulo, resto)
-            return
-        if a == "-c" or (a.startswith("-c") and len(a) > 2 and not a.startswith("--")):
-            _rede_codigo(a[2:] if len(a) > 2 else (args[i + 1] if i + 1 < len(args) else ""),
-                         "python -c")
-            return
-        if a in ("-W", "-X", "--check-hash-based-pycs"):
+        if a == "--check-hash-based-pycs":
             i += 2
             continue
-        if a.startswith("-"):
+        if a.startswith("--") or a == "-":
+            if a in ("--", "-"):
+                return  # script pela entrada padrão ou depois do --: não dá pra ver
             i += 1
             continue
-        if _programa(a) == "manage.py":
-            _checar_servidor("django-admin", args[i + 1:], env)
-        return
+        if not a.startswith("-"):
+            if _programa(a) == "manage.py":
+                _checar_servidor("django-admin", args[i + 1:], env)
+            return
+        # Opções curtas juntas: -Im pip, -Esm pip, -Wignore, -cCODIGO.
+        j = next((k for k in range(1, len(a)) if a[k] in _PY_COM_VALOR), None)
+        if j is None:
+            i += 1
+            continue
+        opcao, valor = a[j], a[j + 1:]
+        if valor:
+            resto = args[i + 1:]
+        else:
+            valor = args[i + 1] if i + 1 < len(args) else ""
+            resto = args[i + 2:]
+        if opcao == "m":
+            _h_modulo_python(valor.lower(), resto, dialeto, ctx, env)
+            return
+        if opcao == "c":
+            _rede_codigo(valor, "python -c", ctx)
+            return
+        i += 1 if a[j + 1:] else 2
+
+
+def _h_modulo_python(modulo, resto, dialeto, ctx, env):
+    if modulo in ("pip", "pip.__main__") or modulo.startswith("pip._internal"):
+        _h_pip("pip", resto, dialeto, ctx, env)
+    elif modulo in ("http.server", "simplehttpserver"):
+        _checar_servidor("http.server", resto, env)
+    elif modulo == "django":
+        _checar_servidor("django-admin", resto, env)
+    elif modulo in _SERVIDORES:
+        _checar_servidor(modulo, resto, env)
+    else:
+        _porta_generica(modulo, resto)
 
 
 def _h_inline(prog, args, dialeto, ctx, env):
     for opcao in ("-e", "-E", "--eval", "-p", "--print", "-r"):
         for codigo in _valores_opcao(args, opcao):
-            _rede_codigo(codigo, f"{prog} {opcao}")
+            _rede_codigo(codigo, f"{prog} {opcao}", ctx)
     if prog == "php":
         _checar_servidor("php", args, env)
 
@@ -978,6 +1378,12 @@ _SERVIDORES = {"uvicorn", "gunicorn", "hypercorn", "daphne", "fastapi", "flask",
                "django-admin", "http-server", "serve", "live-server"}
 _SEM_PORTA = {"git", "gh", "grep", "rg", "findstr", "select-string", "sls", "echo", "printf",
               "write-output", "write-host", "sed", "awk", "cat", "type"}
+# Programas cujos argumentos são texto ou nome, nunca um comando a executar:
+# a rede de palavras não olha depois deles (echo docker compose down, man git clean).
+_SO_TEXTO = _SEM_PORTA | {"man", "help", "get-help", "info", "tldr", "whatis", "apropos", "which",
+                          "where", "whereis", "get-command", "gcm", "write-error",
+                          "write-warning", "write-verbose", "write-debug", "write-information",
+                          "out-host", "set-clipboard", "code", "notepad"}
 
 
 def _int(valor, padrao):
@@ -1091,7 +1497,13 @@ def _h_pwsh(prog, args, dialeto, ctx, env):
                 return
             if nome in ("e", "ec") or (len(nome) >= 2 and "encodedcommand".startswith(nome)):
                 import base64
-                texto = base64.b64decode(args[i + 1] if i + 1 < len(args) else "").decode("utf-16-le")
+                import binascii
+                try:
+                    texto = base64.b64decode(args[i + 1] if i + 1 < len(args) else "",
+                                             validate=True).decode("utf-16-le")
+                except (binascii.Error, UnicodeDecodeError, ValueError):
+                    raise Bloqueio("-EncodedCommand ilegível: a guarda não consegue ver o comando",
+                                   "rode o comando em texto puro") from None
                 analisar_comando(texto, "ps", filho)
                 return
             if nome in ("f", "file"):
@@ -1141,6 +1553,10 @@ def _h_start_process(prog, args, dialeto, ctx, env):
     while i < len(args):
         a = args[i]
         nome = a[1:].split(":", 1)[0].lower() if a.startswith("-") and len(a) > 1 else None
+        if prog == "start" and dialeto != "ps" and (a.startswith("/") and len(a) > 1 or not a):
+            # start do cmd: /b, /min, /wait, /d <pasta> e o título "" não são o programa.
+            i += 2 if a.lower() == "/d" else 1
+            continue
         if nome == "filepath":
             arquivo = args[i + 1] if i + 1 < len(args) else None
             i += 2
@@ -1182,14 +1598,31 @@ _EMBRULHO_VALOR = {
               "--delimiter", "--arg-file", "--replace"},
     "npx": {"-p", "--package"}, "bunx": {"-p", "--package"}, "uvx": {"--with", "--from", "-p",
                                                                     "--python"},
+    "ionice": {"-c", "--class", "-n", "--classdata", "-p", "--pid", "-P", "--pgid", "-u", "--uid"},
+    "doas": {"-u", "-C"}, "flock": {"-w", "--timeout", "-E", "--conflict-exit-code"},
 }
+# Embrulhos cujo 1º argumento depois das opções não é o comando: a duração
+# (timeout), a prioridade (chrt), a máscara (taskset) e o arquivo de trava (flock).
+_EMBRULHO_PULA_UM = {"timeout", "chrt", "taskset", "flock"}
 
 
 def _embrulho(prog, args, dialeto, ctx, env):
     """sudo, nohup, xargs, timeout...: o comando de verdade vem depois das opções."""
+    if prog in ("flock", "script"):  # flock -c 'cmd' arq, script -qc 'cmd' /dev/null
+        for k, a in enumerate(args):
+            if a.startswith("--command="):
+                analisar_comando(a[len("--command="):], "bash", ctx.filho())
+                return
+            if a == "--command" or (a.startswith("-") and not a.startswith("--")
+                                    and a.endswith("c")):
+                if k + 1 < len(args):
+                    analisar_comando(args[k + 1], "bash", ctx.filho())
+                return
+        if prog == "script":
+            return  # sem -c, o script abre um shell interativo
     i = _primeiro_nao_opcao(args, _EMBRULHO_VALOR.get(prog, ()))
-    if prog == "timeout" and i < len(args):
-        i += 1  # a duração
+    if prog in _EMBRULHO_PULA_UM and i < len(args):
+        i += 1
     resto = args[i:]
     if prog == "watch":
         analisar_comando(" ".join(resto), "bash", ctx.filho())
@@ -1284,9 +1717,41 @@ def _exportar(prog, args, dialeto, ctx, env):
             ctx.env[m.group(1).upper()] = m.group(2)
 
 
+def _nome_e_valor_ps(args):
+    """(nome, valor) de Set-Alias/Set-Variable: -Name/-Value ou posicionais."""
+    nomeados, pos = _args_ps(args)
+    nome = next((v for n, v in nomeados if n == "name"), None)
+    valor = next((v for n, v in nomeados if n == "value"), None)
+    for p in pos:
+        if nome is None:
+            nome = p
+        elif valor is None:
+            valor = p
+    return nome, valor
+
+
+def _h_alias(prog, args, dialeto, ctx, env):
+    """alias d=docker (bash) e Set-Alias d docker (PowerShell)."""
+    if prog == "alias":
+        for a in args:
+            nome, igual, valor = a.partition("=")
+            if igual and nome and not nome.startswith("-"):
+                ctx.apelidos[nome.lower()] = valor
+        return
+    nome, valor = _nome_e_valor_ps(args)
+    if nome and valor:
+        ctx.apelidos[nome.lower()] = valor
+
+
+def _h_set_variable(prog, args, dialeto, ctx, env):
+    nome, valor = _nome_e_valor_ps(args)
+    if nome and valor is not None:
+        ctx.env[nome.upper()] = _expandir(valor, env, ctx, dialeto, sistema=True)
+
+
 _TRATADORES = {
-    "docker": _h_docker, "docker-compose": _h_compose, "git": _h_git, "pip": _h_pip,
-    "python": _h_python, "uv": _h_uv,
+    "docker": _h_docker, "com.docker.cli": _h_docker, "docker-compose": _h_compose,
+    "git": _h_git, "pip": _h_pip, "python": _h_python, "uv": _h_uv,
     "node": _h_inline, "bun": _h_inline, "deno": _h_inline, "perl": _h_inline,
     "ruby": _h_inline, "php": _h_inline,
     "bash": _h_sh, "sh": _h_sh, "zsh": _h_sh, "dash": _h_sh, "ksh": _h_sh, "git-bash": _h_sh,
@@ -1297,26 +1762,49 @@ _TRATADORES = {
     "cd": _mudar_diretorio, "chdir": _mudar_diretorio, "pushd": _mudar_diretorio,
     "set-location": _mudar_diretorio, "sl": _mudar_diretorio, "push-location": _mudar_diretorio,
     "popd": _perder_diretorio, "pop-location": _perder_diretorio,
-    "export": _exportar, "declare": _exportar, "typeset": _exportar,
+    "export": _exportar, "declare": _exportar, "typeset": _exportar, "local": _exportar,
+    "readonly": _exportar,
+    "alias": _h_alias, "set-alias": _h_alias, "new-alias": _h_alias, "sal": _h_alias,
+    "nal": _h_alias,
+    "set-variable": _h_set_variable, "new-variable": _h_set_variable, "sv": _h_set_variable,
+    "nv": _h_set_variable,
 }
 for _nome in _SERVIDORES:
     _TRATADORES[_nome] = _h_servidor
 for _nome in ("sudo", "nohup", "time", "command", "builtin", "exec", "nice", "timeout", "stdbuf",
               "xargs", "watch", "winpty", "unbuffer", "call", "npx", "bunx", "pnpx", "uvx",
-              "poetry", "pipenv", "pipx", "."):
+              "poetry", "pipenv", "pipx", ".", "setsid", "ionice", "chrt", "taskset", "busybox",
+              "doas", "flock", "script"):
     _TRATADORES[_nome] = _embrulho
 
 
 # -------------------------------------------------- ferramentas de arquivo
 
-def _em_area_publica(caminho, ctx):
+def _escopo_pii(caminho, ctx):
+    """(ids, ips, segredos): o que conferir num Write/Edit nesse caminho.
+    Segredo do .env: qualquer arquivo do repositório (nunca é lugar dele).
+    SteamID: docs/, tests/, .cursor/, .env.example e *.md da raiz. IPv4:
+    os mesmos, menos tests/ fora de tests/fixtures/. O board do Obsidian
+    (docs/board-cs2/) fica fora do git e fora da checagem."""
     absoluto = _absoluto(caminho, ctx.cwd)
     raiz = _raiz_git(absoluto)[0] if absoluto else None
     if raiz:
         relativo = absoluto[len(raiz.rstrip("/")) + 1:].lower()
-        return relativo.startswith(("docs/", "tests/fixtures/"))
-    chave = "/" + _barras(caminho).lower()
-    return "/docs/" in chave or "/tests/fixtures/" in chave
+    elif absoluto:
+        return False, False, False  # fora de repositório: scratchpad, temporário
+    else:
+        relativo = _barras(caminho).lower()
+        while relativo.startswith("./"):
+            relativo = relativo[2:]
+        for marco in ("/docs/", "/tests/", "/.cursor/"):  # caminho sem base conhecida
+            if marco in "/" + relativo:
+                relativo = marco[1:] + ("/" + relativo).split(marco, 1)[1]
+                break
+    if relativo.startswith("docs/board-cs2/"):
+        return False, False, True
+    publico = (relativo.startswith(("docs/", "tests/fixtures/", ".cursor/"))
+               or relativo == ".env.example" or ("/" not in relativo and relativo.endswith(".md")))
+    return publico or relativo.startswith("tests/"), publico, True
 
 
 def _avaliar_arquivo(ferramenta, entrada, ctx):
@@ -1324,7 +1812,8 @@ def _avaliar_arquivo(ferramenta, entrada, ctx):
     if not isinstance(caminho, str) or not caminho:
         return
     _checar_caminho(caminho, ctx, "escrita", ferramenta)
-    if not _em_area_publica(caminho, ctx):
+    ids, ips, segredos = _escopo_pii(caminho, ctx)
+    if not (ids or ips or segredos):
         return
     textos = [entrada.get("content"), entrada.get("new_string"), entrada.get("new_source")]
     textos += [e.get("new_string") for e in entrada.get("edits") or [] if isinstance(e, dict)]
@@ -1333,11 +1822,49 @@ def _avaliar_arquivo(ferramenta, entrada, ctx):
         return
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import pii
-    achados = pii.achar(texto, pii.ler_segredos(ctx.arquivo_env))
+    valores = pii.ler_segredos(ctx.arquivo_env) if segredos else []
+    if not ips:  # fora da área pública, só segredo que não casa palavra comum
+        valores = [(chave, valor) for chave, valor in valores if pii.segredo_forte(valor)]
+    achados = pii.achar(texto, valores, ids=ids, ips=ips)
     if achados:
         raise Bloqueio(f"dado pessoal em {caminho} (repositório público): " + "; ".join(achados),
-                       "IDs fictícios (76561198000000001, 76561190000000001), 127.0.0.1/0.0.0.0 "
-                       "ou um <marcador>; segredo nunca entra no repositório")
+                       "IDs fictícios abaixo da base 76561197960265728 (76561190000000001, "
+                       "76561190000000002...), 127.0.0.1/0.0.0.0 ou um <marcador>; versão? "
+                       "escreva v1.40.9.3; segredo nunca entra no repositório")
+
+
+# ------------------------------------------------ navegador do Claude
+
+def _avaliar_preview(entrada, ctx):
+    """preview_start {name}: a configuração do .claude/launch.json não pode
+    subir servidor na 8000 (a wizard-web sobe). {url} só abre uma aba."""
+    nome = entrada.get("name")
+    if not isinstance(nome, str) or not nome:
+        return
+    raizes = [_raiz_git(ctx.cwd)[0] if ctx.cwd else None,
+              _absoluto(os.environ.get("CLAUDE_PROJECT_DIR", ""), None)]
+    for raiz in raizes:
+        if not raiz:
+            continue
+        try:
+            with open(raiz + "/.claude/launch.json", encoding="utf-8") as arq:
+                configuracoes = json.load(arq).get("configurations") or []
+        except (OSError, ValueError, AttributeError):
+            continue
+        for conf in configuracoes:
+            if isinstance(conf, dict) and conf.get("name") == nome:
+                if _int(conf.get("port"), None) == PORTA_DO_VICTOR:
+                    raise Bloqueio(f"preview_start {nome!r} sobe servidor na porta 8000, que é "
+                                   "do Victor",
+                                   "uma configuração na 8010 com banco de fixture (peça ao "
+                                   "Victor pra criar no launch.json)")
+                programa = conf.get("runtimeExecutable")
+                if isinstance(programa, str) and programa:
+                    filho = ctx.filho()
+                    filho.cwd = raiz
+                    _analisar_palavras([programa] + [str(a) for a in conf.get("runtimeArgs")
+                                                     or []], "bash", filho)
+                return
 
 
 # ------------------------------------------------------------- decisão
@@ -1353,6 +1880,8 @@ def avaliar(evento, ctx):
         analisar_comando(comando, DIALETO[ferramenta], ctx)
     elif ferramenta in FERRAMENTAS_DE_ARQUIVO:
         _avaliar_arquivo(ferramenta, entrada, ctx)
+    elif isinstance(ferramenta, str) and ferramenta.endswith("__preview_start"):
+        _avaliar_preview(entrada, ctx)
 
 
 def decidir(bruto, principal=PRINCIPAL, preflight=None, arquivo_env=None):

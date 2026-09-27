@@ -225,7 +225,9 @@
       "PowerShell(git push * main)",
       "PowerShell(git push * main *)",
       "PowerShell(git push *:main)",
-      "PowerShell(git reset --hard*)"
+      "PowerShell(git reset --hard*)",
+      "Edit(//c/Users/Victor/Projetos/cs2-tracker/.claude/settings.json)",
+      "Edit(//c/Users/Victor/Projetos/cs2-tracker/tools/hooks/**)"
     ]
   },
   "hooks": {
@@ -236,7 +238,18 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "\"C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe\" \"$CLAUDE_PROJECT_DIR/tools/hooks/guarda.py\"",
+            "command": "g=\"$CLAUDE_PROJECT_DIR/tools/hooks/guarda.py\"; if [ -f \"$g\" ]; then exec \"C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe\" \"$g\"; else echo \"guarda (B0.5) ausente em $g: hook desligado\" >&2; exit 1; fi",
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__.*__preview_start$",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "g=\"$CLAUDE_PROJECT_DIR/tools/hooks/guarda.py\"; if [ -f \"$g\" ]; then exec \"C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe\" \"$g\"; else echo \"guarda (B0.5) ausente em $g: hook desligado\" >&2; exit 1; fi",
             "timeout": 60
           }
         ]

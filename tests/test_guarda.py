@@ -9,10 +9,15 @@ em tmp_path (pasta com .git diretório), uma worktree falsa dentro dele
 docker, pip ou preflight de verdade roda, e o .env real nunca é lido: o
 arquivo_env aponta pra tmp_path.
 
-Três testes rodam o hook como processo, do jeito que o Claude Code roda: de
+Alguns testes rodam o hook como processo, do jeito que o Claude Code roda: de
 dentro de uma worktree git REAL (git worktree add --no-checkout num
 diretório temporário, removida no fim), pelo comando exato do
-.claude/settings.json no Git Bash, e medindo o tempo.
+.claude/settings.json no Git Bash (com e sem o script no lugar), e medindo
+o tempo.
+
+SteamID64 "real" aqui é montado em tempo de execução (ID_REAL_FALSO): a
+guarda confere tests/, e este arquivo não pode carregar um literal que ela
+barraria.
 """
 import ast
 import base64
@@ -39,9 +44,14 @@ import pii  # noqa: E402
 
 SEGREDO = "segredo-do-rcon-7f3a9"
 TOKEN = "TOKENFALSO0123456789ABCDEF"
-# Casa o padrão de SteamID64 real, mas fica abaixo da base 76561197960265728:
-# não existe conta com esse número, então nenhum dado de verdade entra no repo.
-ID_REAL_FALSO = "76561190000000002"
+# SteamID64 que a guarda trata como de pessoa de verdade (acima da base
+# 76561197960265728). É o maior número que o padrão 7656119 + 10 dígitos
+# aceita (conta 2039734271, a mais longe das já emitidas) e é montado em tempo
+# de execução: este arquivo não carrega SteamID64 literal, e a guarda confere
+# tests/. Abaixo da base não existe conta: é fictício e passa.
+ID_REAL_FALSO = "7656119" + "9" * 10
+OUTRO_ID_REAL_FALSO = "7656119" + "9" * 9 + "8"
+ID3_REAL_FALSO = f"[U:1:{int(ID_REAL_FALSO) - pii.BASE_STEAMID64}]"
 
 
 @pytest.fixture
@@ -141,6 +151,72 @@ BLOQUEADOS = [
     ("PowerShell", "wt", "$saida = docker compose down -v"),
     ("PowerShell", "wt", "git status; git clean -fdx"),
     ("PowerShell", "wt", "python -m pip install ruff"),
+    # Revisão do B0.5, bloqueante 1: variável com o valor no próprio comando
+    # (as ferramentas não guardam estado entre chamadas, o valor está no texto).
+    ("Bash", "wt", f"PY={PYTHON_DO_JOGO}; $PY -m pip install requests"),
+    ("Bash", "wt", f'PY={PYTHON_DO_JOGO}\n"$PY" -m uvicorn web.app:app'),
+    ("Bash", "wt", f"export PY={PYTHON_DO_JOGO}; $PY -m uvicorn web.app:app"),
+    ("Bash", "wt", f"V=C:/Users/Victor/Projetos/cs2-tracker/.venv; ${{V}}/Scripts/python.exe "
+                   "-m pip install x"),
+    ("PowerShell", "wt", f"$py = '{PYTHON_DO_JOGO}'; & $py -m pip install requests"),
+    ("PowerShell", "wt", f"$env:PY = '{PYTHON_DO_JOGO}'; & $env:PY -m pip install x"),
+    ("PowerShell", "wt", f"Set-Variable -Name py -Value '{PYTHON_DO_JOGO}'; & $py -m pip install x"),
+    ("Bash", "principal", "D=docker; $D compose down -v"),
+    ("Bash", "principal", "DC='docker compose'; $DC down -v"),
+    ("Bash", "wt", "C=clean; git $C -fdx"),
+    ("PowerShell", "principal", "$d='docker'; & $d compose down -v"),
+    ("Bash", "wt", 'P="{P}"; rm -rf "$P/docker"'),
+    # Variável sem valor conhecido: vale o primeiro argumento e as palavras seguintes.
+    ("Bash", "wt", "$PY_SEM_VALOR_B05 -m pip install x"),
+    ("Bash", "wt", "${PY_SEM_VALOR_B05} -m uvicorn web.app:app"),
+    ("Bash", "principal", "$D_SEM_VALOR_B05 compose down -v"),
+    # Não bloqueantes da revisão: curinga a partir do checkout principal.
+    ("Bash", "principal", "rm -rf *"),
+    ("Bash", "principal", "rm -rf ./*"),
+    ("Bash", "principal", "rm -rf docker/*"),
+    ("Bash", "principal", "rm -rf docker/events-*"),
+    ("Bash", "principal", "rm -f cs2_tracker.*"),
+    ("Bash", "principal", "rm -f cs2_*.db"),
+    ("Bash", "principal", "rm -f .env*"),
+    ("Bash", "principal", "rm -rf **/events-live"),
+    ("Bash", "wt", "rm -rf ../../../*"),
+    ("PowerShell", "principal", "Remove-Item * -Recurse -Force"),
+    # Embrulho desconhecido, função, alias e afins.
+    ("Bash", "principal", "setsid docker compose down -v"),
+    ("Bash", "wt", "flock /tmp/trava git clean -fdx"),
+    ("Bash", "wt", "flock -c 'git clean -fdx' /tmp/trava"),
+    ("Bash", "principal", "ionice -c3 docker compose down"),
+    ("Bash", "wt", "script -qc 'git clean -fdx' /dev/null"),
+    ("Bash", "principal", "busybox rm -rf docker"),
+    ("PowerShell", "principal", "cmd /c start /b docker compose down"),
+    ("Bash", "principal", "com.docker.cli compose down -v"),
+    ("Bash", "principal", 'd(){ docker "$@"; }; d compose down -v'),
+    ("Bash", "principal", 'function d { docker "$@"; }\nd compose down -v'),
+    ("PowerShell", "principal", "function d { docker @args }; d compose down -v"),
+    ("Bash", "principal", "alias d=docker\nd compose down -v"),
+    ("PowerShell", "principal", "Set-Alias d docker; d compose down -v"),
+    ("Bash", "wt", "git -c alias.x=clean x -fdx"),
+    ("Bash", "wt", "git -c alias.x='!git clean -fdx' x"),
+    ("Bash", "wt", "git config alias.limpa 'clean -fdx'"),
+    ("Bash", "wt", "python -Im pip install x"),
+    ("Bash", "wt", "python -Esm pip install x"),
+    ("PowerShell", "wt", "[IO.File]::WriteAllText('{PW}\\.env', 'x')"),
+    ("PowerShell", "principal", "[System.IO.File]::Delete(\"$PWD\\cs2_tracker.db\")"),
+    ("PowerShell", "principal", "Remove-Item (Join-Path $PWD 'cs2_tracker.db')"),
+    ("Bash", "principal", "ln -sf /dev/null cs2_tracker.db"),
+    ("Bash", "wt", "uv add requests"),
+    ("Bash", "wt", "python -c \"import uvicorn; uvicorn.run('web.app:app')\""),
+    ("Bash", "wt", "python -c \"import shutil; shutil.rmtree('{P}/docker/events-live')\""),
+    ("Bash", "wt", "python -c \"open('{P}/.env', 'w').write('x')\""),
+    ("Bash", "principal", "python -c \"import os; os.remove('cs2_tracker.db')\""),
+    ("Bash", "wt", "node -e \"require('fs').rmSync('{P}/docker/events-live', {recursive: true})\""),
+    ("Bash", "wt", "python -c \"import pip; pip.main(['install', 'x'])\""),
+    ("Bash", "principal", "echo {} > docker/match_config.spike.json"),
+    ("Bash", "principal", "docker compose config"),
+    ("Bash", "principal", "docker inspect cs2-spike"),
+    ("PowerShell", "wt", "docker container inspect cs2-spike"),
+    ("Bash", "wt", "docker inspect --format '{{json .Config.Env}}' cs2-spike"),
+    ("PowerShell", "wt", "powershell -EncodedCommand @@@nao-e-base64"),
 ]
 
 
@@ -189,6 +265,34 @@ PERMITIDOS = [
     ("PowerShell", "wt", "Get-Content .env.example"),
     ("PowerShell", "principal", "docker compose ps"),
     ("PowerShell", "wt", "Remove-Item cs2_tracker.db"),
+    # O que as correções da revisão não podem pegar.
+    ("Bash", "wt", f'PY={PYTHON_DO_JOGO}; "$PY" -m pytest -q -p no:cacheprovider'),
+    ("PowerShell", "wt", f"$py = '{PYTHON_DO_JOGO}'; & $py -m pytest -q -p no:cacheprovider"),
+    ("Bash", "wt", 'MSG="docker compose down -v e git clean"; git commit -m "$MSG"'),
+    ("Bash", "wt", "echo docker compose down -v"),
+    ("Bash", "wt", "which docker git pip python uvicorn"),
+    ("Bash", "wt", "ls docker git"),
+    ("Bash", "wt", "man git-clean"),
+    ("Bash", "wt", "python -Im pytest -q"),
+    ("Bash", "wt", "python -W ignore -m pytest -q"),
+    ("Bash", "wt", "rm -f cs2_*.db"),
+    ("Bash", "wt", "rm -rf *"),
+    ("Bash", "principal", "rm -f *.pyc"),
+    ("Bash", "principal", "rm -rf build/* .pytest_cache"),
+    ("Bash", "principal", "docker compose config -q"),
+    ("Bash", "principal", "docker compose config --hash '*'"),
+    ("Bash", "principal", "docker compose config --services"),
+    ("Bash", "wt", "docker inspect --format '{{.State.Status}}' cs2-spike"),
+    ("PowerShell", "wt", "[IO.File]::ReadAllText('.env.example')"),
+    ("PowerShell", "wt", "Remove-Item (Join-Path $PWD 'cs2_tracker.db')"),
+    ("PowerShell", "wt", "Get-ChildItem docs | Where-Object { $_.Name -match 'git' }"),
+    ("Bash", "wt", "python -c \"import os; os.remove('cs2_tracker.db')\""),
+    ("Bash", "wt", "python -c \"print(open('README.md').read())\""),
+    ("Bash", "wt", "python -c \"import uvicorn; uvicorn.run('web.app:app', port=8010)\""),
+    ("Bash", "wt", "git -c core.pager=cat log --oneline -3"),
+    ("Bash", "wt", 'st(){ git status "$@"; }; st --short'),
+    ("Bash", "wt", "alias gs='git status'\ngs"),
+    ("Bash", "wt", "setsid ls docs"),
 ]
 
 
@@ -271,6 +375,26 @@ def test_json_quebrado_falha_fechado_so_se_menciona_docker_git_ou_pip():
     assert guarda.decidir('{"tool_name": "Bash", "tool_input": {"command": "ls')[0] == 0
 
 
+def test_falha_fechada_so_com_a_palavra_inteira(repo, monkeypatch):
+    # "digit", "github", "pipe" e "Pipfile" têm git/pip dentro, mas não são docker, git ou pip.
+    def quebra(*_a, **_k):
+        raise RuntimeError("bug de teste")
+
+    monkeypatch.setattr(guarda, "analisar_comando", quebra)
+    codigo, erro, saida = _comando(repo, "Bash", "wt", "echo digit github pipe Pipfile")
+    assert codigo == 0 and erro == "" and "erro interno" in saida
+    for comando in ("docker.exe ps", "git.exe status", "pip3 list", "docker-compose ps"):
+        assert _comando(repo, "Bash", "wt", comando)[0] == 2, comando
+
+
+@pytest.mark.parametrize("valor", ["@@@", "QQ", "QUJD"])
+def test_encoded_command_ilegivel_bloqueia_sem_erro_interno(repo, valor):
+    # Base64 quebrado ou UTF-16 de tamanho ímpar: bloqueio com motivo, não falha fechada.
+    codigo, erro, _ = _comando(repo, "PowerShell", "wt", f"pwsh -EncodedCommand {valor}")
+    assert codigo == 2
+    assert "EncodedCommand ilegível" in erro and "falha fechada" not in erro
+
+
 def test_erro_em_ferramenta_de_arquivo_nunca_bloqueia(repo, monkeypatch):
     def quebra(*_a, **_k):
         raise ValueError(SEGREDO)
@@ -291,12 +415,58 @@ def test_erro_em_ferramenta_de_arquivo_nunca_bloqueia(repo, monkeypatch):
     ("MultiEdit", "file_path", "{P}/docker/events-live/events_50_map0.jsonl"),
     ("NotebookEdit", "notebook_path", "{P}/docker/events-live/analise.ipynb"),
     ("Write", "file_path", "{WT}/cs2_tracker.db"),
+    ("Edit", "file_path", "{P}/docker/match_config.spike.json"),
 ])
 def test_ferramenta_de_arquivo_nao_escreve_em_zona_proibida(repo, ferramenta, campo, caminho):
     caminho = caminho.replace("{WT}", str(repo.wt)).replace("{P}", str(repo.principal))
     codigo, erro, _ = _decidir(repo, ferramenta, {campo: caminho, "content": "x",
                                                   "new_string": "x", "new_source": "x"})
     assert codigo == 2, erro
+
+
+def test_match_config_da_worktree_e_editavel(repo):
+    # Só a cópia do checkout principal é estado de runtime do start_match.
+    entrada = {"file_path": str(repo.wt / "docker" / "match_config.spike.json"),
+               "old_string": "a", "new_string": "b"}
+    assert _decidir(repo, "Edit", entrada) == (0, "", "")
+
+
+# ------------------------------------------------ navegador do Claude
+
+def _launch(repo, configuracoes):
+    pasta = repo.principal / ".claude"
+    pasta.mkdir(exist_ok=True)
+    (pasta / "launch.json").write_text(json.dumps({"version": "0.0.1",
+                                                   "configurations": configuracoes}),
+                                       encoding="utf-8")
+
+
+@pytest.mark.parametrize("ferramenta", ["mcp__Claude_Browser__preview_start",
+                                        "mcp__remote-devices__Claude_Browser__preview_start"])
+def test_preview_start_na_8000_e_bloqueado(repo, ferramenta):
+    _launch(repo, [
+        {"name": "wizard-web", "runtimeExecutable": ".venv\\Scripts\\python.exe",
+         "runtimeArgs": ["-m", "uvicorn", "web.app:app", "--port", "8000"], "port": 8000},
+        {"name": "porta-padrao", "runtimeExecutable": "uvicorn", "runtimeArgs": ["web.app:app"],
+         "port": 8010},
+        {"name": "fixture", "runtimeExecutable": ".venv\\Scripts\\python.exe",
+         "runtimeArgs": ["-m", "uvicorn", "web.app:app", "--port", "8010"], "port": 8010},
+    ])
+    for nome, esperado in (("wizard-web", 2), ("porta-padrao", 2), ("fixture", 0)):
+        codigo, erro, _ = _decidir(repo, ferramenta, {"name": nome}, lugar="principal")
+        assert codigo == esperado, (nome, erro)
+    # Com url, o preview só abre uma aba: não sobe servidor.
+    assert _decidir(repo, ferramenta, {"url": "http://127.0.0.1:8000"})[0] == 0
+
+
+def test_launch_json_do_repo_ainda_tem_a_wizard_web_na_8000_e_a_guarda_barra(repo):
+    # A troca da wizard-web pra 8010 com banco de fixture é decisão do Victor;
+    # até lá, a guarda barra o preview_start dela.
+    configuracoes = json.loads((RAIZ / ".claude" / "launch.json").read_text(encoding="utf-8"))
+    _launch(repo, configuracoes["configurations"])
+    codigo, erro, _ = _decidir(repo, "mcp__Claude_Browser__preview_start", {"name": "wizard-web"},
+                               lugar="principal")
+    assert codigo == 2 and "8000" in erro
 
 
 def _env_falso(repo):
@@ -310,7 +480,8 @@ def _env_falso(repo):
 @pytest.mark.parametrize("ferramenta,entrada,esperado", [
     ("Write", {"file_path": "docs/partida.md", "content": f"jogador {ID_REAL_FALSO}"},
      "SteamID64"),
-    ("Edit", {"file_path": "docs/SPEC.md", "old_string": "a", "new_string": "conta [U:1:0]"},
+    ("Edit", {"file_path": "docs/SPEC.md", "old_string": "a",
+              "new_string": f"conta {ID3_REAL_FALSO}"},
      "SteamID3"),
     ("MultiEdit", {"file_path": "tests/fixtures/eventos.jsonl",
                    "edits": [{"old_string": "a", "new_string": '{"ip": "192.0.2.10"}'}]},
@@ -326,17 +497,61 @@ def test_pii_em_docs_e_fixtures_e_bloqueado_sem_imprimir_o_valor(repo, ferrament
     codigo, erro, _ = _decidir(repo, ferramenta, entrada, arquivo_env=_env_falso(repo))
     assert codigo == 2, erro
     assert esperado in erro
-    for valor in (SEGREDO, TOKEN, ID_REAL_FALSO, "192.0.2.10", "[U:1:0]"):
+    for valor in (SEGREDO, TOKEN, ID_REAL_FALSO, "192.0.2.10", ID3_REAL_FALSO):
         assert valor not in erro
 
 
 @pytest.mark.parametrize("caminho,texto", [
     ("docs/partida.md", "fictícios: 76561198000000001, 76561190000000001 e [U:1:39734273]"),
+    # Até a base não existe conta: fixture anonimizada pode ter quantos jogadores quiser.
+    ("tests/fixtures/eventos.jsonl", "76561190000000002 76561190000000003 76561197960265728 "
+                                     "[U:1:0]"),
     ("docs/servidor.md", "sobe em 0.0.0.0, testa em 127.0.0.1; Metamod 2.0.0.1411, v1.0.373"),
-    ("web/app.py", f"# fora de docs/ e tests/fixtures/: {ID_REAL_FALSO} 198.51.100.1"),
+    ("docs/matriz.md", "| CS2 build 1.40.9.3 | ok |\nPatchVersion=1.40.9.3\nversão: 1.40.9.3"),
+    ("web/app.py", f"# fora de docs/ e tests/: {OUTRO_ID_REAL_FALSO} 198.51.100.1"),
+    ("tests/test_rede.py", "# IP em teste fora de tests/fixtures/ pode: 198.51.100.1"),
+    ("docs/board-cs2/cartao.md", f"board local, fora do git: {OUTRO_ID_REAL_FALSO}"),
 ])
 def test_texto_limpo_ou_fora_da_area_publica_passa(repo, caminho, texto):
     entrada = {"file_path": str(repo.wt / caminho), "content": texto}
+    assert _decidir(repo, "Write", entrada, arquivo_env=_env_falso(repo)) == (0, "", "")
+
+
+@pytest.mark.parametrize("caminho,texto,esperado", [
+    # Segredo do .env não é de nenhum arquivo do repositório.
+    (".env.example", f"SRCDS_TOKEN={TOKEN}", "SRCDS_TOKEN"),
+    ("web/app.py", f'SENHA = "{SEGREDO}"', "CS2_RCONPW"),
+    ("docs/board-cs2/cartao.md", f"token {TOKEN}", "SRCDS_TOKEN"),
+    # SteamID em qualquer lugar de tests/, não só em tests/fixtures/.
+    ("tests/test_x.py", f'JOGADOR = "{OUTRO_ID_REAL_FALSO}"', "SteamID64"),
+    ("AGENTS.md", "servidor em 198.51.100.7", "IPv4"),
+    (".env.example", "CS2_IP=198.51.100.7", "IPv4"),
+    (".cursor/rules/agentes.mdc", f"jogador {OUTRO_ID_REAL_FALSO}", "SteamID64"),
+])
+def test_pii_fora_de_docs_tambem_e_barrado(repo, caminho, texto, esperado):
+    entrada = {"file_path": str(repo.wt / caminho), "content": texto}
+    codigo, erro, _ = _decidir(repo, "Write", entrada, arquivo_env=_env_falso(repo))
+    assert codigo == 2, erro
+    assert esperado in erro
+    for valor in (SEGREDO, TOKEN, OUTRO_ID_REAL_FALSO, "198.51.100.7"):
+        assert valor not in erro
+
+
+def test_senha_fraca_do_env_so_conta_na_area_publica(repo):
+    # Senha fraca ("password") casaria meio repositório: fora de docs/ e afins,
+    # só vale segredo forte (token, SteamID, 8+ com letra e dígito).
+    env = repo.tmp / ".env"
+    env.write_text("CS2_RCONPW=password\n", encoding="utf-8")
+    codigo_web = {"file_path": str(repo.wt / "web" / "app.py"), "content": "# password"}
+    assert _decidir(repo, "Write", codigo_web, arquivo_env=env) == (0, "", "")
+    doc = {"file_path": str(repo.wt / "docs" / "x.md"), "content": "rcon: password"}
+    codigo, erro, _ = _decidir(repo, "Write", doc, arquivo_env=env)
+    assert codigo == 2 and "CS2_RCONPW" in erro
+
+
+def test_fora_de_repositorio_nao_confere_pii(repo):
+    entrada = {"file_path": str(repo.fora / "rascunho.md"),
+               "content": f"{SEGREDO} {OUTRO_ID_REAL_FALSO} 198.51.100.1"}
     assert _decidir(repo, "Write", entrada, arquivo_env=_env_falso(repo)) == (0, "", "")
 
 
@@ -367,25 +582,51 @@ def test_pii_bordas_de_steamid_e_ip():
     assert pii.achar("76561190000000002345") == []  # 20 dígitos: não é SteamID64
     assert pii.achar("versão 1.2.3.400 e 256.1.1.1") == []
     assert pii.achar("fim de frase 203.0.113.9.") == ["IPv4 na linha 1"]
-    assert pii.achar("a\nb 76561190000000003") == ["SteamID64 real na linha 2"]
+    assert pii.achar(f"a\nb {ID_REAL_FALSO}") == ["SteamID64 real na linha 2"]
+
+
+def test_pii_steamid_ate_a_base_e_ficticio_e_versao_nao_e_ip():
+    for ficticio in ("76561190000000002", "76561190000000099", str(pii.BASE_STEAMID64),
+                     "[U:1:0]", "76561198000000001"):
+        assert pii.achar(ficticio) == [], ficticio
+    assert pii.achar(str(pii.BASE_STEAMID64 + 1)) == ["SteamID64 real na linha 1"]
+    for versao in ("CS2 build 1.40.9.3", "PatchVersion=1.40.9.3", "Versão do jogo: 1.40.9.3",
+                   "version 1.40.9.3"):
+        assert pii.achar(versao) == [], versao
+    # Só `=` não basta: chave de IP com valor de IP continua sendo IP.
+    assert pii.achar("SERVER_IP=203.0.113.9") == ["IPv4 na linha 1"]
+    # Os interruptores do escopo: fora de docs/, tests/ sem fixtures não confere IP.
+    assert pii.achar(f"{ID_REAL_FALSO} 203.0.113.9", ids=False, ips=False) == []
 
 
 # ---------------------------------------------------------------- registro
 
+COMANDO_DO_HOOK = (
+    'g="$CLAUDE_PROJECT_DIR/tools/hooks/guarda.py"; if [ -f "$g" ]; then '
+    f'exec "{PYTHON_DO_JOGO}" "$g"; else '
+    'echo "guarda (B0.5) ausente em $g: hook desligado" >&2; exit 1; fi')
+
+
 def test_registrado_no_settings_com_interpretador_absoluto_e_claude_project_dir():
     settings = json.loads(SETTINGS.read_text(encoding="utf-8"))
     entradas = settings["hooks"]["PreToolUse"]
-    assert len(entradas) == 1
+    assert len(entradas) == 2
     assert set(entradas[0]["matcher"].split("|")) == {"Bash", "PowerShell", "Edit", "Write",
                                                       "MultiEdit", "NotebookEdit"}
-    (hook,) = entradas[0]["hooks"]
-    assert hook["type"] == "command"
-    # Forma shell com Git Bash fixo: no PowerShell, "caminho entre aspas"
-    # sozinho não executa nada e o hook passaria em branco.
-    assert hook["shell"] == "bash" and "args" not in hook
-    assert hook["command"] == (f'"{PYTHON_DO_JOGO}" "$CLAUDE_PROJECT_DIR/tools/hooks/guarda.py"')
-    # Timeout estourado libera a chamada: tem que caber o preflight do docker logs.
-    assert hook["timeout"] > guarda.TIMEOUT_PREFLIGHT_S
+    # Com caractere de regex, o matcher é regex sem âncora (docs de hooks): as
+    # âncoras deixam só o preview_start, do navegador local ou do remoto.
+    assert entradas[1]["matcher"] == "^mcp__.*__preview_start$"
+    for entrada in entradas:
+        (hook,) = entrada["hooks"]
+        assert hook["type"] == "command"
+        # Forma shell com Git Bash fixo: no PowerShell, "caminho entre aspas"
+        # sozinho não executa nada e o hook passaria em branco.
+        assert hook["shell"] == "bash" and "args" not in hook
+        # Interpretador absoluto; script pelo $CLAUDE_PROJECT_DIR, conferido antes:
+        # sem ele, o python sairia com 2 e travaria toda ferramenta da sessão.
+        assert hook["command"] == COMANDO_DO_HOOK
+        # Timeout estourado libera a chamada: tem que caber o preflight do docker logs.
+        assert hook["timeout"] > guarda.TIMEOUT_PREFLIGHT_S
 
 
 def test_hook_e_pii_so_usam_biblioteca_padrao():
@@ -419,8 +660,10 @@ def test_de_dentro_de_uma_worktree_real_bloqueia_compose_e_pip(tmp_path):
         casos = [("Bash", "docker compose up -d", 2),
                  ("Bash", "docker compose run --rm build-plugin", 2),
                  ("Bash", "pip install requests", 2),
+                 ("Bash", f"PY={PYTHON_DO_JOGO}; $PY -m pip install requests", 2),
                  ("PowerShell", "docker compose up -d", 2),
                  ("PowerShell", "python -m pip install requests", 2),
+                 ("PowerShell", f"$py = '{PYTHON_DO_JOGO}'; & $py -m pip install requests", 2),
                  ("Bash", "git status", 0)]
         for ferramenta, comando, esperado in casos:
             evento = {"hook_event_name": "PreToolUse", "tool_name": ferramenta,
@@ -458,6 +701,30 @@ def test_comando_do_settings_roda_no_git_bash_e_bloqueia():
         assert proc.returncode == esperado, proc.stderr.decode("utf-8", "replace")
 
 
+@pytest.mark.parametrize("projeto", ["pasta-vazia", None])
+def test_sem_o_script_o_hook_avisa_e_nao_trava_a_sessao(tmp_path, projeto):
+    # Voltar pra tag jogavel-2026-09-26 (sem tools/hooks) ou settings de uma
+    # worktree com $CLAUDE_PROJECT_DIR no checkout principal: o python sairia
+    # com 2 ("can't open file") e o Claude Code barraria TODA ferramenta,
+    # inclusive o Edit que conserta o settings. Com a checagem, sai com 1:
+    # erro visível, que não bloqueia.
+    bash = _git_bash()
+    if bash is None:
+        pytest.skip("precisa do Git Bash")
+    settings = json.loads(SETTINGS.read_text(encoding="utf-8"))
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
+    if projeto:
+        env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    evento = {"tool_name": "Bash", "tool_input": {"command": "git clean -fdx"},
+              "cwd": str(tmp_path)}
+    for entrada in settings["hooks"]["PreToolUse"]:
+        proc = _rodar_hook([str(bash), "-c", entrada["hooks"][0]["command"]], evento, tmp_path,
+                           env=env)
+        erro = proc.stderr.decode("utf-8", "replace")
+        assert proc.returncode == 1, erro
+        assert "guarda (B0.5) ausente" in erro
+
+
 def test_desempenho(repo):
     longo = " && ".join(["git status", "git log --oneline -5", 'echo "a b c" | grep a'] * 30)
     inicio = time.perf_counter()
@@ -469,6 +736,8 @@ def test_desempenho(repo):
         inicio = time.perf_counter()
         assert _rodar_hook([sys.executable, str(GUARDA)], evento, RAIZ).returncode == 0
         tempos.append(time.perf_counter() - inicio)
-    # Meta do card: < 150 ms por chamada (medido ~70 ms direto, ~100 ms pelo
-    # Git Bash). A folga aqui é pra máquina ocupada não derrubar a suíte.
-    assert sorted(tempos)[2] < 0.5
+    # Meta do card: < 150 ms por chamada (medido ~70-110 ms direto, ~100-130 ms
+    # pelo Git Bash, conforme a carga da máquina). O tempo do processo é
+    # relatório, não critério: depende da máquina, e a análise em si já tem o
+    # limite apertado acima. Com `pytest -s` a mediana aparece.
+    print(f"\nguarda: mediana de {sorted(tempos)[2] * 1000:.0f} ms por chamada (processo)")

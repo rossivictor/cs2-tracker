@@ -206,7 +206,11 @@ def test_sem_allow(permissoes):
 def test_arquivos_proibidos_tem_deny_de_read_e_edit(permissoes):
     for ferramenta in ("Read", "Edit"):
         assert sorted(_padroes(permissoes["deny"], ferramenta)) == sorted(ARQUIVOS_PROIBIDOS)
-        assert not _padroes(permissoes["ask"], ferramenta)
+    assert not _padroes(permissoes["ask"], "Read")
+    # A própria guarda (B0.5) no checkout principal: editar pede confirmação ao
+    # Victor. Nas worktrees o caminho é outro, e o card que mexe nela segue livre.
+    assert sorted(_padroes(permissoes["ask"], "Edit")) == sorted(
+        [f"{PRINCIPAL}/.claude/settings.json", f"{PRINCIPAL}/tools/hooks/**"])
     # O .env.example é o que o agente usa no lugar do .env: fica liberado.
     assert ".env.example" not in _padroes(permissoes["deny"], "Read")
 
