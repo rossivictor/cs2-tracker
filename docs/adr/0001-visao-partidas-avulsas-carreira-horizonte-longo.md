@@ -1,10 +1,11 @@
 ---
 tipo: adr
-status: aceito
+status: proposto
 aliases: [ADR-0001]
 fontes:
   - "transcript eb5adec0 @ 2026-09-26T22:10:19Z"
   - "transcript de92b218 @ 2026-09-03T01:19:04Z"
+  - "transcript 7010f738 @ 2026-09-19T13:09:27Z"
   - "transcript 7010f738 @ 2026-09-19T13:16:46Z"
   - "transcript 7010f738 @ 2026-09-19T13:33:09Z"
   - "docs/SPEC.md:19-41"
@@ -14,11 +15,16 @@ fontes:
   - "wizard_core.py:73-93"
   - "wizard_core.py:411-438"
   - "start_match.py:855-890"
+  - "roster.py:143"
+  - "roster.py:154-165"
+  - "start_match.py:883"
   - "roster.py:219-236"
+  - "stats.py:567"
   - "parser.py:65-87"
   - "parser.py:311-315"
   - "backup:temp-artifacts/eb5adec0/audit/ (critic.json gaps[0]; notion.json; docs.json vision_digest; tx_inicio_31_08_05_09.json e tx_web_wizard_prototipos_19_09.json, vision)"
-atualizado: 2026-09-26
+  - "backup:temp-artifacts/eb5adec0/plan/all.json (cards S2.2, S5.3 e S5.4)"
+atualizado: 2026-09-27
 ---
 
 # ADR-0001: Visão: partidas avulsas agora, modo carreira no horizonte longo
@@ -27,8 +33,8 @@ atualizado: 2026-09-26
 
 Três visões conviviam sem ninguém reconciliar (critic, lacuna 1):
 
-1. **"CS2 Career Mode Offline"** (03/09): campeonatos estilo Major, jogados sozinho e offline contra bots, em três camadas. A visão nunca virou documento. Sobrou só em `docker/SPIKE.md:198-203` (`career.db`) e nos comentários "Camada 1". Nada foi implementado: `git grep -i "bracket|tournament|career"` em `*.py` não acha nada.
-2. **"Faceit/GamersClub offline contra pros"** (19/09). Na resposta Q1=C, o projeto era "demo/pitch que pode virar produto se pegar".
+1. **"CS2 Career Mode Offline"** (03/09): campeonatos estilo Major, jogados sozinho e offline contra bots, em três camadas. A visão nunca virou documento. Sobrou só em `docker/SPIKE.md:198-203` (`career.db`) e nos comentários "Camada 1". Nada foi implementado: `git grep -iE "bracket|tournament|career" -- '*.py'` não acha nada.
+2. **"Faceit/GamersClub offline contra pros"** (19/09). Na resposta Q1=C, ele escolheu a opção demo/pitch da pergunta: um projeto que existe para provar a tese e vira produto se pegar.
 3. **SPEC §1–§2** (20/09): partida avulsa contra times pro. "Não é comercial" (`SPEC.md:41`), e D1 diz que o "mercado é hipótese futura".
 
 Ainda em 19/09, o Victor escreveu: "Minha ideia principal é fazer um jogo maneiro pra mim (e pra um ou outro que achar o repo)". Em 26/09, perguntado sobre a visão, ele escolheu "Avulsas agora, carreira depois". Sobre publicar o repo, respondeu: "não tem uso comercial".
@@ -45,15 +51,15 @@ Ainda em 19/09, o Victor escreveu: "Minha ideia principal é fazer um jogo manei
 | 2 · Cara de campeonato | tela de chave (grupos até a final), força do adversário por fase, overlay e narrativa de temporada | **horizonte longo**, depois da 1. A força por fase conflita com a D12 (sem dial) e a D21 (marcos, sem nível): a discussão reabre quando a Camada 1 entrar |
 | 3 · Bots com personalidade/IA | comportamento por time; IA de verdade | **direção, não backlog**, nas palavras do Victor em 03/09. Hoje a personalidade vem dos perfis nomeados do VPK (D2) e dos plugins da [trilha de bots](0005-trilha-de-bots-uma-variavel-por-vez.md). O "CS2 AI Enemy Coach" do Drive é outro projeto |
 
-- **Uso pessoal, sem fim comercial.** O cs2-tracker é "um jogo maneiro" para o Victor. O repo é público para quem achar ([ADR-0003](0003-repo-publico.md)), mas não tem uso comercial. A ideia de "demo/pitch que pode virar produto" deixa de guiar decisões: nenhuma escolha de arquitetura, dependência ou escopo se justifica por mercado. Se um dia virar produto, isso será um ADR novo, que substitui este, e a troca dos nomes reais por genéricos é trocar o `data/rosters.json` (SPEC §9, D3).
+- **Uso pessoal, sem fim comercial.** O cs2-tracker é "um jogo maneiro" para o Victor. O repo é público para quem achar ([ADR-0003](0003-repo-publico.md)), mas não tem uso comercial. A ideia de demo/pitch que pode virar produto deixa de guiar decisões: nenhuma escolha de arquitetura, dependência ou escopo se justifica por mercado. Se um dia virar produto, isso será um ADR novo, que substitui este, e a troca dos nomes reais por genéricos é trocar o `data/rosters.json` (SPEC §9, D3).
 
 ## Pontos de extensão que a arquitetura preserva
 
 1. **MatchSetup é dado, sem UI.** `MatchSetup` (`wizard_core.py:73-93`) → `build_match_config` (`wizard_core.py:411-438`) é o caminho até o match_config. A Camada 1 geraria um MatchSetup por rodada. Checagem: `wizard_core.py` não importa Textual, FastAPI nem Jinja, e o S5.3 mantém uma validação só.
-2. **Partida sobe sem tela.** O `start_match.py` roda pela linha de comando (`--map`, `--side`, `--mine`, `--enemy`: `start_match.py:855-890`). Checagem: G4 (integração TUI → `run_match`) e o CLI mantido no S5.3 e no S5.4.
-3. **Roster é dado.** Time, jogadores, logo e veto ficam em `data/rosters.json` e são lidos por `roster.load_rosters` (`roster.py:219-236`). A tabela `teams` da Camada 1 nasceria daí. Checagem: nenhum nome de time ou pro fixo em `.py` fora de `tests/`.
+2. **Partida sobe sem tela.** O `start_match.py` roda pela linha de comando (`--map`, `--side`, `--mine`, `--enemy`: `start_match.py:855-890`). Checagem: G4 (integração TUI → `run_match`) e o CLI. O critério do S5.3 só garante `--map` e `--side`. Manter também `--mine` e `--enemy` no S5.3 e no S5.4 é pedido deste ADR, não do critério daqueles cards.
+3. **Roster é dado.** Time, jogadores, logo e veto ficam em `data/rosters.json` e são lidos por `roster.load_rosters` (`roster.py:219-236`). A tabela `teams` da Camada 1 nasceria daí. Checagem: nenhum nome de time ou pro fixo na lógica ou nos dados de `.py` fora de `tests/`. Texto de ajuda, comentário e docstring não contam (ex.: `start_match.py:883`, `roster.py:143`, `stats.py:567`). Exceção conhecida: o `TEAM_LOGO_FILES` (`roster.py:154-165`), que mapeia em código o id do time para o arquivo de imagem do logo. Ele sai quando esse arquivo passar para o `data/rosters.json`, e nenhuma exceção nova entra.
 4. **Série e mapa identificáveis.** Cada mapa vira uma linha em `matches`, com `demo_name` único `events_<matchid>_map<N>` e `series_num_maps` (`parser.py:65-87`, `parser.py:311-315`). Um `bracket_match` apontaria para a série pelo matchid. Checagem: colisão de nome nunca descarta partida (P1.1a), e restaurar um snapshot não volta o contador de matchid da MatchZy (B0.9).
-5. **Schema só cresce por adição.** As migrações são só aditivas, com `user_version` (S2.2). Então `teams`, `tournaments` e `bracket_matches` entrariam como tabelas novas, sem reescrever `matches`. Checagem: o teste "tag anterior roda contra banco migrado" (S2).
+5. **Schema só cresce por adição.** As migrações passam a ser só aditivas, com `user_version`, no S2.2. Hoje não há `user_version` no código. Então `teams`, `tournaments` e `bracket_matches` entrariam como tabelas novas, sem reescrever `matches`. Checagem: o teste "tag anterior roda contra banco migrado" (S2).
 6. **Comportamento de bot fica fora do app.** A personalidade vem do perfil do VPK e dos plugins do servidor, e o app só escolhe perfis. Uma IA própria (Camada 3) entraria como mais um plugin, sem mexer em captura ou ingestão. Checagem: a captura (Cs2TrackerEvents) não depende de plugin de bot, e a B1 religa um por vez sem tocar nela.
 
 ## Alternativas consideradas
@@ -71,7 +77,7 @@ Ainda em 19/09, o Victor escreveu: "Minha ideia principal é fazer um jogo manei
 
 ## Status
 
-Aceito em 2026-09-26, pela escolha do Victor ("Avulsas agora, carreira depois"). **Pendente:** a leitura dele (critério do K1.2, ~20 min).
+Proposto em 2026-09-26, a partir da escolha do Victor ("Avulsas agora, carreira depois"). Os seis pontos de extensão e as checagens foram escritos por agente. **Pendente:** a leitura dele (critério do K1.2, ~20 min). O que ele mudar nessa leitura entra aqui, e só então o status passa a `aceito`, com a data.
 
 ## Fontes
 

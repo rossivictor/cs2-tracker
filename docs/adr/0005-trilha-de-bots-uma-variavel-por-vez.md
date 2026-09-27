@@ -11,10 +11,13 @@ fontes:
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:14-54"
   - "docs/historico/2026-09-26-handoff-plugins-de-bot.md:15-18"
   - "docker-compose.yml:63-65"
-  - "commit 779a979 (PR #4)"
+  - "docs/runbooks/b1.3-cssharp-1.0.375.md:64-68"
+  - "transcript eb5adec0 @ 2026-09-27T02:25:52Z"
+  - "transcript eb5adec0 @ 2026-09-27T02:46:34Z"
+  - "PR #4"
   - "backup:temp-artifacts/eb5adec0/audit/critic.json (gaps[2]; top_risks[5])"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (sprint B1; Q2, Q7, Q9, Q16 e Q17)"
-atualizado: 2026-09-26
+atualizado: 2026-09-27
 ---
 
 # ADR-0005: Trilha de bots primeiro, uma variável por vez
@@ -52,10 +55,10 @@ O B1.1 mostrou que o primeiro passo aprovado não funciona como uma linha. A CSS
 
 ## Status
 
-Aceito em 2026-09-26. O B1.3r está no PR #4 (`779a979`), aberto: o Victor escolheu a opção (B) do runbook, com os downloads aprovados, e o merge só acontece com a janela aberta. O B1.10 atualiza este ADR com o resultado de cada plugin.
+Aceito em 2026-09-26. Em 27/09 (UTC), o Victor escolheu testar o par numa janela, com portão, que é a opção (B) do runbook do B1.3r, e com ela aprovou os downloads. O B1.3r é entregue pelo PR #4, que só é mergeado com a janela aberta. O B1.10 atualiza este ADR com o resultado de cada plugin.
 
 ## Fontes
 
-- Transcript `eb5adec0` @ 22:10Z: a prioridade. Transcript `de92b218` @ 05/09: o valor das granadas.
+- Transcript `eb5adec0` @ 22:10Z: a prioridade; @ 02:25Z e 02:46Z de 27/09: a pergunta do B1.3r e a escolha dele. Transcript `de92b218` @ 05/09: o valor das granadas.
 - Runbooks `trilha-de-bots.md` (objetivo, ordem e a regra do par) e `b1.3-cssharp-1.0.375.md` (a pesquisa do B1.1 e os riscos #1443 e #1446). Handoff: a premissa "uma linha de YAML" corrigida.
 - Plano, sprint B1: critérios de saída, Q2, Q7, Q9, Q16 e Q17.

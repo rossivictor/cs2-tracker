@@ -11,9 +11,12 @@ fontes:
   - "stats.py:153-155"
   - "stats.py:234-249"
   - "stats.py:416-427"
-  - "parser.py:527-537"
   - "watcher.py:200-203"
-atualizado: 2026-09-26
+  - "watcher.py:455-491"
+  - "server-configs/cfg/gamemode_competitive_server.cfg:1-7"
+  - "web/templates/wizard_modal.html:13"
+  - "templates/shell.html:8"
+atualizado: 2026-09-27
 ---
 
 # Política de comentários
@@ -43,7 +46,7 @@ Limite: até ~3 linhas por bloco. Se precisar de mais, é nota da KB.
 | Procedimento passo a passo | `runbooks/` | troca do `botprofile.vpk` (`start_match.py:708-715`) |
 | Pegadinha do engine, da MatchZy, de plugin ou do Windows | `armadilhas/` | M4A1-S e USP-S com nomes diferentes em kill e dano (`stats.py:111-140`) |
 | Definição de domínio: métrica, placar, lado | `dominio/` | KAST como K/S/T (`stats.py:416-427`) |
-| Como os módulos conversam | `arquitetura/` | ordem do pipeline de ingestão (`parser.py:527-537`) |
+| Como os módulos conversam | `arquitetura/` | passagem do `current.jsonl` do plugin para o watcher, que arquiva antes de ingerir (`watcher.py:455-491`) |
 | Investigação datada, "item N, 2026-09-20", diário de experimento | `historico/` | diário do GOTV/`tv_delay` no cfg |
 
 ## O que vira card, e o que se apaga
@@ -61,11 +64,12 @@ Limite: até ~3 linhas por bloco. Se precisar de mais, é nota da KB.
 ## Como citar
 
 - **No código**, o `[[nome]]` do Obsidian, que também dá para achar com `grep`:
-  - Python, YAML, cfg e shell: `# ver [[ADR-0004]]`;
-  - C# e JS: `// ver [[ADR-0004]]`;
+  - Python, YAML, shell e PowerShell: `# ver [[ADR-0004]]`;
+  - C#, JS e cfg do CS2 (`server-configs/cfg/*.cfg`): `// ver [[ADR-0004]]`. No cfg, `#` não é comentário: a linha vai para o console do servidor como comando. O `gamemode_competitive_server.cfg` só usa `//`;
+  - CSS, inclusive no `<style>` dos templates: `/* ver [[ADR-0004]] */`;
   - Jinja: `{# ver [[ADR-0004]] #}`;
   - HTML: `<!-- ver [[ADR-0004]] -->`.
-- ADR se cita pelo alias `ADR-00xx`. As outras notas, pelo nome do arquivo sem `.md` (ex.: `ver [[contrato-events-jsonl]]`), que é único na KB.
+- ADR se cita pelo alias `ADR-00xx`. As outras notas, pelo nome do arquivo sem `.md` (ex.: `ver [[contrato-events-jsonl]]`), que é único na KB. Os `README.md` de índice das pastas não se citam assim.
 - **Na KB**: link relativo em Markdown para outra nota, e `caminho:linha` do código no `fontes` do frontmatter.
 
 ## Ordem: extrair antes de podar

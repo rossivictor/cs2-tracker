@@ -3,12 +3,12 @@ tipo: indice
 status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.kb_structure; cards B0.2 e K1.7)"
-atualizado: 2026-09-26
+atualizado: 2026-09-27
 ---
 
 # Histórico
 
-O que aconteceu e quando: investigações datadas, handoffs, diários de experimento e a timeline. Nota daqui não se edita. Correção vai para a nota viva (runbook, ADR, armadilha), e o histórico ganha só um link.
+O que aconteceu e quando: investigações datadas, handoffs, diários de experimento e a timeline. Nota daqui não se edita. Correção vai para a nota viva (runbook, ADR, armadilha), e o histórico ganha só um link. Este índice é a exceção: ganha uma linha a cada nota nova.
 
 ## Existentes
 
