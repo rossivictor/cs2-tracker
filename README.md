@@ -241,8 +241,8 @@ e antes de subir o servidor, e nosso `pre.sh` insere a entrada que falta no
 `gameinfo.gi` (idempotente, roda em todo boot). Detalhe completo e evidência
 em [docs/SPEC.md §10](docs/SPEC.md) (Passo 0).
 
-A imagem já traz as três variantes em `overrides/{Low,Medium,High}/`. Este
-projeto fixa **Low**. Pra trocar:
+As três variantes ficam no volume em `overrides/{Low,Medium,High}/` (instaladas à mão em 05/09, não vêm da imagem). Este
+projeto usa **Medium** desde 27/09/2026. Pra trocar:
 
 **Pare o servidor ANTES de copiar.** O jogo mantém o VPK mapeado em memória
 enquanto roda; sobrescrever o arquivo por baixo de um processo vivo derruba o
