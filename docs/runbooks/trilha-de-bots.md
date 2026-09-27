@@ -304,8 +304,9 @@ refeito, use uma linha nova com o mesmo passo e sufixo (ex.: `2b`).
 | Passo | Janela (data, hora, frase que abriu) | Mudança efetiva | Build CS2 antes → depois | Snapshot (arquivo, sha256 abreviado) | G6 (load lines, assinaturas) | Smoke só de bots |
 |---|---|---|---|---|---|---|
 | 1 · B1.3r | 27/09 01:44 ("pode mexer no servidor"); vencida 2× por espera de aprovação, renovada 08:08 com OK; fechada 09:41 | Metamod 2.0.0.1411→2.0.0.1469, CSSharp v1.0.373→v1.0.375 | 2000918 → 2000918 | volume-addons-0144.tgz, 89556340… | complete 1469 e 375; MatchZy e captura carregadas; 0 linha proibida (FireOutputInternal sumiu); RayTrace/BotHider recusados (mascarados) | inconclusivo: bots não entram sem humano (faltou `bot_join_after_player 0`) |
-| 2 · B1.4 | | | | | | |
-| 3 · B1.5 | | | | | | |
+| 2 · B1.4 | 27/09 15:20–15:23 ("terminei") | máscara do BotAimImprover removida (versão do volume) | igual | não precisa (sem escrita no volume) | BotAimImprover INATIVO: `PickNewAimSpot signature resolved to zero address` | — |
+| 2b · B1.4b | 27/09 15:44–15:56 ("Pode juntar") | BotAimImprover do upstream `c3d10f5` por bind mount + VPK Medium (15:34) | igual | não precisa (bind mount) | `[BotAimImprover] Loaded (Linux)`; sha no container = manifesto | — |
+| 3 · B1.5 | 27/09 18:38–18:56 ("terminei") | máscara do BotState removida (versão do volume) | igual | não precisa | Smarter-Bot 1.9.4 carregado, sem falha de assinatura; `BotController API not available` | OK: 10 bots em mirage e de novo após troca de mapa; 0 crash |
 | 4 · B1.6 | | | | | | |
 | 5 · B1.7 | | | | | | |
 | 6 · B1.8 | | | | | | |
@@ -316,7 +317,7 @@ refeito, use uma linha nova com o mesmo passo e sufixo (ex.: `2b`).
 | Passo | Partida (`demo_name`, mapa) | Troca de mapa | Segfault | Overflow pós FULL + 60 s | Ingerida | Veredito | Época a partir de |
 |---|---|---|---|---|---|---|---|
 | 1 · B1.3r | events_63_map0, de_inferno (partida 26, 13x7, 5x5) | não (MD1) | 0 | 0 (nenhum overflow) | sim | **OK** (config-hash 55765314… igual) | jogavel-2026-09-27 |
-| 2 · B1.4 | | | | | | | |
+| 2 · B1.4 + 2b · B1.4b | events_64_map0, de_dust2 (partida 27, 13x8, 5x5) | não (MD1) | 0 | 0 (1 overflow só no signon) | sim | **OK** (após correção do detector, PR #15) | jogavel-2026-09-27-2 (VPK Medium) |
 | 3 · B1.5 | | | | | | | |
 | 4 · B1.6 | | | | | | | |
 | 5 · B1.7 | | | | | | | |
@@ -329,8 +330,8 @@ Assinaturas que falharam, pelo nome; plugins recusados no `meta list`; impressã
 se vier (não bloqueia).
 
 - **1 · B1.3r:** nenhuma assinatura falhou. RoundDamageRecap (ed0ard) carregado e sem máscara. O container reiniciou às 13:48 sem recreate (config-hash igual). Jogo "liso" na impressão do Victor.
-- **2 · B1.4:**
-- **3 · B1.5:**
+- **2 · B1.4:** o BotAimImprover do volume (05/09) não carrega na build atual; a correção veio do upstream (B1.4b). Bots da partida 27 (com B1.4b + Medium): 14 utility + 19 flash, 63 cegueiras. Impressão do Victor: "bem desafiador e bem maneiro de jogar".
+- **3 · B1.5:** BotController nativo não disponível (Metamod 1469 recusa plugins da interface 17): recursos do Smarter-Bot que dependem dele ficam desligados até a B2. No smoke, depois do `changelevel` a quota volta a zero no load: é preciso readicionar os bots para testar a entrada deles no mapa novo.
 - **4 · B1.6:**
 - **5 · B1.7:**
 - **6 · B1.8:**
