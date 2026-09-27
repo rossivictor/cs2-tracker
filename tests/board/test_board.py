@@ -7,6 +7,7 @@ Tudo em tmp_path: o board real (docs/board-cs2 do checkout principal) nunca
 é lido nem escrito, o relógio é fixo e o preflight é injetado.
 """
 import json
+import re
 import runpy
 import sys
 from datetime import datetime
@@ -51,7 +52,7 @@ def texto_card(c):
 
     jogo = c.get("jogo", False)
     campos = {
-        "Card": c.get("card", f"H1.{round(c['ordem'] * 10)}"),
+        "ID": c.get("card", f"H1.{round(c['ordem'] * 10)}"),
         "Status": c["status"],
         "Sprint": c.get("sprint", "H1"),
         "Ordem": c["ordem"],
@@ -119,7 +120,7 @@ F = {"ordem": 6, "titulo": "F", "status": "Backlog", "depende": ["3 - C"]}
 def test_le_escalares_aspas_numero_com_ponto_booleanos_null_e_listas_de_wikilink():
     lido = ler_frontmatter(texto_card({**B, "ordem": 90.5, "card": "B1.3r", "sprint": "B1"}))
     assert lido["Status"] == "Bloqueada"
-    assert lido["Card"] == "B1.3r"
+    assert lido["ID"] == "B1.3r"
     assert lido["Ordem"] == 90.5
     assert lido["Verificação"] == "Offline"
     assert lido["Caminho de jogo"] is False
@@ -169,6 +170,38 @@ def test_formatar_escalar_poe_aspas_so_quando_o_yaml_leria_outra_coisa():
     assert formatar_escalar(11.5) == "11.5"
     assert formatar_escalar(False) == "false"
     assert formatar_escalar(None) == "null"
+
+
+@pytest.mark.parametrize("valor", ["a\nb", "a\r\nb", "tab\taqui", "nul\x00", "del\x7f"])
+def test_formatar_escalar_poe_aspas_em_caractere_de_controle_e_volta_igual(valor):
+    formatado = formatar_escalar(valor)
+    assert formatado.startswith('"') and "\n" not in formatado and "\r" not in formatado
+    texto = definir_propriedade(texto_card(B), "Branch", valor)
+    lido = ler_frontmatter(texto)
+    assert lido["Branch"] == valor and lido["Status"] == "Bloqueada"
+
+
+def test_propriedade_limpa_no_obsidian_le_como_null_e_lista_com_item_como_lista():
+    texto = texto_card(B).replace("Branch: null", "Branch:").replace(
+        "Reprovações: null", "Reprovações:")
+    lido = ler_frontmatter(texto)
+    assert lido["Branch"] is None and lido["Reprovações"] is None
+    assert lido["Depende de"] == ["[[1 - A]]"]
+    vazia = ler_frontmatter(texto.replace('Depende de:\n  - "[[1 - A]]"', "Depende de:"))
+    assert vazia["Depende de"] is None
+
+
+def test_validar_aceita_propriedade_limpa_no_obsidian(tmp_path):
+    board = montar(tmp_path, [A, {**B, "bloqueia": []}])
+    caminho = board / "2 - B.md"
+    texto = caminho.read_bytes().decode("utf-8")
+    for chave in ("Reprovações", "Devoluções", "Bloqueia"):
+        texto = re.sub(rf"^{chave}:.*$", f"{chave}:", texto, flags=re.MULTILINE)
+    texto = texto.replace("Branch: null", "Branch:\nPR:\nCandidato:\nCusto:")
+    caminho.write_bytes(texto.encode("utf-8"))
+    resultado = rodar(board, "validar")
+    assert resultado.codigo == 0, resultado.out
+    assert "ERRO" not in resultado.out
 
 
 def test_acrescentar_historico_cria_a_secao_e_acrescenta_no_fim():
@@ -251,8 +284,11 @@ def test_reclassificar_grava_status_escreve_historico_com_o_relogio_e_rele(tmp_p
     assert props(board, "6 - F")["Status"] == "Backlog"
     assert (
         "- **26/09/2026 23:18 · TM** — Reclassificado de `Bloqueada` para `Pronta para começar` "
-        "com a conclusão do [[1 - A]] (sem dependência pendente)."
+        "com a conclusão do [[1 - A]] (sem dependência pendente). Feito por "
+        "`tools.board reclassificar`."
     ) in ler(board, "2 - B")
+    # Sem "python": o Histórico não pode ensinar o interpretador do sistema (AGENTS.md).
+    assert "python -m" not in ler(board, "2 - B")
 
 
 def test_reclassificar_aceita_o_card_do_plano_e_seco_nao_grava(tmp_path):
@@ -336,10 +372,10 @@ def test_validar_acusa_ordem_e_card_repetidos_e_card_fora_do_sprint(tmp_path):
         texto_card({"ordem": 5, "titulo": "r", "status": "Backlog", "card": "H1.9"}),
         encoding="utf-8")
     mensagens = _mensagens(board)
-    assert mensagens.count("erro:Card H1.3 repetido") == 2
+    assert mensagens.count("erro:ID H1.3 repetido") == 2
     assert mensagens.count("erro:Ordem 5 repetida") == 2
-    assert 'erro:Card "B1.3r" não é do Sprint "H1"' in mensagens
-    assert 'erro:Card "h1-6" fora do formato do plano (ex.: B1.3r)' in mensagens
+    assert 'erro:ID "B1.3r" não é do Sprint "H1"' in mensagens
+    assert 'erro:ID "h1-6" fora do formato do plano (ex.: B1.3r)' in mensagens
 
 
 def test_validar_exige_rollback_no_caminho_de_jogo_e_infra_dentro_dele(tmp_path):
@@ -391,6 +427,53 @@ def test_validar_sai_1_com_erro_e_0_so_com_aviso(tmp_path):
     resultado = rodar(so_aviso, "validar")
     assert resultado.codigo == 0
     assert resultado.out.endswith("1 cards · 0 erro(s) · 1 aviso(s)")
+
+
+BOM = "﻿".encode("utf-8")
+
+
+def test_card_com_bom_do_powershell_entra_no_board_e_o_mover_preserva_o_bom(tmp_path):
+    board = montar(tmp_path, [A, {**B, "bloqueia": []}])
+    caminho = board / "2 - B.md"
+    caminho.write_bytes(BOM + caminho.read_bytes())
+    resultado = rodar(board, "validar")
+    assert resultado.out.endswith("2 cards · 0 erro(s) · 1 aviso(s)"), resultado.out
+    assert rodar(board, "mover", "--card=2", "--status=Backlog", "--texto=Parado.").codigo == 0
+    gravado = caminho.read_bytes()
+    assert gravado.startswith(BOM + b"---\n")
+    assert props(board, "2 - B")["Status"] == "Backlog"
+
+
+def test_md_que_nao_e_utf8_ou_sem_status_fica_fora_com_aviso_e_nome(tmp_path):
+    board = montar(tmp_path, [A])
+    (board / "Latin1.md").write_bytes("---\nStatus: Backlog\nTítulo: é\n---\n".encode("cp1252"))
+    (board / "Nota.md").write_text("---\ntags: []\n---\nnota solta\n", encoding="utf-8")
+    resultado = rodar(board, "validar")
+    assert resultado.codigo == 0
+    assert "aviso · Latin1 · Latin1.md não é UTF-8 (byte 0xed na posição 21)" in resultado.out
+    assert "aviso · Nota · Nota.md tem frontmatter sem Status" in resultado.out
+    assert "1 cards · 0 erro(s) · 2 aviso(s)" in resultado.out
+    # Os outros comandos continuam de pé e também avisam.
+    fila_ = rodar(board, "fila")
+    assert fila_.codigo == 0
+    assert "Latin1.md não é UTF-8" in fila_.err
+
+
+def test_spec_e_arquivo_com_bom_do_powershell(tmp_path):
+    board = montar(tmp_path, [A, {**B, "bloqueia": []}])
+    spec = tmp_path / "spec.json"
+    spec.write_bytes(BOM + json.dumps(BASE, ensure_ascii=False).encode("utf-8"))
+    assert rodar(board, "criar", f"--spec={spec}").codigo == 0
+    arquivo = tmp_path / "entrada.md"
+    arquivo.write_bytes(BOM + "Entregue.".encode("utf-8"))
+    assert rodar(board, "historico", "--card=2", f"--arquivo={arquivo}").codigo == 0
+    texto = ler(board, "2 - B")
+    assert "- **26/09/2026 23:18 · TM** — Entregue." in texto
+    assert "﻿" not in texto
+    ruim = tmp_path / "ruim.md"
+    ruim.write_bytes("Entregue à noite.".encode("cp1252"))
+    resultado = rodar(board, "historico", "--card=2", f"--arquivo={ruim}")
+    assert resultado.codigo == 1 and "ruim.md não é UTF-8" in resultado.err
 
 
 # ---------------------------------------------------------------------------
@@ -460,18 +543,32 @@ def _board_de_verificacoes(tmp_path):
 @pytest.mark.parametrize("codigo, cabecalho, nomes", [
     (0, "Preflight 0 (livre)", ["1 - offline", "2 - servidor", "3 - partida"]),
     (3, "Preflight 3 (Victor jogando); só Offline, 2 card(s) fora da fila", ["1 - offline"]),
-    (4, "Preflight 4 (janela aberta: só o papel servidor mexe no que é vivo); só Offline, "
-        "2 card(s) fora da fila", ["1 - offline"]),
+    (4, "Preflight 4 (janela aberta: só o papel servidor mexe no que é vivo); 2 card(s) de "
+        "Servidor ou Partida só para o papel servidor",
+     ["1 - offline", "2 - servidor", "3 - partida"]),
     (1, "Preflight 1 (código 1 conta como 3: Victor jogando); só Offline, 2 card(s) fora "
         "da fila", ["1 - offline"]),
 ])
-def test_fila_agora_consulta_o_preflight_e_fora_do_0_so_mostra_offline(
+def test_fila_agora_consulta_o_preflight_3_so_offline_e_4_mantem_o_do_servidor(
         tmp_path, codigo, cabecalho, nomes):
     resultado = rodar(_board_de_verificacoes(tmp_path), "fila", "--agora",
                       preflight=lambda: codigo)
     assert cabecalho in resultado.out.splitlines()
     for nome in ("1 - offline", "2 - servidor", "3 - partida"):
         assert (nome in resultado.out) == (nome in nomes)
+
+
+def test_fila_agora_com_janela_aberta_marca_servidor_e_partida_so_para_o_papel_servidor(
+        tmp_path):
+    # G0: "4 = só o servidor". O papel servidor, que usa o CLI, não pode ver a fila
+    # vazia justo na janela dele; os outros papéis veem a marca e deixam o card.
+    linhas = rodar(_board_de_verificacoes(tmp_path), "fila", "--agora",
+                   preflight=lambda: 4).out.splitlines()
+    assert "1 · H1.10 · Offline · Agente · Infra/Harness · 1 - offline" in linhas
+    assert ("2 · H1.20 · Servidor · Agente · Infra/Harness · só papel servidor · "
+            "2 - servidor") in linhas
+    assert ("3 · H1.30 · Partida · Agente · Infra/Harness · só papel servidor · "
+            "3 - partida") in linhas
 
 
 def test_fila_sem_agora_nao_roda_o_preflight(tmp_path):
@@ -534,7 +631,7 @@ def test_criar_em_lote_deriva_o_status_e_espelha_o_bloqueia(tmp_path):
     novo = props(board, "7,5 - Novo")
     assert novo["Status"] == "Bloqueada"
     assert novo["Ordem"] == 7.5
-    assert novo["Card"] == "T1.1" and novo["Sprint"] == "T1"
+    assert novo["ID"] == "T1.1" and novo["Sprint"] == "T1"
     assert novo["Reprovada"] is False and novo["Caminho de jogo"] is False
     assert novo["Depende de"] == ["[[2 - B]]"]
     assert novo["Bloqueia"] == ["[[8 - Depois do novo]]"]
@@ -545,9 +642,9 @@ def test_criar_em_lote_deriva_o_status_e_espelha_o_bloqueia(tmp_path):
     assert props(board, "10 - Estacionado")["Status"] == "Backlog"
     assert props(board, "2 - B")["Bloqueia"] == ["[[7,5 - Novo]]"]
     texto = ler(board, "7,5 - Novo")
-    assert texto.startswith("---\nCard: T1.1\nStatus: Bloqueada\nSprint: T1\nOrdem: 7.5\n")
+    assert texto.startswith("---\nID: T1.1\nStatus: Bloqueada\nSprint: T1\nOrdem: 7.5\n")
     assert ("## Histórico\n\n- **26/09/2026 23:18 · PM** — Card criado por "
-            "`python -m tools.board criar`. Status inicial: `Bloqueada` "
+            "`tools.board criar`. Status inicial: `Bloqueada` "
             "(1 dependência(s) pendente(s)).") in texto
     assert rodar(board, "validar").codigo == 0
 
@@ -559,7 +656,7 @@ BASE = {"ordem": 50, "titulo": "Ok", "card": "T1.50", "camada": "Dados",
 @pytest.mark.parametrize("troca, mensagem", [
     ({"titulo": "Com: dois-pontos"}, "o título não pode ter"),
     ({"ordem": 1}, "a Ordem 1 já existe"),
-    ({"card": "H1.10"}, "o Card H1.10 já existe"),
+    ({"card": "H1.10"}, "o ID H1.10 já existe"),
     ({"card": "t1.51"}, "fora do formato do plano"),
     ({"sprint": "T2"}, 'sprint "T2" não bate com o card T1.51'),
     ({"camada": "Infra"}, 'Camada "Infra" fora da lista'),
@@ -571,9 +668,16 @@ BASE = {"ordem": 50, "titulo": "Ok", "card": "T1.50", "camada": "Dados",
     ({"infra": True}, "infra true exige caminho_de_jogo true"),
     ({"status": "Pronta para começar"}, 'status só aceita "Backlog"'),
     ({"depende_de": ["404"]}, "nenhum card com Ordem 404"),
-    ({"depende_de": ["Z9.9"]}, "nenhum card com Card Z9.9"),
+    ({"depende_de": ["Z9.9"]}, "nenhum card com ID Z9.9"),
     ({"corpo": ""}, "falta corpo"),
     ({"plataforma": "Todas"}, "chave desconhecida plataforma"),
+    # O disco recusaria só na hora de gravar: tem de cair no planejamento.
+    ({"titulo": "Ruim\ncom quebra"}, "caractere de controle"),
+    ({"titulo": "Tab\taqui"}, "caractere de controle"),
+    ({"titulo": "x" * 300}, "encurte o título"),
+    # O validar recusaria o nome: criar não pode fazer card que já nasce com erro.
+    ({"ordem": -3}, 'ordem "-3" não vira prefixo de nome'),
+    ({"ordem": 1e-7}, 'ordem "1e-07" não vira prefixo de nome'),
 ])
 def test_criar_recusa_spec_invalida_sem_gravar_nada(tmp_path, troca, mensagem):
     board = montar(tmp_path, [A])
@@ -583,6 +687,62 @@ def test_criar_recusa_spec_invalida_sem_gravar_nada(tmp_path, troca, mensagem):
     assert resultado.codigo == 1
     assert mensagem in resultado.err
     assert sorted(p.name for p in board.iterdir()) == antes
+
+
+def test_criar_com_a_mesma_dependencia_duas_vezes_grava_uma_e_conta_uma(tmp_path):
+    # "2" e "H1.20" são o mesmo card: 1 pendente sem cadeia = Bloqueada, não Backlog.
+    board = montar(tmp_path, [A, {**B, "bloqueia": []}])
+    assert rodar(board, "criar", _spec(tmp_path, {**BASE, "depende_de": ["2", "H1.20"]})) \
+        .codigo == 0
+    novo = props(board, "50 - Ok")
+    assert novo["Depende de"] == ["[[2 - B]]"]
+    assert novo["Status"] == "Bloqueada"
+    assert props(board, "2 - B")["Bloqueia"] == ["[[50 - Ok]]"]
+
+
+def test_pendentes_nao_conta_dependencia_repetida(tmp_path):
+    q = _quadro(tmp_path, [A, {**B, "status": "Em andamento", "bloqueia": []},
+                           {**C, "depende": ["2 - B", "2 - B"], "bloqueia": []}])
+    assert q.pendentes(q.get("3 - C")) == ["2 - B"]
+    assert classificar(q, q.get("3 - C")) == "Bloqueada"
+
+
+def test_criar_com_falha_no_disco_no_meio_do_lote_nao_grava_nada(tmp_path, monkeypatch):
+    board = montar(tmp_path, [A, {**B, "bloqueia": []}])
+    antes = {p.name: p.read_bytes() for p in board.iterdir()}
+    abrir = open
+    escritos = []
+
+    def open_que_falha_no_segundo(caminho, modo="r", *args, **kwargs):
+        if "w" in modo:
+            escritos.append(caminho)
+            if len(escritos) == 2:
+                raise OSError(22, "Invalid argument")
+        return abrir(caminho, modo, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", open_que_falha_no_segundo)
+    resultado = rodar(board, "criar", _spec(tmp_path, [
+        {**BASE, "depende_de": ["2"]}, {**BASE, "ordem": 51, "card": "T1.51", "titulo": "Dois"}]))
+    assert resultado.codigo == 1
+    assert "nada gravado" in resultado.err
+    assert {p.name: p.read_bytes() for p in board.iterdir()} == antes
+
+
+def test_gravacao_interrompida_na_troca_diz_o_que_ja_foi_gravado(tmp_path, monkeypatch):
+    board = montar(tmp_path, [A])
+    trocar = cli.os.replace
+    feitas = []
+
+    def replace_que_falha_no_segundo(origem, destino):
+        feitas.append(destino)
+        if len(feitas) == 2:
+            raise OSError(13, "Permission denied")
+        trocar(origem, destino)
+
+    monkeypatch.setattr(cli.os, "replace", replace_que_falha_no_segundo)
+    with pytest.raises(cli.ErroBoard, match=r"interrompida em b\.md.*Já gravados: a\.md"):
+        cli._gravar_lote([(board / "a.md", "um"), (board / "b.md", "dois")])
+    assert not list(board.glob("*.tmp"))
 
 
 def test_criar_seco_nao_grava(tmp_path):
@@ -609,6 +769,42 @@ def test_mover_muda_status_e_branch_e_carimba_data_hora_e_papel_pelo_relogio(tmp
     assert (lido["Status"], lido["Branch"]) == ("Em andamento", "feat/H1.3-board-cli")
     assert "- **26/09/2026 23:18 · dev** — Escolhido para o lote 1." in ler(board, "2 - B")
     assert "2 · Pronta para começar → Em andamento · Branch feat/H1.3-board-cli" in resultado.out
+
+
+def test_mover_em_card_que_ja_tinha_erro_grava_avisa_e_sai_0(tmp_path):
+    # Caminho de jogo sem "## Rollback" já é erro antes do mover. Sair 1 depois de
+    # gravar faria o agente repetir e contar a reprovação duas vezes (freio falso).
+    board = montar(tmp_path, [{"ordem": 1, "titulo": "sem rollback", "status": "Em testes",
+                               "jogo": True, "corpo": "**Problema:** x."}])
+    resultado = rodar(board, "mover", "--card=1", "--status=Pronta para começar",
+                      "--reprovada=true", "--reprovacao", "--papel=QA", "--texto=Reprovado.")
+    assert resultado.codigo == 0, resultado.err
+    assert "gravado: 1 - sem rollback" in resultado.out
+    assert ('aviso · 1 - sem rollback · caminho de jogo sem a seção "## Rollback", que é '
+            "obrigatória (erro que o card já tinha; não impediu a gravação)") in resultado.err
+    assert props(board, "1 - sem rollback")["Reprovações"] == 1
+
+
+def test_mover_que_criaria_erro_novo_recusa_sem_gravar(tmp_path):
+    # Concluída não cobra Rollback; reabrir o card de caminho de jogo sem ele cobra.
+    board = montar(tmp_path, [{"ordem": 1, "titulo": "sem rollback", "status": "Concluída",
+                               "jogo": True, "corpo": "**Problema:** x."}])
+    antes = ler(board, "1 - sem rollback")
+    for seco in ([], ["--seco"]):
+        resultado = rodar(board, "mover", "--card=1", "--status=Em andamento", *seco)
+        assert resultado.codigo == 1
+        assert "nada gravado em 1 - sem rollback: o card ficaria com erro novo" in resultado.err
+        assert "Rollback" in resultado.err
+    assert ler(board, "1 - sem rollback") == antes
+
+
+def test_mover_branch_com_quebra_de_linha_grava_entre_aspas(tmp_path):
+    board = montar(tmp_path, [A, {**B, "bloqueia": []}])
+    assert rodar(board, "mover", "--card=2", "--branch=x\ny").codigo == 0
+    lido = props(board, "2 - B")
+    assert lido["Branch"] == "x\ny"
+    assert lido["Status"] == "Bloqueada" and lido["Depende de"] == ["[[1 - A]]"]
+    assert 'Branch: "x\\ny"' in ler(board, "2 - B")
 
 
 def test_mover_reprova_e_soma_reprovacoes_e_devolucoes_de_null_e_de_1(tmp_path):
@@ -653,14 +849,63 @@ def test_historico_de_varias_linhas_vem_de_arquivo_e_mantem_as_linhas_seguintes(
             "  1. Rodar o validar.") in ler(board, "2 - B")
 
 
-def test_historico_com_entrada_pronta_entra_como_veio_e_seco_nao_grava(tmp_path):
+def test_historico_seco_nao_grava(tmp_path):
     board = montar(tmp_path, [A, {**B, "bloqueia": []}])
     antes = ler(board, "2 - B")
-    assert rodar(board, "historico", "--card=2", "--texto=Algo.", "--seco").codigo == 0
+    resultado = rodar(board, "historico", "--card=2", "--texto=Algo.", "--seco")
+    assert resultado.codigo == 0
+    assert "(seco: nada gravado)" in resultado.out
     assert ler(board, "2 - B") == antes
-    rodar(board, "historico", "--card=2", "--texto=- **25/09/2026 10:00 · QA** — Aprovado.")
-    assert "- **25/09/2026 10:00 · QA** — Aprovado." in ler(board, "2 - B")
-    assert "— - **" not in ler(board, "2 - B")
+
+
+@pytest.mark.parametrize("entrada", [
+    # A forma exata do carimbo, com data velha e papel fora da lista.
+    "- **01/01/2020 00:00 · Robô** — aprovado",
+    # Papel válido e data de ontem: o carimbo continua sendo do CLI.
+    "- **25/09/2026 10:00 · QA** — Aprovado.",
+    # Qualquer cabeçalho em negrito com travessão, mesmo sem data.
+    "  * **Robô** – aprovado",
+    # Carimbo forjado numa linha seguinte, recuada ou não.
+    "Entregue.\n- **01/01/2020 00:00 · Robô** — aprovado",
+    "Entregue.\n  - **01/01/2020 00:00 · QA** — aprovado",
+])
+@pytest.mark.parametrize("via", ["texto", "arquivo"])
+def test_historico_recusa_entrada_ja_carimbada_e_nao_grava(tmp_path, entrada, via):
+    board = montar(tmp_path, [A, {**B, "bloqueia": []}])
+    antes = ler(board, "2 - B")
+    if via == "arquivo":
+        arquivo = tmp_path / "entrada.md"
+        arquivo.write_text(entrada, encoding="utf-8")
+        opcao = f"--arquivo={arquivo}"
+    else:
+        opcao = f"--texto={entrada}"
+    resultado = rodar(board, "historico", "--card=2", opcao, "--papel=QA")
+    assert resultado.codigo == 1
+    assert "O carimbo é do CLI" in resultado.err
+    assert ler(board, "2 - B") == antes
+
+
+def test_mover_com_entrada_carimbada_nao_grava_nem_os_campos(tmp_path):
+    board = montar(tmp_path, [A, {**B, "status": "Em testes", "bloqueia": []}])
+    antes = ler(board, "2 - B")
+    resultado = rodar(board, "mover", "--card=2", "--status=PR aberta",
+                      "--texto=- **01/01/2020 00:00 · Robô** — aprovado")
+    assert resultado.codigo == 1
+    assert ler(board, "2 - B") == antes
+
+
+def test_historico_carimba_com_o_relogio_e_o_papel_e_linha_sem_recuo_fica_dentro(tmp_path):
+    board = montar(tmp_path, [A, {**B, "bloqueia": []}])
+    resultado = rodar(board, "historico", "--card=2", "--papel=QA",
+                      "--texto=Aprovado.\n## Rollback\n- item solto\n\n  já recuada")
+    assert resultado.codigo == 0, resultado.err
+    texto = ler(board, "2 - B")
+    assert ("- **26/09/2026 23:18 · QA** — Aprovado.\n  ## Rollback\n  - item solto\n\n"
+            "  já recuada") in texto
+    # A linha sem recuo não abriu seção nova: a próxima entrada cai no Histórico.
+    assert rodar(board, "historico", "--card=2", "--texto=Depois.").codigo == 0
+    assert texto.count("## Histórico") == ler(board, "2 - B").count("## Histórico") == 1
+    assert ler(board, "2 - B").rstrip().endswith("- **26/09/2026 23:18 · TM** — Depois.")
 
 
 def test_mover_recusa_status_fora_dos_oito_e_seco_nao_grava(tmp_path):

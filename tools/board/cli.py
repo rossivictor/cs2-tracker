@@ -3,24 +3,30 @@ Linha de comando do board (card H1.3). Uso e regras: `USO`, abaixo.
 
 Agente em worktree grava o board só por aqui: o vault fica no checkout
 principal, fora do git, e o Edit fora do worktree é recusado. O carimbo do
-`## Histórico` vem do relógio, não da cabeça de quem escreve.
+`## Histórico` vem do relógio e do --papel, não da cabeça de quem escreve:
+entrada que já chega carimbada é recusada.
 """
 from __future__ import annotations
 
 import json
+import os
+import re
 import subprocess
 import sys
+import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from .frontmatter import acrescentar_historico, definir_propriedade, ler_frontmatter
 from .modelo import (
+    CAMPO_ID,
     EXECUTORES,
     PAPEIS,
     STATUS,
     Cartao,
     ErroBoard,
+    Problema,
     Quadro,
     bloqueia,
     carregar,
@@ -36,7 +42,9 @@ from .modelo import (
 
 PRINCIPAL = Path("C:/Users/Victor/Projetos/cs2-tracker")
 BOARD_PADRAO = PRINCIPAL / "docs" / "board-cs2"
-COMANDO = "python -m tools.board"
+# Como o Histórico registra o comando: sem "python", que empurraria o agente para o
+# interpretador do sistema (3.14) em vez do .venv pelo caminho absoluto (AGENTS.md).
+COMANDO = "tools.board"
 
 USO = f"""Uso: C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe -m tools.board <comando>
 (da raiz do checkout principal ou de uma worktree)
@@ -45,18 +53,26 @@ USO = f"""Uso: C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe -m 
                                    dos cards abertos (--tudo: com os concluídos); sai 1 com erro
   fila [--agora]                   "Pronta para começar" na ordem de despacho (Reprovada, depois
                                    Ordem); trilho ocupado esconde o caminho de jogo; --agora roda
-                                   o preflight e, fora do 0, mostra só Verificação Offline
-  reclassificar --concluido=<ref>  depois do merge: recalcula os dependentes
-  criar --spec=<arquivo.json>      cria card(s) a partir de um objeto ou lista
+                                   o preflight: 3 (ou código que conta como 3) mostra só
+                                   Verificação Offline; 4 marca Servidor e Partida como só do
+                                   papel servidor
+  reclassificar --concluido=<ref>  depois do merge: recalcula os dependentes (Backlog também,
+                                   inclusive o estacionado de propósito)
+  criar --spec=<arquivo.json>      cria card(s) a partir de um objeto ou lista; o lote inteiro
+                                   é conferido antes de gravar
   mover --card=<ref> [--status=<Status>] [--branch=<nome>|null] [--pr=<url>|null]
         [--candidato=<tag>|null] [--custo=<tokens>|null] [--reprovada=true|false]
         [--reprovacao] [--devolucao] [--executor=<Executor>]
         [--texto=<entrada> | --arquivo=<caminho>]
-                                   grava campos de um card, com a entrada no ## Histórico
+                                   grava campos de um card, com a entrada no ## Histórico;
+                                   recusa sem gravar só o que criaria erro novo no card
   historico --card=<ref> (--texto=<entrada> | --arquivo=<caminho>)
                                    só acrescenta a entrada no ## Histórico
 
-  <ref>: Ordem (12 ou 11,5), Card do plano (B1.3r) ou nome do arquivo.
+  <ref>: Ordem (12 ou 11,5), {CAMPO_ID} do plano (B1.3r) ou nome do arquivo.
+  <entrada>: só o texto. O CLI carimba "- **DD/MM/AAAA HH:MM · <papel>** —" com o relógio
+             e o --papel; entrada que já vem carimbada é recusada. Linhas seguintes sem
+             recuo ganham dois espaços, para ficarem dentro da entrada.
   --seco       mostra o que faria, sem gravar (reclassificar, criar, mover, historico);
                no reclassificar, simula o card como concluído mesmo antes do merge
   --papel=<{' | '.join(PAPEIS)}>  quem assina a entrada (padrão: TM; PM no criar)
@@ -109,17 +125,32 @@ def ler_argumentos(argv: List[str]):
     return comando, opcoes
 
 
+# Entrada que já começa carimbada: `- **<qualquer coisa>** —`.
+_CABECALHO = re.compile(r"^\s*[-*+]\s+\*\*[^*\n]*\*\*\s*[—–-]")
+# Item com data e hora em negrito em qualquer linha: é a forma do carimbo, recuada ou não.
+_CARIMBO_NO_MEIO = re.compile(r"^\s*[-*+]\s+\*\*\s*\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}")
+
+
 def entrada_historico(texto: str, carimbo: str, papel: str) -> str:
     """
-    Monta a entrada `- **DD/MM/AAAA HH:MM · <papel>** — ...`. Texto que já
-    começa com `- **` entra como veio; as linhas seguintes ficam como vieram
-    (indente você o bloco).
+    Monta a entrada `- **DD/MM/AAAA HH:MM · <papel>** — ...` sempre com o
+    carimbo do CLI (relógio e --papel já validado). Entrada que já chega
+    carimbada é recusada: data, hora e papel escritos por quem chama não
+    entram no Histórico. Linha seguinte sem recuo ganha dois espaços, para
+    ficar dentro da entrada e não virar entrada nova nem seção nova.
     """
-    limpo = texto.rstrip()
-    if limpo.lstrip().startswith("- **"):
-        return limpo
-    primeira, *resto = limpo.splitlines()
-    return "\n".join([f"- **{carimbo} · {papel}** — {primeira}"] + resto)
+    linhas = texto.rstrip().splitlines()
+    while linhas and not linhas[0].strip():
+        linhas.pop(0)
+    if not linhas:
+        raise ErroBoard("a entrada do Histórico está vazia")
+    if _CABECALHO.match(linhas[0]) or any(_CARIMBO_NO_MEIO.match(l) for l in linhas):
+        raise ErroBoard(
+            "a entrada já vem carimbada (- **... · <papel>** —). O carimbo é do CLI, com "
+            "a data e a hora do relógio e o --papel: mande só o texto")
+    primeira, *resto = linhas
+    resto = [l if not l.strip() or l[0] in " \t" else f"  {l}" for l in resto]
+    return "\n".join([f"- **{carimbo} · {papel}** — {primeira.strip()}"] + resto)
 
 
 def _achar_preflight() -> Path:
@@ -137,9 +168,55 @@ def rodar_preflight() -> int:
     return proc.returncode
 
 
+def _gravar_lote(itens: Sequence[Tuple[Path, str]]) -> None:
+    """
+    Grava tudo ou nada, até onde o disco deixa: cada texto vai primeiro para
+    um temporário de nome curto na mesma pasta e só depois, com todos
+    escritos, os os.replace trocam os arquivos. Falha na primeira fase apaga
+    os temporários e não mexe em card nenhum; falha na troca diz quais
+    arquivos já foram trocados.
+    """
+    temporarios: List[Tuple[Path, Path]] = []
+    try:
+        for caminho, texto in itens:
+            temporario = caminho.parent / f".board-{uuid.uuid4().hex[:12]}.tmp"
+            temporarios.append((temporario, caminho))
+            with open(temporario, "w", encoding="utf-8", newline="") as arquivo:
+                arquivo.write(texto)
+    except OSError as caught:
+        for temporario, _ in temporarios:
+            try:
+                temporario.unlink()
+            except OSError:
+                pass
+        raise ErroBoard(f"nada gravado: {caught}") from None
+    trocados: List[str] = []
+    for indice, (temporario, caminho) in enumerate(temporarios):
+        try:
+            os.replace(temporario, caminho)
+        except OSError as caught:
+            for resto, _ in temporarios[indice:]:
+                try:
+                    resto.unlink()
+                except OSError:
+                    pass
+            ja = ", ".join(trocados) if trocados else "nenhum"
+            raise ErroBoard(f"gravação interrompida em {caminho.name}: {caught}. "
+                            f"Já gravados: {ja}") from None
+        trocados.append(caminho.name)
+
+
 def _gravar(caminho: Path, texto: str) -> None:
-    with open(caminho, "w", encoding="utf-8", newline="") as arquivo:
-        arquivo.write(texto)
+    _gravar_lote([(caminho, texto)])
+
+
+def _ler_utf8(caminho: Path, o_que: str) -> str:
+    """Texto de arquivo do usuário (spec, --arquivo), sem o BOM do PowerShell 5.1."""
+    try:
+        return caminho.read_bytes().decode("utf-8-sig")
+    except UnicodeDecodeError as caught:
+        raise ErroBoard(f"{o_que} {caminho.as_posix()} não é UTF-8 "
+                        f"(posição {caught.start}): regrave em UTF-8") from None
 
 
 def _nulo_ou_texto(valor: str) -> Optional[str]:
@@ -169,6 +246,9 @@ def main(argv: Optional[List[str]] = None, *,
         seco = bool(opcoes.get("seco"))
         carimbo = agora().strftime("%d/%m/%Y %H:%M")
         quadro = carregar(pasta)
+        if comando != "validar":  # o validar já lista os ignorados
+            for p in quadro.ignorados:
+                erro(f"[board] aviso · {p.mensagem}")
         executar = {
             "validar": _validar, "fila": _fila, "reclassificar": _reclassificar,
             "criar": _criar, "mover": _mover, "historico": _mover,
@@ -197,7 +277,7 @@ def _ordem(cartao: Cartao) -> str:
 
 
 def _curto(cartao: Cartao) -> str:
-    return f"{_ordem(cartao)} · {cartao.props.get('Card')}"
+    return f"{_ordem(cartao)} · {cartao.props.get(CAMPO_ID)}"
 
 
 def _fila(*, opcoes, quadro: Quadro, preflight, log, **_) -> int:
@@ -219,8 +299,13 @@ def _fila(*, opcoes, quadro: Quadro, preflight, log, **_) -> int:
     if codigo is not None:
         significado = (_SIGNIFICADO_PREFLIGHT[codigo] if bruto == codigo
                        else f"código {bruto} conta como 3: {_SIGNIFICADO_PREFLIGHT[3]}")
-        filtro = "" if codigo == 0 else (f"; só Offline, {len(resultado.fora_pelo_preflight)} "
-                                         "card(s) fora da fila")
+        if codigo == 0:
+            filtro = ""
+        elif codigo == 4:
+            filtro = (f"; {len(resultado.so_servidor)} card(s) de Servidor ou Partida só "
+                      "para o papel servidor")
+        else:
+            filtro = f"; só Offline, {len(resultado.fora_pelo_preflight)} card(s) fora da fila"
         log(f"Preflight {bruto} ({significado}){filtro}")
     for cartao in resultado.cartoes:
         props = cartao.props
@@ -229,6 +314,8 @@ def _fila(*, opcoes, quadro: Quadro, preflight, log, **_) -> int:
             marcas += " · caminho de jogo"
         if props.get("Reprovada") is True:
             marcas += f" · Reprovada {props.get('Reprovações') or 0}x"
+        if cartao in resultado.so_servidor:
+            marcas += " · só papel servidor"
         log(f"{_curto(cartao)} · {props.get('Verificação')} · {props.get('Executor')} · "
             f"{props.get('Camada')}{marcas} · {cartao.nome}")
     log(f'{len(resultado.cartoes)} card(s) na fila de "Pronta para começar"')
@@ -238,7 +325,8 @@ def _fila(*, opcoes, quadro: Quadro, preflight, log, **_) -> int:
 def _reclassificar(*, opcoes, quadro: Quadro, papel, seco, carimbo, log, **_) -> int:
     ref = opcoes.get("concluido")
     if not ref:
-        raise ErroBoard("informe --concluido=<Ordem, Card ou nome do card que foi para Concluída>")
+        raise ErroBoard(f"informe --concluido=<Ordem, {CAMPO_ID} ou nome do card que foi para "
+                        "Concluída>")
     concluido = quadro.resolver(str(ref))
     if status_de(concluido) != "Concluída":
         if not seco:
@@ -249,6 +337,7 @@ def _reclassificar(*, opcoes, quadro: Quadro, papel, seco, carimbo, log, **_) ->
             "calculado como se estivesse em Concluída)")
         concluido.props["Status"] = "Concluída"
     mudancas = reclassificar(quadro, concluido)
+    gravar: List[Tuple[Path, str]] = []
     for m in mudancas:
         aviso = " · PREENCHA O Executor" if m.sem_executor else ""
         log(f"{_ordem(m.cartao)} · {m.de} → {m.para}{aviso} · "
@@ -262,10 +351,13 @@ def _reclassificar(*, opcoes, quadro: Quadro, papel, seco, carimbo, log, **_) ->
             f"- **{carimbo} · {papel}** — Reclassificado de `{m.de}` para `{m.para}` com a "
             f"conclusão do {wikilink(concluido.nome)} ({motivo}). Feito por "
             f"`{COMANDO} reclassificar`."))
-        _gravar(m.cartao.caminho, texto)
-        relido = ler_frontmatter(m.cartao.caminho.read_bytes().decode("utf-8")) or {}
-        if relido.get("Status") != m.para:
-            raise ErroBoard(f"releitura de {m.cartao.nome} divergiu: {relido.get('Status')}")
+        gravar.append((m.cartao.caminho, texto))
+    if not seco:
+        _gravar_lote(gravar)
+        for m in mudancas:
+            relido = ler_frontmatter(m.cartao.caminho.read_bytes().decode("utf-8")) or {}
+            if relido.get("Status") != m.para:
+                raise ErroBoard(f"releitura de {m.cartao.nome} divergiu: {relido.get('Status')}")
     log(f"{len(mudancas)} card(s) reclassificado(s){' (seco: nada gravado)' if seco else ''}")
     return 0
 
@@ -275,20 +367,18 @@ def _criar(*, opcoes, quadro: Quadro, pasta: Path, papel, seco, carimbo, log, **
     if not caminho_spec:
         raise ErroBoard("informe --spec=<arquivo.json> com um card ou uma lista de cards")
     try:
-        lido = json.loads(Path(str(caminho_spec)).read_text(encoding="utf-8"))
+        lido = json.loads(_ler_utf8(Path(str(caminho_spec)), "a spec"))
     except json.JSONDecodeError as caught:
         raise ErroBoard(f"spec não é JSON válido: {caught}") from None
     specs = lido if isinstance(lido, list) else [lido]
     entrada = (f"- **{carimbo} · {papel}** — Card criado por `{COMANDO} criar`. Status "
                "inicial: `{status}` ({pendentes} dependência(s) pendente(s)).")
 
-    # Planeja o lote inteiro antes de gravar: spec ruim no meio não deixa board pela metade.
+    # Planeja o lote inteiro antes de gravar (título, Ordem, caminho, dependências), e
+    # _gravar_lote grava tudo ou nada: spec ruim no meio não deixa board pela metade.
     planejados = []
     for spec in specs:
-        plano = planejar_criacao(quadro, spec, entrada)
-        plano.cartao.caminho = pasta / f"{plano.cartao.nome}.md"
-        if plano.cartao.caminho.exists():
-            raise ErroBoard(f"já existe um arquivo {plano.cartao.nome}.md")
+        plano = planejar_criacao(quadro, spec, entrada, pasta=pasta)
         quadro.add(plano.cartao)
         for dep in plano.atualiza_bloqueia:
             nomes = bloqueia(dep) + [plano.cartao.nome]
@@ -305,8 +395,7 @@ def _criar(*, opcoes, quadro: Quadro, pasta: Path, papel, seco, carimbo, log, **
         for dep in plano.atualiza_bloqueia:
             tocados[dep.caminho] = dep
     if not seco:
-        for cartao in tocados.values():
-            _gravar(cartao.caminho, cartao.texto)
+        _gravar_lote([(caminho, cartao.texto) for caminho, cartao in tocados.items()])
         for plano in planejados:
             relido = ler_frontmatter(plano.cartao.caminho.read_bytes().decode("utf-8")) or {}
             if relido.get("Status") != plano.status:
@@ -319,7 +408,7 @@ def _ler_texto(opcoes) -> Optional[str]:
     if "texto" in opcoes and "arquivo" in opcoes:
         raise ErroBoard("use --texto ou --arquivo, não os dois")
     if "arquivo" in opcoes:
-        return Path(str(opcoes["arquivo"])).read_bytes().decode("utf-8")
+        return _ler_utf8(Path(str(opcoes["arquivo"])), "o --arquivo")
     return opcoes.get("texto")
 
 
@@ -331,7 +420,7 @@ def _mover(*, comando, opcoes, pasta: Path, quadro: Quadro, papel, seco, carimbo
            log, erro, **_) -> int:
     ref = opcoes.get("card")
     if not ref:
-        raise ErroBoard("informe --card=<Ordem, Card ou nome do card>")
+        raise ErroBoard(f"informe --card=<Ordem, {CAMPO_ID} ou nome do card>")
     cartao = quadro.resolver(str(ref))
     texto_entrada = _ler_texto(opcoes)
     texto = cartao.texto
@@ -384,6 +473,13 @@ def _mover(*, comando, opcoes, pasta: Path, quadro: Quadro, papel, seco, carimbo
         texto = acrescentar_historico(texto, entrada_historico(texto_entrada, carimbo, papel))
         mudancas.append("entrada no Histórico")
 
+    # Confere antes de gravar: só recusa (sem gravar nada) o erro que ESTE comando
+    # criaria. Erro que o card já tinha vira aviso e não impede a gravação; sair 1
+    # depois de gravar faria o agente repetir o comando e somar a reprovação duas vezes.
+    novos = _erros_novos(quadro, cartao, texto)
+    if novos:
+        raise ErroBoard(f"nada gravado em {cartao.nome}: o card ficaria com erro novo: "
+                        + "; ".join(p.mensagem for p in novos))
     log(f"{_ordem(cartao)} · {' · '.join(mudancas)} · {cartao.nome}"
         f"{' (seco: nada gravado)' if seco else ''}")
     if seco:
@@ -394,9 +490,25 @@ def _mover(*, comando, opcoes, pasta: Path, quadro: Quadro, papel, seco, carimbo
     relido = depois.get(cartao.nome)
     esperado = opcoes.get("status")
     if relido is None or (esperado is not None and status_de(relido) != esperado):
-        raise ErroBoard(f"releitura de {cartao.nome} divergiu: "
+        raise ErroBoard(f"gravado, mas a releitura de {cartao.nome} divergiu: "
                         f"{None if relido is None else status_de(relido)}")
-    problemas = [p for p in validar(depois) if p.cartao == cartao.nome]
-    for p in problemas:
-        erro(f"[board] {'ERRO' if p.nivel == 'erro' else 'aviso'} · {p.cartao} · {p.mensagem}")
-    return 1 if any(p.nivel == "erro" for p in problemas) else 0
+    log(f"gravado: {cartao.nome}")
+    for p in validar(depois):
+        if p.cartao != cartao.nome:
+            continue
+        ja = " (erro que o card já tinha; não impediu a gravação)" if p.nivel == "erro" else ""
+        erro(f"[board] aviso · {p.cartao} · {p.mensagem}{ja}")
+    return 0
+
+
+def _problemas_de(quadro: Quadro, nome: str) -> List[Problema]:
+    return [p for p in validar(quadro, tudo=True) if p.cartao == nome]
+
+
+def _erros_novos(quadro: Quadro, cartao: Cartao, texto: str) -> List[Problema]:
+    """Erros que o card teria com `texto` e não tem hoje (Concluída incluída)."""
+    ja = {p.mensagem for p in _problemas_de(quadro, cartao.nome) if p.nivel == "erro"}
+    novo = Cartao(cartao.nome, cartao.caminho, ler_frontmatter(texto) or {}, texto)
+    simulado = Quadro([novo if c is cartao else c for c in quadro.cartoes])
+    return [p for p in _problemas_de(simulado, cartao.nome)
+            if p.nivel == "erro" and p.mensagem not in ja]

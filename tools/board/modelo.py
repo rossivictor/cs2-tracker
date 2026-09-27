@@ -6,12 +6,18 @@ campos do cs2-tracker (card H1.3).
 
 Os valores vêm do `board_schema` do plano de 2026-09-26
 (C:/Users/Victor/cs2-tracker-backups/2026-09-26/temp-artifacts/eb5adec0/plan/all.json).
-Quando um deles mudar lá, muda aqui junto. O ID do plano mora na
-propriedade `Card` (B1.3r, P1.1a).
+Quando um deles mudar lá, muda aqui junto. O ID do plano (B1.3r, P1.1a)
+mora na propriedade `CAMPO_ID`, com o nome do `board_schema`.
+
+Dois pontos em que o CLI é mais específico que o `board_schema` (ver
+`classificar` e `planejar_criacao`): a regra de cadeia do kalendas (uma
+pendente que tem pendente própria conta como 2) e o Backlog estacionado,
+que dura até o próximo `reclassificar` que alcançar o card.
 """
 from __future__ import annotations
 
 import math
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -56,10 +62,15 @@ RECLASSIFICAVEIS = ("Backlog", "Bloqueada", "Pronta para começar")
 # Trilho único (Q6=A): no máximo um card de caminho de jogo nestes status.
 NO_TRILHO = ("Em andamento", "Em testes", "PR aberta", "Aguardando partida")
 
+# Propriedade do ID do plano: o `board_schema` chama de "ID". Só aqui.
+CAMPO_ID = "ID"
 ID_CARD = re.compile(r"^[A-Z]\d+\.\d+[a-z]?$")
 ID_SPRINT = re.compile(r"^[A-Z]\d+$")
-# Caracteres que o Obsidian recusa em nome de arquivo ou que quebram o wikilink.
-PROIBIDOS_NO_TITULO = re.compile(r'[\\/:*?"<>|\[\]#^]')
+# Caracteres que o Obsidian recusa em nome de arquivo, que quebram o wikilink
+# ou que o Windows recusa (controle: quebra de linha, tab, NUL).
+PROIBIDOS_NO_TITULO = re.compile(r'[\\/:*?"<>|\[\]#^\x00-\x1f\x7f]')
+# Caminho completo do card: abaixo do MAX_PATH (260) do Windows, com folga.
+MAX_CAMINHO = 240
 _PREFIXO_ORDEM = re.compile(r"^(\d+(?:,\d+)?) - ")
 _ROLLBACK = re.compile(r"^##\s+Rollback\b", re.MULTILINE)
 
@@ -137,9 +148,11 @@ def caminho_de_jogo(cartao: Cartao) -> bool:
 
 
 class Quadro:
-    def __init__(self, cartoes: Iterable[Cartao]):
+    def __init__(self, cartoes: Iterable[Cartao], ignorados: Iterable["Problema"] = ()):
         self.cartoes: List[Cartao] = list(cartoes)
         self._por_nome = {c.nome: c for c in self.cartoes}
+        # .md da pasta que não entrou como card: o validar avisa, para não sumir calado.
+        self.ignorados: List[Problema] = list(ignorados)
 
     def get(self, nome: str) -> Optional[Cartao]:
         return self._por_nome.get(nome)
@@ -164,16 +177,20 @@ class Quadro:
         if pelo_nome is not None:
             return pelo_nome
         if ID_CARD.match(alvo):
-            achados = [c for c in self.cartoes if c.props.get("Card") == alvo]
+            achados = [c for c in self.cartoes if c.props.get(CAMPO_ID) == alvo]
             if len(achados) == 1:
                 return achados[0]
-            raise ErroBoard(f"{'nenhum' if not achados else 'mais de um'} card com Card {alvo}")
+            raise ErroBoard(f"{'nenhum' if not achados else 'mais de um'} card com "
+                            f"{CAMPO_ID} {alvo}")
         return self.por_ordem(alvo)
 
     def pendentes(self, cartao: Cartao) -> List[str]:
-        """Dependências fora de `Concluída`. Link para card que não existe conta como pendente."""
+        """
+        Dependências fora de `Concluída`, sem repetir: o mesmo card listado duas
+        vezes conta uma. Link para card que não existe conta como pendente.
+        """
         return [
-            nome for nome in depende_de(cartao)
+            nome for nome in dict.fromkeys(depende_de(cartao))
             if (dep := self.get(nome)) is None or status_de(dep) != "Concluída"
         ]
 
@@ -191,8 +208,10 @@ class Quadro:
 def classificar(quadro: Quadro, cartao: Cartao) -> str:
     """
     Os limiares do `board_schema` (0 pendentes = Pronta; 1 = Bloqueada; 2 ou
-    mais = Backlog), com o refinamento do kalendas: a única pendente que
-    ainda tem pendente própria é uma cadeia, e conta como 2 (Backlog).
+    mais = Backlog), com a regra de cadeia do kalendas, que o `board_schema`
+    não escreve: a única pendente que ainda tem pendente própria é uma
+    cadeia, e conta como 2 (Backlog). Bloqueada fica para o card que vira
+    Pronta com um merge só; o teste portado de board.ts exige a regra.
     """
     pendentes = quadro.pendentes(cartao)
     if not pendentes:
@@ -205,14 +224,31 @@ def classificar(quadro: Quadro, cartao: Cartao) -> str:
 
 
 def carregar(pasta: Path) -> Quadro:
-    cartoes = []
+    """
+    Card é o .md com frontmatter e Status. Nota sem frontmatter (o Painel)
+    fica de fora calada; .md que não é UTF-8, ou que tem frontmatter e não tem
+    Status, fica de fora com aviso, com o nome do arquivo. O BOM do
+    PowerShell 5.1 é aceito e preservado.
+    """
+    cartoes, ignorados = [], []
     for caminho in sorted(Path(pasta).glob("*.md")):
-        texto = caminho.read_bytes().decode("utf-8")
+        try:
+            texto = caminho.read_bytes().decode("utf-8")
+        except UnicodeDecodeError as caught:
+            ignorados.append(Problema(caminho.stem, "aviso", (
+                f"{caminho.name} não é UTF-8 (byte {caught.object[caught.start]:#04x} na "
+                f"posição {caught.start}): ficou fora do board; regrave em UTF-8")))
+            continue
         props = ler_frontmatter(texto)
-        if props is None or "Status" not in props:
+        if props is None:
+            continue
+        if "Status" not in props:
+            ignorados.append(Problema(caminho.stem, "aviso", (
+                f"{caminho.name} tem frontmatter sem Status: ficou fora do board "
+                "(se é card, falta o Status)")))
             continue
         cartoes.append(Cartao(caminho.stem, caminho, props, texto))
-    return Quadro(cartoes)
+    return Quadro(cartoes, ignorados)
 
 
 # ---------------------------------------------------------------------------
@@ -249,14 +285,14 @@ def _checar_campos(cartao: Cartao, add) -> None:
     if status not in STATUS:
         add("erro", f'Status "{status}" não é um dos oito')
 
-    card = props.get("Card")
+    card = props.get(CAMPO_ID)
     if not isinstance(card, str) or not ID_CARD.match(card):
-        add("erro", f'Card "{_mostrar(card)}" fora do formato do plano (ex.: B1.3r)')
+        add("erro", f'{CAMPO_ID} "{_mostrar(card)}" fora do formato do plano (ex.: B1.3r)')
     sprint = props.get("Sprint")
     if not isinstance(sprint, str) or not ID_SPRINT.match(sprint):
         add("erro", f'Sprint "{_mostrar(sprint)}" fora do formato (ex.: B1)')
     elif isinstance(card, str) and ID_CARD.match(card) and not card.startswith(f"{sprint}."):
-        add("erro", f'Card "{card}" não é do Sprint "{sprint}"')
+        add("erro", f'{CAMPO_ID} "{card}" não é do Sprint "{sprint}"')
 
     for chave, valores in _LISTAS_FECHADAS:
         if chave not in props:
@@ -282,7 +318,8 @@ def _checar_campos(cartao: Cartao, add) -> None:
         if valor is not None and not isinstance(valor, str):
             add("erro", f'{chave} "{_mostrar(valor)}" não é texto nem null')
     for chave in ("Depende de", "Bloqueia"):
-        if chave in props and not isinstance(props[chave], list):
+        # `Chave:` sem item é lista vazia limpa no Obsidian: lê como null.
+        if props.get(chave) is not None and not isinstance(props[chave], list):
             add("erro", f'{chave} "{_mostrar(props[chave])}" não é lista de wikilinks')
 
     ordem = ordem_de(cartao)
@@ -311,7 +348,7 @@ def validar(quadro: Quadro, tudo: bool = False) -> List[Problema]:
     Por padrão só mostra problema de card aberto; `tudo` inclui os de card
     em Concluída. Erro faz o `validar` sair 1; aviso não.
     """
-    problemas: List[Problema] = []
+    problemas: List[Problema] = list(quadro.ignorados)
     ordens: Dict[float, List[str]] = {}
     ids: Dict[str, List[str]] = {}
 
@@ -323,7 +360,7 @@ def validar(quadro: Quadro, tudo: bool = False) -> List[Problema]:
         ordem = ordem_de(cartao)
         if ordem is not None:
             ordens.setdefault(ordem, []).append(cartao.nome)
-        card = cartao.props.get("Card")
+        card = cartao.props.get(CAMPO_ID)
         if isinstance(card, str):
             ids.setdefault(card, []).append(cartao.nome)
 
@@ -352,7 +389,7 @@ def validar(quadro: Quadro, tudo: bool = False) -> List[Problema]:
             problemas += [Problema(n, "erro", f"Ordem {rotulo_ordem(ordem)} repetida") for n in nomes]
     for card, nomes in ids.items():
         if len(nomes) > 1:
-            problemas += [Problema(n, "erro", f"Card {card} repetido") for n in nomes]
+            problemas += [Problema(n, "erro", f"{CAMPO_ID} {card} repetido") for n in nomes]
     trilho = quadro.no_trilho()
     if len(trilho) > 1:
         lista = ", ".join(wikilink(c.nome) for c in trilho)
@@ -377,13 +414,16 @@ class Fila:
     trilho: List[Cartao]
     fora_pelo_trilho: List[Cartao] = field(default_factory=list)
     fora_pelo_preflight: List[Cartao] = field(default_factory=list)
+    so_servidor: List[Cartao] = field(default_factory=list)
 
 
 def fila(quadro: Quadro, preflight: Optional[int] = None) -> Fila:
     """
     "Pronta para começar" na ordem de despacho: Reprovada primeiro, depois
     Ordem. Com o trilho ocupado, sai o caminho de jogo. Com o preflight
-    consultado e diferente de 0, só Verificação Offline.
+    consultado (G0): 3, ou código que conta como 3, deixa só Verificação
+    Offline; 4 (janela aberta) mantém Servidor e Partida, que são o motivo da
+    janela, marcados em `so_servidor`: só o papel servidor pega esses.
     """
     prontos = sorted(
         (c for c in quadro.cartoes if status_de(c) == "Pronta para começar"),
@@ -391,11 +431,14 @@ def fila(quadro: Quadro, preflight: Optional[int] = None) -> Fila:
     )
     resultado = Fila([], quadro.no_trilho())
     for cartao in prontos:
+        offline = cartao.props.get("Verificação") == "Offline"
         if resultado.trilho and caminho_de_jogo(cartao):
             resultado.fora_pelo_trilho.append(cartao)
-        elif preflight not in (None, 0) and cartao.props.get("Verificação") != "Offline":
+        elif preflight not in (None, 0, 4) and not offline:
             resultado.fora_pelo_preflight.append(cartao)
         else:
+            if preflight == 4 and not offline:
+                resultado.so_servidor.append(cartao)
             resultado.cartoes.append(cartao)
     return resultado
 
@@ -417,6 +460,9 @@ def reclassificar(quadro: Quadro, concluido: Cartao) -> List[Reclassificacao]:
     """
     Depois que `concluido` chega a Concluída: recalcula os dependentes
     diretos e os dependentes deles (a cadeia encurta: Backlog vira Bloqueada).
+    Backlog também é recalculado, inclusive o estacionado de propósito: o
+    board não guarda o motivo do Backlog, então quem estaciona um card com
+    dependência volta a estacionar depois do merge dela.
     """
     alvo: Dict[str, Cartao] = {}
     for direto in quadro.dependentes(concluido.nome):
@@ -460,11 +506,16 @@ def _exigir_da_lista(onde: str, rotulo: str, valor, valores) -> None:
         raise ErroBoard(f'{onde}: {rotulo} "{_mostrar(valor)}" fora da lista ({" · ".join(valores)})')
 
 
-def planejar_criacao(quadro: Quadro, spec: dict, entrada: str) -> Planejado:
+def planejar_criacao(quadro: Quadro, spec: dict, entrada: str,
+                     pasta: Optional[Path] = None) -> Planejado:
     """
     Monta o card sem gravar. `entrada` é a linha do Histórico, com
     `{status}` e `{pendentes}` a preencher. Status sai das dependências; só
-    `"status": "Backlog"` é aceito, para estacionar de propósito.
+    `"status": "Backlog"` é aceito, para estacionar de propósito (dura até o
+    próximo `reclassificar` que alcançar o card: ver `reclassificar`). Com
+    `pasta`, também confere o arquivo: não pode existir nem passar do
+    `MAX_CAMINHO`. Tudo o que o disco recusaria é recusado aqui, antes de
+    gravar qualquer card do lote.
     """
     if not isinstance(spec, dict):
         raise ErroBoard("cada card da spec é um objeto JSON")
@@ -477,19 +528,24 @@ def planejar_criacao(quadro: Quadro, spec: dict, entrada: str) -> Planejado:
     if not titulo:
         raise ErroBoard(f"{onde}: falta titulo")
     if PROIBIDOS_NO_TITULO.search(titulo):
-        raise ErroBoard(f'{onde}: o título não pode ter \\ / : * ? " < > | [ ] # ^ '
+        raise ErroBoard(f'{onde}: o título não pode ter \\ / : * ? " < > | [ ] # ^ nem '
+                        "quebra de linha ou outro caractere de controle "
                         "(quebra o arquivo ou o wikilink)")
     if "ordem" not in spec:
         raise ErroBoard(f"{onde}: falta ordem")
     ordem = ler_ordem(spec["ordem"])
+    # O validar exige o nome começando pela Ordem: "-3 - x" e "1e-07 - x" nasceriam com erro.
+    if ordem < 0 or not _PREFIXO_ORDEM.match(f"{rotulo_ordem(ordem)} - "):
+        raise ErroBoard(f'{onde}: ordem "{spec["ordem"]}" não vira prefixo de nome '
+                        "(use número >= 0, como 12 ou 11,5)")
     if any(ordem_de(c) == ordem for c in quadro.cartoes):
         raise ErroBoard(f"{onde}: a Ordem {rotulo_ordem(ordem)} já existe no board")
 
     card = spec.get("card")
     if not isinstance(card, str) or not ID_CARD.match(card):
         raise ErroBoard(f'{onde}: card "{_mostrar(card)}" fora do formato do plano (ex.: B1.3r)')
-    if any(c.props.get("Card") == card for c in quadro.cartoes):
-        raise ErroBoard(f"{onde}: o Card {card} já existe no board")
+    if any(c.props.get(CAMPO_ID) == card for c in quadro.cartoes):
+        raise ErroBoard(f"{onde}: o {CAMPO_ID} {card} já existe no board")
     sprint = spec.get("sprint", card.split(".")[0])
     if sprint != card.split(".")[0]:
         raise ErroBoard(f'{onde}: sprint "{_mostrar(sprint)}" não bate com o card {card}')
@@ -519,17 +575,28 @@ def planejar_criacao(quadro: Quadro, spec: dict, entrada: str) -> Planejado:
 
     referencias = spec.get("depende_de", [])
     if not isinstance(referencias, list):
-        raise ErroBoard(f"{onde}: depende_de é uma lista de Ordem, Card ou nome")
-    deps = []
+        raise ErroBoard(f"{onde}: depende_de é uma lista de Ordem, {CAMPO_ID} ou nome")
+    deps: Dict[str, Cartao] = {}
     for ref in referencias:
         try:
-            deps.append(quadro.resolver(str(ref)))
+            dep = quadro.resolver(str(ref))
         except ErroBoard as erro:
             raise ErroBoard(f'{onde}: dependência "{ref}": {erro}') from None
+        # "2" e "H1.20" podem ser o mesmo card: entra uma vez só.
+        deps.setdefault(dep.nome, dep)
 
     nome = f"{rotulo_ordem(ordem)} - {titulo}"
+    caminho = None
+    if pasta is not None:
+        caminho = Path(pasta) / f"{nome}.md"
+        if caminho.exists():
+            raise ErroBoard(f"{onde}: já existe um arquivo {nome}.md")
+        tamanho = len(os.path.abspath(caminho))
+        if tamanho > MAX_CAMINHO:
+            raise ErroBoard(f"{onde}: o caminho do card teria {tamanho} caracteres "
+                            f"(máx. {MAX_CAMINHO}): encurte o título")
     props: Dict[str, Valor] = {
-        "Card": card,
+        CAMPO_ID: card,
         "Status": "Backlog",
         "Sprint": sprint,
         "Ordem": ordem,
@@ -548,9 +615,9 @@ def planejar_criacao(quadro: Quadro, spec: dict, entrada: str) -> Planejado:
         "Candidato": None,
         "Custo": None,
         "Bloqueia": [],
-        "Depende de": [wikilink(dep.nome) for dep in deps],
+        "Depende de": [wikilink(dep) for dep in deps],
     }
-    rascunho = Cartao(nome, None, props, "")
+    rascunho = Cartao(nome, caminho, props, "")
     sonda = Quadro(quadro.cartoes + [rascunho])
     status = "Backlog" if spec.get("status") == "Backlog" else classificar(sonda, rascunho)
     props["Status"] = status
@@ -559,4 +626,4 @@ def planejar_criacao(quadro: Quadro, spec: dict, entrada: str) -> Planejado:
     texto = "\n".join(formatar_frontmatter(props) + [corpo.rstrip()])
     linha = entrada.replace("{status}", status).replace("{pendentes}", str(pendentes))
     rascunho.texto = acrescentar_historico(texto, linha)
-    return Planejado(rascunho, status, deps)
+    return Planejado(rascunho, status, list(deps.values()))

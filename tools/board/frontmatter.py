@@ -4,7 +4,8 @@ escalares `Chave: valor` e listas `Chave:` seguidas de `  - "item"`.
 Porte de `kalendas/scripts/lib/board.ts` (card H1.3).
 
 Toda escrita troca só as linhas da chave pedida e mantém o resto do arquivo
-byte a byte, inclusive o fim de linha (LF ou CRLF).
+byte a byte, inclusive o fim de linha (LF ou CRLF) e o BOM que o PowerShell
+5.1 põe no começo (`Out-File`, `Set-Content -Encoding utf8`).
 """
 from __future__ import annotations
 
@@ -21,6 +22,9 @@ _ASPAS_NO_INICIO = re.compile(r"""^[\s\-?:,\[\]{}#&*!|>'"%@`]""")
 _PARECE_OUTRO_TIPO = re.compile(r"^(true|false|null|~|-?\d+(\.\d+)?)$")
 _HISTORICO = re.compile(r"^##\s+Histórico\s*$")
 _TITULO_1_OU_2 = re.compile(r"^#{1,2}\s")
+# Quebra de linha ou outro caractere de controle solto no valor quebra o frontmatter.
+_CONTROLE = re.compile(r"[\x00-\x1f\x7f]")
+BOM = "\ufeff"
 
 
 def _linhas(texto: str) -> List[str]:
@@ -55,7 +59,7 @@ def ler_escalar(bruto: str) -> Valor:
 
 def _faixa(linhas: List[str]) -> Optional[Tuple[int, int]]:
     """Linhas do `---` de abertura e do de fechamento, ou None."""
-    if not linhas or linhas[0].strip() != "---":
+    if not linhas or linhas[0].lstrip(BOM).strip() != "---":
         return None
     for indice in range(1, len(linhas)):
         if linhas[indice].strip() == "---":
@@ -64,6 +68,11 @@ def _faixa(linhas: List[str]) -> Optional[Tuple[int, int]]:
 
 
 def ler_frontmatter(texto: str) -> Optional[Dict[str, Valor]]:
+    """
+    `Chave:` sem valor é null até aparecer o primeiro `  - item`: é assim que
+    fica uma propriedade de texto limpa no Obsidian (`Branch:`), e só vira
+    lista se tiver item.
+    """
     linhas = _linhas(texto)
     faixa = _faixa(linhas)
     if faixa is None:
@@ -74,6 +83,8 @@ def ler_frontmatter(texto: str) -> Optional[Dict[str, Valor]]:
         item = _ITEM.match(linha)
         if item and chave_da_lista is not None:
             valor = ler_escalar(item.group(1))
+            if not isinstance(props[chave_da_lista], list):
+                props[chave_da_lista] = []
             props[chave_da_lista].append("" if valor is None else str(valor))
             continue
         entrada = _ENTRADA.match(linha)
@@ -82,7 +93,7 @@ def ler_frontmatter(texto: str) -> Optional[Dict[str, Valor]]:
         chave = entrada.group(1).strip()
         resto = entrada.group(2) or ""
         if resto.strip() == "":
-            props[chave] = []
+            props[chave] = None
             chave_da_lista = chave
         else:
             props[chave] = ler_escalar(resto)
@@ -93,6 +104,7 @@ def ler_frontmatter(texto: str) -> Optional[Dict[str, Valor]]:
 def _precisa_aspas(valor: str) -> bool:
     return (
         valor == ""
+        or bool(_CONTROLE.search(valor))
         or bool(_ASPAS_NO_INICIO.match(valor))
         or bool(re.search(r"\s$", valor))
         or bool(re.search(r": |\s#", valor))
