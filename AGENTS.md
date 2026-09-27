@@ -52,6 +52,7 @@ O hook `tools/hooks/guarda.py` barra boa parte desta tabela antes de todo Bash, 
 - Janela nunca abre por ausência de processo. Marca: `logs/janelas/ABERTA` no checkout principal; registro em `logs/janelas/<data>.md`. (protocolo 8)
 - Só o papel servidor cria e apaga a marca, e só depois da frase do Victor, do "terminei" na trilha de bots ou de OK explícito dele repassado pelo PM. A idade conta do mtime: não renove com `touch`. Marca com mais de 45 min é janela vencida e o preflight não devolve 4. (Q4=A; protocolo 8)
 - Infra (compose, fontes de bind, plugins) só muda em janela, com `docker compose up -d --force-recreate` do checkout principal. (protocolo 2)
+- O candidato de infra pode estar mergeado no `origin/main` antes da janela; quem o traz ao checkout principal é só o papel servidor, dentro dela. Fora de janela ninguém (PM, Cursor, outro agente) faz `pull`/`merge` da `main` no checkout principal se `git diff --stat HEAD origin/main` tiver arquivo de infra; delta sem infra pode. (decisão do PM, 27/09; H1.6)
 
 ## Preflight: antes de tocar em qualquer coisa viva
 
