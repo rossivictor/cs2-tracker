@@ -148,7 +148,10 @@ services:
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotBuy
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotHiderImpl
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotRandomizer
-      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotState
+      # B1.5: BotState religado (versão do volume; patches de FOV só escrevem
+      # com assinatura e bytes originais conferidos; hooks sem endereço se
+      # desligam no try/catch). Volta: descomentar a linha abaixo.
+      # - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotState
       # Lado Metamod NATIVO do BotHider — mesma lição do RayTrace acima, onde
       # ocultar só o wrapper CSSharp não bastou.
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/BotHider
