@@ -29,11 +29,18 @@ Por que cada checagem existe:
   retomada tem comando.
 - As regras da 2ª revisão e da janela de 27/09 (logs/janelas/2026-09-27.md),
   uma por teste ou por linha de REGRAS_DAS_REVISOES: a coleta grava os dois
-  config-hash que o G7 exige; a Concluída sai da fase 2 inteira; o TM para
-  na pausa da janela; o degrau só de Python não pede janela; a janela
-  conta com as aprovações "ask" e com o vencimento no meio; o que o papel
-  diz que a guarda deixa, ela deixa (e o banco por cp ela barra); o aborto
-  por processo sai do candidato antes de subir o container.
+  config-hash que o G7 exige; a Concluída sai da fase 2 inteira; o degrau
+  só de Python não pede janela; a janela conta com as aprovações "ask"; o
+  que o papel diz que a guarda deixa, ela deixa (e o banco por cp ela
+  barra); o aborto por processo sai do candidato antes de subir o
+  container.
+- As da 3ª revisão, com a decisão do PM de 27/09: o tech-manager mergeia o
+  degrau de infra logo depois da fase 1 do QA, sem pausa de janela, e o
+  que protege o jogo é o ff do checkout, que só o servidor faz, em janela;
+  a janela vencida no meio não muda mais nada, mas ainda deve a volta (sai
+  do candidato antes do docker start, e o G6 que faltou se completa na
+  coleta); o portão imprime o código do preflight; o relógio é uma regra
+  de caber (o que falta mais uma volta), e a Q5 tem teto de 30 min.
 
 Só leitura de arquivo versionado e a guarda em processo, com um checkout
 falso no tmp_path: nada de processo, rede, Docker ou banco.
@@ -108,11 +115,12 @@ REGRAS_DO_PAPEL = {
     "tech-manager": ["--merge --delete-branch", "Squash ou rebase, nunca", "candidato-N",
                      "**devolução técnica**"],
     "servidor": ["sem worktree", "**Snapshot**", "**Fechamento (checklist G6):**",
-                 "**Pausa para o merge (entre os passos 2 e 3).**"],
+                 "**Candidato: ff do checkout para o candidato.**"],
 }
 
 # Regra que uma revisão do H1.6 mandou pôr no papel, com a origem. A = 1ª
-# revisão da 2ª rodada (máquina de estados), B = lente B; o que tem teste
+# revisão da 2ª rodada (máquina de estados), B = lente B, R3 = 3ª revisão
+# (bloqueantes novos 1 e 2, com a decisão do PM de 27/09); o que tem teste
 # próprio abaixo não se repete aqui.
 REGRAS_DAS_REVISOES = [
     ("A-B2 execução = janela tem lease", "tech-manager", "execução = janela; PM abre o servidor"),
@@ -121,11 +129,24 @@ REGRAS_DAS_REVISOES = [
     ("A-B3 smoke inconclusivo não é candidato no ar", "servidor",
      "o RESULTADO não é `candidato no ar`"),
     ("A-B3 smoke inconclusivo só com OK do Victor", "qa", "smoke INCONCLUSIVO só conta com o OK"),
-    ("A-B4 a pausa volta ao servidor", "tech-manager", '"PM: retome a janela <data> no passo 3"'),
     ("A-B5 Victor no PC para o ask", "servidor", "fica no PC para aprovar os comandos docker em ask"),
-    ("A-B5 orçamento da janela", "servidor", "Não comece o passo 4 com menos de 25 min"),
-    ("A-B5 janela vencida no meio", "servidor", "Janela vencida no meio"),
+    ("A-B5 janela vencida no meio", "servidor", "**Janela vencida no meio:**"),
     ("A-B5 renovação é janela nova", "servidor", "Renovar é abrir janela nova"),
+    ("R3-1 vencida não muda, mas deve a volta", "servidor",
+     "nenhum passo de mudança, mas a volta continua devida e não leva portão"),
+    ("R3-1 o G6 que faltou se completa na coleta", "servidor", "G6 completado na coleta"),
+    ("R3-1 o QA aceita o G6 da coleta", "qa", "vale o G6 só de leitura que a coleta completou"),
+    ("R3-2 o relógio é regra de caber", "servidor",
+     "Antes do passo 4, some o que falta pelo runbook do card"),
+    ("R3-2 a conta leva uma volta", "servidor", "fechamento e mais uma volta"),
+    ("R3-2 teto da Q5 na abertura", "servidor", "Q5: teto de 30 min (runbook, pré-condição 2)"),
+    ("R3 a janela não espera merge", "servidor", "a janela não espera merge"),
+    ("R3 merge do degrau de infra sem pausa", "tech-manager",
+     "mergeie logo depois da fase 1 do QA, a qualquer hora, sem pausa de janela"),
+    ("R3 degrau de infra pede janela depois do merge", "tech-manager",
+     '"PM: pedir janela ao Victor; o servidor faz o ff do candidato-N no passo 3"'),
+    ("R3 trilho único no origin/main", "tech-manager",
+     "no máximo um candidato mergeado e ainda não validado"),
     ("A-B7 banco sem cópia até o B0.6", "servidor", "banco sem cópia (guarda; B0.6)"),
     ("B-B1 degrau sem infra sem janela", "tech-manager", "**Degrau sem infra**"),
     ("B-B1 atualizar sem contradição", "tech-manager", "fora do `jogavel.py atualizar`"),
@@ -456,8 +477,9 @@ def test_regra_da_revisao_esta_no_papel(origem, papel, trecho):
 ROTULO_CONFIG_HASH = ("docker inspect cs2-spike --format "
                       "'{{index .Config.Labels \"com.docker.compose.config-hash\"}}'")
 HASH_DE_AGORA = 'cd "$RAIZ" && docker compose config --hash cs2-server'
-PORTAO = ('"$PY" "$BK/preflight.py" --raiz "$RAIZ"; [ $? -eq 4 ] || '
-          '{ echo "JANELA FECHADA: não executei"; exit 1; }; docker stop cs2-spike')
+PORTAO = ('"$PY" "$BK/preflight.py" --raiz "$RAIZ"; c=$?; [ $c -eq 4 ] || '
+          '{ echo "JANELA FECHADA (preflight $c): não executei"; exit 1; }; docker stop cs2-spike')
+VOLTA_PARA_A_TAG = 'git -C "$RAIZ" switch --detach <tag jogavel>'
 
 
 def test_coleta_grava_os_dois_config_hash_que_o_g7_exige():
@@ -548,12 +570,85 @@ def test_concluida_do_degrau_sai_da_fase_2_inteira():
     assert "**Fase 2 APROVADO:**" in tm and "**G7 OK:**" not in tm
 
 
-def test_tech_manager_para_depois_do_merge_na_pausa_da_janela():
-    # A-B4: seguir para a fila e abrir um dev em primeiro plano bloqueia o TM
-    # por 30 a 90 min, e a janela vence com o candidato só no origin.
-    pausa = _secao(_texto("tech-manager"), "## Na pausa da janela", "\n## ")
-    assert "Não rode os passos 2 e 3 nem abra dev" in pausa
-    assert "gh pr merge <n> --merge --delete-branch" in pausa and "candidato-N" in pausa
+def test_merge_do_degrau_de_infra_sai_antes_da_janela_e_o_passo_3_e_so_o_ff():
+    # Decisão do PM de 27/09 (R3-2): a pausa de merge dentro da janela
+    # (servidor → PM → TM → PM → servidor) nunca cabia numa Q5 e fazia todo
+    # degrau de infra esperar uma Q4. O candidato continua protegido porque
+    # só o servidor o traz ao checkout principal, pelo ff, em janela: o ff
+    # sem janela recusa infra, e o boot só aplica o que está no checkout.
+    tm, servidor = _texto("tech-manager"), _texto("servidor")
+    for velho in ("## Na pausa da janela", "aguarda janela", "retome a janela", "pausa da janela>"):
+        assert velho not in tm, velho
+    for velho in ("aguardando merge", "**Pausa para o merge", "retome a janela"):
+        assert velho not in servidor, velho
+    infra = next(x for x in tm.splitlines() if "**Degrau de infra**" in x)
+    assert "sem pausa de janela" in infra and "o ff sem janela recusa infra" in infra
+    passo3 = _passos_do_servidor()["3"]
+    assert passo3.startswith("**Candidato: ff do checkout para o candidato.**")
+    assert "já está no `origin/main`, com a tag `candidato-N`" in passo3
+    assert "merge --ff-only origin/main" in passo3 and "sem ff, feche sem mudança" in passo3
+    ff_sem_janela = next(x for x in servidor.splitlines() if "**Ff sem janela**" in x)
+    assert "sem infra" in ff_sem_janela and "Infra no delta" in ff_sem_janela
+
+
+def test_janela_vencida_no_meio_ainda_deve_a_volta_e_sai_do_candidato_antes_do_start():
+    # R3-1: "nenhum passo novo; feche só por RCON" deixava o checkout no
+    # candidato depois do ff do passo 3, e o `compose up -d` do próximo
+    # start_match aplicaria o candidato sem snapshot nem G6. Com o container
+    # parado não há RCON, e depois do 7 o G6 incompleto prendia o card.
+    vencida = _secao(_texto("servidor"), "**Janela vencida no meio:**", "\n**")
+    antes, entre, depois = (vencida[vencida.index(m):] for m in
+                            ("antes do passo 3", "entre o ff do 3 e o recreate do 7",
+                             "do 7 em diante"))
+    assert "nada a desfazer" in antes.split("\n")[0]
+    assert "`docker start cs2-spike` se ele parou" in antes.split("\n")[0]
+    linha = entre.split("\n")[0]
+    assert VOLTA_PARA_A_TAG in linha and linha.index(VOLTA_PARA_A_TAG) < linha.index(
+        "docker start cs2-spike")
+    linha = depois.split("\n")[0]
+    assert "feche por RCON" in linha and "G6 `FALTA` no registro" in linha
+    assert "se completa na coleta, com preflight 0" in linha
+    coleta = _secao(_texto("servidor"), "## Coleta pós-partida", "\n## ")
+    assert "G6 `FALTA`" in coleta and "G6 completado na coleta" in coleta
+    assert "apague a marca" in vencida
+
+
+def test_portao_imprime_o_codigo_do_preflight():
+    # R3-1: o mesmo "JANELA FECHADA" para preflight 3 e para janela vencida
+    # deixava o agente seguir o ramo errado; o código e o motivo dizem qual.
+    servidor = _texto("servidor")
+    assert PORTAO in servidor and 'echo "JANELA FECHADA (preflight $c)' in PORTAO
+    portao = _secao(servidor, "**Portão em cada escrita.**", "\n\n")
+    assert "3 por processo é o aborto por processo" in portao
+    assert "0, ou 3 só pelo `current.jsonl`, é a janela vencida" in portao
+
+
+def test_relogio_e_regra_de_caber_e_nao_numero_fixo():
+    # R3-2: "passo 4 com 25 min" e "11 até o minuto 35" não comportavam o boot
+    # de até 15 min, o smoke e a volta; o teto de 30 min da Q5 tinha sumido.
+    servidor = _texto("servidor")
+    for velho in ("Não comece o passo 4 com menos de 25 min", "até o minuto 35"):
+        assert velho not in servidor, velho
+    relogio = _secao(servidor, "**Relógio: cabe ou não.**", "\n\n")
+    for parcela in ("parar e snapshot", "boot até 15 min", "G6", "smoke se o card exige",
+                    "fechamento e mais uma volta"):
+        assert parcela in relogio, parcela
+    assert "+ 45 min na Q4, + 30 na Q5" in relogio and "feche sem mudança" in relogio
+    assert relogio.index(VOLTA_PARA_A_TAG) < relogio.index("o passo 11")
+    abertura = _secao(servidor, "**Abertura.**", "\n\n")
+    assert "Q5: teto de 30 min (runbook, pré-condição 2)" in abertura
+
+
+@pytest.mark.parametrize("preflight", [0, 3])
+@pytest.mark.parametrize("comando", [VOLTA_PARA_A_TAG, "docker start cs2-spike"])
+def test_a_volta_da_janela_vencida_passa_pela_guarda_sem_janela(guarda_no_checkout, comando,
+                                                               preflight):
+    # R3-1: a volta não leva portão e roda com a janela vencida (preflight 0,
+    # ou 3 pelo current.jsonl do boot): a guarda não pode barrar nenhum dos dois.
+    assert comando in _texto("servidor")
+    codigo, erro = guarda_no_checkout(comando.replace("<tag jogavel>", "jogavel-2026-09-27"),
+                                      preflight=preflight)
+    assert codigo == 0, erro
 
 
 def test_tech_manager_nao_manda_e_proibe_o_atualizar():

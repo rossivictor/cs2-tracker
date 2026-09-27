@@ -277,12 +277,14 @@ O veredito de cada passo é um destes:
 
 ## Como um passo chega ao jogo
 
-1. O PR do card traz a linha. O merge na main vira o `candidato-N`, feito com a janela aberta
-   para que nenhum boot fora dela aplique a mudança.
+1. O PR do card traz a linha. O tech-manager o mergeia logo depois do QA, a qualquer hora, e o
+   merge na main vira o `candidato-N`. Nenhum boot fora da janela aplica a mudança: um boot só
+   aplica o que está no checkout principal, e só o servidor leva o candidato até lá, pelo ff
+   feito dentro da janela (fora dela, o ff recusa infra).
 2. A janela abre depois do "terminei" (pós-partida, até 30 min) ou do "pode mexer no
-   servidor" (pré-partida, até 45 min). Nela: preflight, backup, snapshot,
-   `--force-recreate`, G6 e, quando o card pede, smoke só de bots. Passo que não cabe em
-   30 min, como o B1.3r, espera uma janela "pode mexer no servidor".
+   servidor" (pré-partida, até 45 min). Nela: preflight, backup, ff do checkout para o
+   candidato, snapshot, `--force-recreate`, G6 e, quando o card pede, smoke só de bots. Passo
+   que não cabe em 30 min, como o B1.3r, espera uma janela "pode mexer no servidor".
 3. O Victor recebe o aviso do que a próxima partida valida.
 4. Ele joga uma partida normal. Depois vêm a coleta dos logs e a evidência (G7).
 5. Com o G7 ok: tag `jogavel-<data>` e uma linha no registro abaixo. Com o G7 ruim: volta pelo
