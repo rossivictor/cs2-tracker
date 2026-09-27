@@ -41,6 +41,11 @@ Por que cada checagem existe:
   do candidato antes do docker start, e o G6 que faltou se completa na
   coleta); o portão imprime o código do preflight; o relógio é uma regra
   de caber (o que falta mais uma volta), e a Q5 tem teto de 30 min.
+- As da 4ª revisão (R4): com o merge de infra a qualquer hora, a volta à
+  main depois do revert é o ff sem janela feito em detach, com o delta
+  conferido antes, e o `switch main` só roda no passo 3 (a main local
+  ainda aponta para o candidato revertido); o relógio soma o boot medido
+  no registro, e os 15 min do passo 8 são o limite de aborto.
 
 Só leitura de arquivo versionado e a guarda em processo, com um checkout
 falso no tmp_path: nada de processo, rede, Docker ou banco.
@@ -147,6 +152,12 @@ REGRAS_DAS_REVISOES = [
      '"PM: pedir janela ao Victor; o servidor faz o ff do candidato-N no passo 3"'),
     ("R3 trilho único no origin/main", "tech-manager",
      "no máximo um candidato mergeado e ainda não validado"),
+    ("R4-1 alguém pede a volta do checkout depois do revert", "tech-manager",
+     'PRÓXIMO PASSO: "PM: servidor devolve o checkout (Ff sem janela, delta sem infra)"'),
+    ("R4-1 o ff sem janela não sai do detach", "servidor",
+     "Em detach, o ff roda em detach mesmo, sem `switch main`"),
+    ("R4-2 o boot medido vai para o registro", "servidor",
+     "Grave no registro o tempo medido do recreate até o `Pronto`"),
     ("A-B7 banco sem cópia até o B0.6", "servidor", "banco sem cópia (guarda; B0.6)"),
     ("B-B1 degrau sem infra sem janela", "tech-manager", "**Degrau sem infra**"),
     ("B-B1 atualizar sem contradição", "tech-manager", "fora do `jogavel.py atualizar`"),
@@ -624,19 +635,74 @@ def test_portao_imprime_o_codigo_do_preflight():
 
 
 def test_relogio_e_regra_de_caber_e_nao_numero_fixo():
-    # R3-2: "passo 4 com 25 min" e "11 até o minuto 35" não comportavam o boot
-    # de até 15 min, o smoke e a volta; o teto de 30 min da Q5 tinha sumido.
+    # R3-2: "passo 4 com 25 min" e "11 até o minuto 35" não comportavam o boot,
+    # o smoke e a volta; o teto de 30 min da Q5 tinha sumido. R4-2: somar o
+    # limite de aborto (15 min) como boot, duas vezes, dava ~40 min antes do
+    # G6: nada cabia numa Q5 e o degrau de infra prendia o trilho. O boot da
+    # janela do B1.4 levou ~32 s.
     servidor = _texto("servidor")
     for velho in ("Não comece o passo 4 com menos de 25 min", "até o minuto 35"):
         assert velho not in servidor, velho
     relogio = _secao(servidor, "**Relógio: cabe ou não.**", "\n\n")
-    for parcela in ("parar e snapshot", "boot até 15 min", "G6", "smoke se o card exige",
-                    "fechamento e mais uma volta"):
+    for parcela in ("parar e snapshot", "boot medido", "G6", "smoke se o card exige",
+                    "fechamento e mais uma volta", "outro boot medido"):
         assert parcela in relogio, parcela
+    assert "boot até 15 min" not in relogio
+    assert "Boot medido é o tempo do último recreate no registro, com folga" in relogio
+    assert "Os 15 min do passo 8 são o limite de aborto, não a estimativa" in relogio
+    assert "limite de aborto" in _passos_do_servidor()["8"]
     assert "+ 45 min na Q4, + 30 na Q5" in relogio and "feche sem mudança" in relogio
     assert relogio.index(VOLTA_PARA_A_TAG) < relogio.index("o passo 11")
     abertura = _secao(servidor, "**Abertura.**", "\n\n")
     assert "Q5: teto de 30 min (runbook, pré-condição 2)" in abertura
+
+
+DELTA = 'git -C "$RAIZ" diff --stat HEAD origin/main'
+FF = 'git -C "$RAIZ" merge --ff-only origin/main'
+RUNBOOK_B13 = RAIZ / "docs" / "runbooks" / "b1.3-cssharp-1.0.375.md"
+
+
+def test_switch_main_so_no_passo_3_e_a_volta_do_revert_confere_o_delta_antes_do_ff():
+    # R4-1: depois do revert, a main local ainda aponta para o candidato que
+    # falhou, e o merge de infra sai a qualquer hora (decisão do PM, 27/09).
+    # A volta por `fetch && switch main && merge --ff-only`, sem olhar o
+    # delta, traria ao checkout, fora de janela, um degrau de infra mergeado
+    # nesse meio-tempo (a retomada do card), e o `compose up -d` do próximo
+    # start_match o subiria sem snapshot nem G6. Um `switch main` solto põe o
+    # checkout no próprio candidato que falhou.
+    servidor = _texto("servidor")
+    for achado in re.finditer(r"switch main", servidor):
+        linha = servidor[servidor.rfind("\n", 0, achado.start()) + 1:
+                         servidor.find("\n", achado.end())]
+        antes = servidor[achado.start() - 5:achado.start()]
+        depois = servidor[achado.end():achado.end() + 45]
+        assert (linha.startswith("3. ") or antes == "sem `"
+                or "`, este só no passo 3, dentro da janela" in depois), linha
+    assert "a `main` local ainda aponta para o candidato revertido" in servidor
+    volta = _secao(servidor, "**Abortar e voltar**", "\n\n")
+    volta = volta[volta.index("Depois do merge do revert"):]
+    assert "a volta à main é o **Ff sem janela**, feito ainda em detach" in volta
+    assert volta.index(DELTA) < volta.index(FF)
+    assert "com infra no delta" in volta and "fique na tag até o passo 3" in volta
+    ff_sem_janela = next(x for x in servidor.splitlines() if "**Ff sem janela**" in x)
+    assert ff_sem_janela.index(DELTA) < ff_sem_janela.index(FF)
+
+    runbook = RUNBOOK_B13.read_text(encoding="utf-8")
+    assert "É o único lugar do `switch main`" in _secao(runbook, "### 3. ", "\n### ")
+    volta_rb = _secao(runbook, "### Depois de qualquer volta", "\n## ")
+    comandos = "\n".join(re.findall(r"^[ \t]*```bash\n(.*?)^[ \t]*```", volta_rb,
+                                    re.MULTILINE | re.DOTALL))
+    assert "switch main" not in comandos
+    assert comandos.index(DELTA) < comandos.index(FF)
+    assert "Com infra no delta" in volta_rb and "fique na tag" in volta_rb
+
+
+@pytest.mark.parametrize("comando", [DELTA, FF])
+def test_a_volta_do_revert_passa_pela_guarda_com_preflight_0(guarda_no_checkout, comando):
+    # R4-1: a volta depois do revert é fora de janela, com preflight 0.
+    assert comando in _texto("servidor")
+    codigo, erro = guarda_no_checkout(comando, preflight=0)
+    assert codigo == 0, erro
 
 
 @pytest.mark.parametrize("preflight", [0, 3])

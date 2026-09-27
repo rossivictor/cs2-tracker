@@ -288,7 +288,9 @@ O veredito de cada passo é um destes:
 3. O Victor recebe o aviso do que a próxima partida valida.
 4. Ele joga uma partida normal. Depois vêm a coleta dos logs e a evidência (G7).
 5. Com o G7 ok: tag `jogavel-<data>` e uma linha no registro abaixo. Com o G7 ruim: volta pelo
-   runbook do passo, e o plugin volta a ficar mascarado.
+   runbook do passo, e o plugin volta a ficar mascarado. O checkout fica na tag até o revert
+   e só sai dela pelo ff sem janela, com o delta conferido: infra no delta espera o passo 3
+   da próxima janela.
 
 A via rápida (Q0=A) vale só para o passo 1. Do B1.4 em diante, os passos usam o ferramental
 dos cards B0.4 a B0.7b: `tools/preflight.py`, `tools/backup.py` e `tools/jogavel.py`
