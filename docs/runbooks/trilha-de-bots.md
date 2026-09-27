@@ -60,7 +60,7 @@ A correção é a parte "compose" do B0.11, num PR separado e só de comentário
 
 | Passo | Card | Mudança no compose | O que o B1.1 achou no fonte | Janela |
 |---|---|---|---|---|
-| 1 | B1.3, reescrito como **B1.3r** | linhas 63-64: o par Metamod `2.0.0.1469` + CSSharp `v1.0.375`, com a suíte ainda mascarada | a 1.0.375 não carrega no Metamod 1411. **Bloqueado até decisão do Victor** ([runbook](b1.3-cssharp-1.0.375.md)) | pós-partida, com smoke só de bots |
+| 1 | B1.3, reescrito como **B1.3r** | linhas 63-64: o par Metamod `2.0.0.1469` + CSSharp `v1.0.375`, com a suíte ainda mascarada | a 1.0.375 não carrega no Metamod 1411. **Bloqueado até decisão do Victor** ([runbook](b1.3-cssharp-1.0.375.md)) | janela "pode mexer no servidor" (Q4, 45 min), com smoke só de bots; não cabe nos 15 a 30 min do pós-"terminei" |
 | 2 | B1.4 | linha 142 (BotAimImprover) | guarda explícita: sem a assinatura, desativa-se limpo antes de qualquer hook | pós-partida |
 | 3 | B1.5 | linha 146 (BotState) | guarda efetiva: só escreve se o endereço resolveu e os bytes originais batem | pré-partida, com partida só de bots (card) |
 | 4 | B1.6 | linha 143 (BotBuy) | não tem assinatura própria; usa o `GiveNamedItem` da CSSharp, que não mudou | pré-partida, com partida só de bots (card) |
@@ -80,10 +80,14 @@ A evidência de cada passo vem do B1.1. Os clones que ele leu estão em
   a volta estão em [b1.3-cssharp-1.0.375.md](b1.3-cssharp-1.0.375.md).
 - O que se espera no log: somem `CEntityIOOutput_FireOutputInternal` e
   `CBaseEntity_EmitSoundFilter`.
-  - A assinatura de FireOutputInternal mudou na 375.
+  - A assinatura de FireOutputInternal mudou na 375. O sumiço dela no boot é a prova do G6
+    (o runbook confere antes, no log da 373, que o padrão casa).
   - A de EmitSoundFilter não mudou. O erro dela é efeito em cascata: na 373, quando
     FireOutputInternal falha, `EntityManager::OnAllInitialized` retorna antes de resolver
     EmitSoundFilter, DispatchSpawn e TakeDamageOld.
+  - O erro de EmitSoundFilter só é logado quando algo chama EmitSound, e quem chama é o
+    NadeSystem, mascarado. A ausência dele no B1.3r não prova nada: ela **só é verificável
+    no B1.8**.
 - Efeito colateral esperado: o Metamod 1469 recusa os plugins nativos compilados para a API
   17 (RayTrace, BotHider, BotVision e BotController). É uma recusa limpa, e RayTrace e BotHider
   já estão mascarados. Na janela, faça o inventário com `meta list` e `css_plugins list`,
@@ -94,10 +98,13 @@ A evidência de cada passo vem do B1.1. Os clones que ele leu estão em
 
 - Guarda em `BotAimImprover.cs:163-181` (clone `improver/`). Sem a assinatura, ele loga
   `Fatal error during Load() (signature broken?). Plugin inactive.` e sai.
-- O resultado mais provável é **degradado**, não crash. Os offsets de `CCSBot` mudaram depois
+- O resultado mais provável é **inativo**, não crash. Os offsets de `CCSBot` mudaram depois
   de 23/09, e o upstream CS2-Bullseye-Bot (PR #8, 25/09) trocou por curinga os bytes que a
   assinatura instalada ainda fixa (`8B 8F E0 59 00 00`, por inferência do B1.1). A versão do
   volume deve falhar a assinatura e se desativar.
+- **Essa linha exata é esperada no B1.4.** Ela não reprova o critério 5 e não entra no grep
+  de linhas proibidas do G6 desse passo, que continua procurando `Fatal error` em qualquer
+  outra linha. Com ela, o veredito é **inativo**, não degradado: o plugin não roda.
 - Sem o RayTrace nativo, `PointVisibleFromEye` devolve `true` e o plugin trata tudo como
   visível (`BotAimImprover.cs:412-424`).
 
@@ -178,8 +185,11 @@ Valem na janela (G6) e na partida do Victor (G7). Todos precisam valer:
 4. **Partida ingerida.** O watcher loga
    `[PIPELINE] Eventos do mapa N arquivados em events_<matchid>_mapN.jsonl`, e a partida
    aparece no banco. O QA confere numa cópia `mode=ro`, nunca no banco vivo.
-5. A linha de load do plugin religado aparece sem `Fatal error`. As assinaturas que falharam
-   ficam registradas **pelo nome**, não só pela contagem.
+5. A linha de load do plugin religado aparece sem `Fatal error`. A exceção é a linha de
+   desativação pela guarda que o próprio passo documenta como esperada (no B1.4,
+   `Fatal error during Load() (signature broken?). Plugin inactive.`), e aí o veredito é
+   **inativo**. As assinaturas que falharam ficam registradas **pelo nome**, não só pela
+   contagem.
 6. MatchZy e captura carregados: o log mostra `[MatchZy 0.8.15 LOADED]` e
    `[Cs2TrackerEvents] Pronto — gravando em`.
 7. A build do CS2 antes e depois da janela fica registrada. O sha256 dos arquivos montados,
@@ -188,7 +198,10 @@ Valem na janela (G6) e na partida do Victor (G7). Todos precisam valer:
 O veredito de cada passo é um destes:
 
 - **religado:** carregou, sem assinatura faltando e sem crash;
-- **degradado:** carregou com alguma assinatura faltando, sem crash;
+- **degradado:** carregou com alguma assinatura faltando e segue ativo, sem crash;
+- **inativo:** carregou, mas a própria guarda o desativou (ex.: a linha `Plugin inactive.`
+  do BotAimImprover), sem crash. Na prática equivale a mascarado: o comportamento dos bots
+  não muda;
 - **mascarado:** a máscara voltou;
 - **bloqueado:** depende de outra coisa.
 
@@ -253,9 +266,10 @@ O veredito de cada passo é um destes:
   rodado de uma worktree cria projeto e volume novos, vazios.
 - **Snapshot antes de qualquer escrita no volume**, seja a extração da imagem no B1.3r ou uma
   restauração.
-- **Janela só por frase do Victor:** "pode mexer no servidor" (Q4=A) ou, na trilha de bots,
-  "terminei" (Q5=A). Dura no máximo 45 min, aborta se ele abrir o jogo ou a TUI, e nunca abre
-  por ausência de processo.
+- **Janela só por frase do Victor:** "pode mexer no servidor" (Q4=A, no máximo 45 min) ou,
+  na trilha de bots, "terminei" (Q5=A, 15 a 30 min). Aborta se ele abrir o jogo ou a TUI, e
+  nunca abre por ausência de processo. O B1.3r não cabe numa janela de "terminei" e pede a
+  Q4.
 - **Um candidato por vez** (Q6=A). Partida só de bots dentro da janela é permitida (Q7=A).
 - **Download de versão ou de plugin só com OK explícito do Victor** (G5).
 - **Critério de aceite de card não se reescreve.** Se estiver errado, registre e pare, como
@@ -265,9 +279,10 @@ O veredito de cada passo é um destes:
 
 1. O PR do card traz a linha. O merge na main vira o `candidato-N`, feito com a janela aberta
    para que nenhum boot fora dela aplique a mudança.
-2. A janela abre depois do "terminei" (pós-partida) ou do "pode mexer no servidor"
-   (pré-partida). Nela: preflight, backup, snapshot, `--force-recreate`, G6 e, quando o card
-   pede, smoke só de bots.
+2. A janela abre depois do "terminei" (pós-partida, até 30 min) ou do "pode mexer no
+   servidor" (pré-partida, até 45 min). Nela: preflight, backup, snapshot,
+   `--force-recreate`, G6 e, quando o card pede, smoke só de bots. Passo que não cabe em
+   30 min, como o B1.3r, espera uma janela "pode mexer no servidor".
 3. O Victor recebe o aviso do que a próxima partida valida.
 4. Ele joga uma partida normal. Depois vêm a coleta dos logs e a evidência (G7).
 5. Com o G7 ok: tag `jogavel-<data>` e uma linha no registro abaixo. Com o G7 ruim: volta pelo
