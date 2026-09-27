@@ -9,6 +9,10 @@ docker/events-live/*
 # pra versionar (diferente do DefaultAgents, que é um plugin de terceiros
 # baixado pronto).
 docker/plugins/Cs2TrackerEvents/*
+# Plugins de bot compilados do upstream (AGPL-3.0), só para uso local: o
+# binário não é redistribuído aqui; o runbook do passo fixa repo, commit e
+# sha256 (docs/runbooks/b1.4b-botaimimprover-upstream.md).
+docker/plugins/BotAimImprover/
 docker/plugins-src/*/bin/
 docker/plugins-src/*/obj/
 .venv/

@@ -292,9 +292,7 @@ O veredito de cada passo é um destes:
    e só sai dela pelo ff sem janela, com o delta conferido: infra no delta espera o passo 3
    da próxima janela.
 
-A via rápida (Q0=A) vale só para o passo 1. Do B1.4 em diante, os passos usam o ferramental
-dos cards B0.4 a B0.7b: `tools/preflight.py`, `tools/backup.py` e `tools/jogavel.py`
-(`janela`, `voltar`, `coletar`).
+A via rápida (Q0=A) valeu para o passo 1. Enquanto o `tools/jogavel.py` (B0.7/B0.7b) não existir, os passos seguem runbooks próprios com comandos à mão (decisão do PM em 27/09, para a trilha não parar): [B1.4](b1.4-botaimimprover.md). Quando o `jogavel.py` chegar, ele substitui os comandos crus.
 
 ## Registro
 
@@ -305,7 +303,7 @@ refeito, use uma linha nova com o mesmo passo e sufixo (ex.: `2b`).
 
 | Passo | Janela (data, hora, frase que abriu) | Mudança efetiva | Build CS2 antes → depois | Snapshot (arquivo, sha256 abreviado) | G6 (load lines, assinaturas) | Smoke só de bots |
 |---|---|---|---|---|---|---|
-| 1 · B1.3r | | | | | | |
+| 1 · B1.3r | 27/09 01:44 ("pode mexer no servidor"); vencida 2× por espera de aprovação, renovada 08:08 com OK; fechada 09:41 | Metamod 2.0.0.1411→2.0.0.1469, CSSharp v1.0.373→v1.0.375 | 2000918 → 2000918 | volume-addons-0144.tgz, 89556340… | complete 1469 e 375; MatchZy e captura carregadas; 0 linha proibida (FireOutputInternal sumiu); RayTrace/BotHider recusados (mascarados) | inconclusivo: bots não entram sem humano (faltou `bot_join_after_player 0`) |
 | 2 · B1.4 | | | | | | |
 | 3 · B1.5 | | | | | | |
 | 4 · B1.6 | | | | | | |
@@ -317,7 +315,7 @@ refeito, use uma linha nova com o mesmo passo e sufixo (ex.: `2b`).
 
 | Passo | Partida (`demo_name`, mapa) | Troca de mapa | Segfault | Overflow pós FULL + 60 s | Ingerida | Veredito | Época a partir de |
 |---|---|---|---|---|---|---|---|
-| 1 · B1.3r | | | | | | | |
+| 1 · B1.3r | events_63_map0, de_inferno (partida 26, 13x7, 5x5) | não (MD1) | 0 | 0 (nenhum overflow) | sim | **OK** (config-hash 55765314… igual) | jogavel-2026-09-27 |
 | 2 · B1.4 | | | | | | | |
 | 3 · B1.5 | | | | | | | |
 | 4 · B1.6 | | | | | | | |
@@ -330,7 +328,7 @@ refeito, use uma linha nova com o mesmo passo e sufixo (ex.: `2b`).
 Assinaturas que falharam, pelo nome; plugins recusados no `meta list`; impressão do Victor,
 se vier (não bloqueia).
 
-- **1 · B1.3r:**
+- **1 · B1.3r:** nenhuma assinatura falhou. RoundDamageRecap (ed0ard) carregado e sem máscara. O container reiniciou às 13:48 sem recreate (config-hash igual). Jogo "liso" na impressão do Victor.
 - **2 · B1.4:**
 - **3 · B1.5:**
 - **4 · B1.6:**

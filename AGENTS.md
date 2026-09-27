@@ -12,7 +12,7 @@ Aqui fica só o que vale para todo mundo, inclusive para a sessão que conversa 
 - KB e board no Obsidian, sem Notion: KB versionada em `docs/`, board em `docs/board-cs2/`, fora do git. (Q21=A; critic, lacuna 2)
 - Repo público: nenhum SteamID64 real, IP ou segredo em `docs/`, `tests/` ou commit. (princípio; critic, risco 8)
 - Trilho único: no máximo uma mudança não validada em partida no caminho de jogo; ele joga sobre um candidato por vez. (Q6=A)
-- `botprofile.vpk` High fixo durante a trilha de bots (B1). (Q9=A)
+- `botprofile.vpk` na variante Medium; trocar só em janela, com o servidor parado. (Victor, 27/09; substitui a Q9=A "High fixo")
 - Tudo em pt-BR: docs, comentários, commits e nomes de teste. (princípio)
 
 ## Python: um interpretador só
