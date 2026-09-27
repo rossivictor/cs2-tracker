@@ -91,6 +91,6 @@ C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/preflight.py
 ## Onde mora o conhecimento
 
 - `docs/`: KB em construção (`SPEC.md`, `features/`; depois `adr/`, `runbooks/`, `armadilhas/`). O código diz o quê; a KB diz o porquê. (K1)
-- Board: `C:/Users/Victor/Projetos/cs2-tracker/docs/board-cs2/`, vault do Obsidian que só existe no checkout principal. (Q21=A)
+- Board: `C:/Users/Victor/Projetos/cs2-tracker/docs/board-cs2/`, vault do Obsidian que só existe no checkout principal. Nasce do modelo versionado em `tools/board/modelo/` pelo `-m tools.board iniciar`, que só cria o que falta e nunca sobrescreve. (Q21=A; H1.4)
 - Backups, auditoria e plano: `C:/Users/Victor/cs2-tracker-backups/2026-09-26/` (plano em `temp-artifacts/eb5adec0/plan/all.json`). (B0.2)
 - Travas: `.claude/settings.json` (deny/ask em Bash e PowerShell; deny de Read/Edit nos arquivos proibidos), hook de guarda (B0.5) e `.cursor/rules/agentes.mdc` para o Cursor, que não roda hooks e só carrega regra `.mdc`. (Q3=A)

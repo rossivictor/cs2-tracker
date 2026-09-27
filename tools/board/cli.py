@@ -18,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
+from . import vault
 from .frontmatter import acrescentar_historico, definir_propriedade, ler_frontmatter
 from .modelo import (
     CAMPO_ID,
@@ -68,12 +69,16 @@ USO = f"""Uso: C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe -m 
                                    recusa sem gravar só o que criaria erro novo no card
   historico --card=<ref> (--texto=<entrada> | --arquivo=<caminho>)
                                    só acrescenta a entrada no ## Histórico
+  iniciar                          cria o vault a partir do modelo (tools/board/modelo/): só o
+                                   que falta, sem sobrescrever nada; Board.base diferente do
+                                   modelo sai 1 com o diff; não cria nem toca card
 
   <ref>: Ordem (12 ou 11,5), {CAMPO_ID} do plano (B1.3r) ou nome do arquivo.
   <entrada>: só o texto. O CLI carimba "- **DD/MM/AAAA HH:MM · <papel>** —" com o relógio
              e o --papel; entrada que já vem carimbada é recusada. Linhas seguintes sem
              recuo ganham dois espaços, para ficarem dentro da entrada.
-  --seco       mostra o que faria, sem gravar (reclassificar, criar, mover, historico);
+  --seco       mostra o que faria, sem gravar (reclassificar, criar, mover, historico,
+               iniciar);
                no reclassificar, simula o card como concluído mesmo antes do merge
   --papel=<{' | '.join(PAPEIS)}>  quem assina a entrada (padrão: TM; PM no criar)
   --board=<pasta>                  padrão: {BOARD_PADRAO.as_posix()}"""
@@ -88,6 +93,7 @@ _FLAGS: Dict[str, set] = {
     "mover": {"card=", "status=", "branch=", "pr=", "candidato=", "custo=", "reprovada=",
               "reprovacao", "devolucao", "executor=", "texto=", "arquivo="} | _ESCRITA,
     "historico": {"card=", "texto=", "arquivo="} | _ESCRITA,
+    "iniciar": {"seco"},
 }
 _SIGNIFICADO_PREFLIGHT = {
     0: "livre",
@@ -237,13 +243,20 @@ def main(argv: Optional[List[str]] = None, *,
         if comando is None:
             log(USO)
             return 1
-        pasta = Path(str(opcoes.get("board", BOARD_PADRAO)))
+        board = str(opcoes.get("board", BOARD_PADRAO))
+        if not board.strip():
+            # --board= vazio (variável sem valor) viraria a pasta atual: a raiz do repo.
+            raise ErroBoard("--board veio vazio: passe --board=<pasta>")
+        pasta = Path(board)
+        seco = bool(opcoes.get("seco"))
+        if comando == "iniciar":  # o único que aceita a pasta ainda sem vault
+            return _iniciar(pasta=pasta, seco=seco, log=log, erro=erro)
         if not pasta.is_dir():
-            raise ErroBoard(f"board não encontrado em {pasta.as_posix()}. Passe --board=<pasta>.")
+            raise ErroBoard(f"board não encontrado em {pasta.as_posix()}. Passe --board=<pasta> "
+                            "ou crie o vault com o iniciar.")
         papel = str(opcoes.get("papel", "PM" if comando == "criar" else "TM"))
         if papel not in PAPEIS:
             raise ErroBoard(f'--papel "{papel}" fora da lista ({" · ".join(PAPEIS)})')
-        seco = bool(opcoes.get("seco"))
         carimbo = agora().strftime("%d/%m/%Y %H:%M")
         quadro = carregar(pasta)
         if comando != "validar":  # o validar já lista os ignorados
@@ -259,6 +272,41 @@ def main(argv: Optional[List[str]] = None, *,
     except (ErroBoard, OSError, ValueError) as caught:
         erro(f"[board] {caught}")
         return 1
+
+
+def _iniciar(*, pasta: Path, seco: bool, log, erro) -> int:
+    nova = not pasta.exists()
+    passos = vault.planejar(pasta)
+    estado = "pasta nova" if nova else f"{len(carregar(pasta).cartoes)} card(s), intocados"
+    log(f"Vault: {pasta.as_posix()} ({estado})")
+    criados = [] if seco else vault.aplicar(pasta, passos)
+    for passo in passos:
+        if passo.acao == "criar":
+            log(f"{'criaria' if seco else 'criado'} · {passo.relativo}")
+            continue
+        if passo.acao == "igual":
+            log(f"igual · {passo.relativo}")
+            continue
+        if passo.recusa and passo.acao == "diverge":
+            detalhe = ("mantido, nada sobrescrito. Para adotar o modelo, guarde o seu se "
+                       "quiser, apague ou renomeie o Board.base e rode o iniciar de novo")
+        elif passo.recusa:
+            detalhe = "nada gravado nesse caminho"
+        else:
+            detalhe = "mantido (o modelo não sobrescreve o que já existe)"
+        nivel = "ERRO" if passo.recusa else "aviso"
+        erro(f"[board] {nivel} · {passo.relativo} · {passo.motivo}: {detalhe}")
+        for linha in passo.diff:
+            erro(f"    {linha}")
+    contagem = {acao: sum(p.acao == acao for p in passos)
+                for acao in ("criar", "igual", "diverge", "conflito")}
+    log(f"{contagem['criar']} {'a criar' if seco else 'criado(s)'} · {contagem['igual']} "
+        f"igual(is) · {contagem['diverge']} diferente(s) · {contagem['conflito']} conflito(s)"
+        f"{' (seco: nada gravado)' if seco else ''}")
+    if criados:
+        log("Próximo passo: abrir a pasta como vault no Obsidian e instalar o Better Kanban "
+            "Bases View (card H1.5)")
+    return 1 if any(p.recusa for p in passos) else 0
 
 
 def _validar(*, opcoes, quadro: Quadro, log, **_) -> int:

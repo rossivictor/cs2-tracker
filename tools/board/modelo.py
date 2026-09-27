@@ -72,6 +72,8 @@ PROIBIDOS_NO_TITULO = re.compile(r'[\\/:*?"<>|\[\]#^\x00-\x1f\x7f]')
 # Caminho completo do card: abaixo do MAX_PATH (260) do Windows, com folga.
 MAX_CAMINHO = 240
 _PREFIXO_ORDEM = re.compile(r"^(\d+(?:,\d+)?) - ")
+# Notas do próprio vault, que vêm de tools/board/modelo/ (H1.4): nunca são card.
+NOTAS_DO_VAULT = ("README.md",)
 _ROLLBACK = re.compile(r"^##\s+Rollback\b", re.MULTILINE)
 
 
@@ -225,13 +227,17 @@ def classificar(quadro: Quadro, cartao: Cartao) -> str:
 
 def carregar(pasta: Path) -> Quadro:
     """
-    Card é o .md com frontmatter e Status. Nota sem frontmatter (o Painel)
-    fica de fora calada; .md que não é UTF-8, ou que tem frontmatter e não tem
-    Status, fica de fora com aviso, com o nome do arquivo. O BOM do
-    PowerShell 5.1 é aceito e preservado.
+    Card é o .md com frontmatter e Status, na raiz da pasta. Nota sem
+    frontmatter (o Painel) e as `NOTAS_DO_VAULT` ficam de fora caladas, assim
+    como o que não é .md (Board.base) e o que está em subpasta (.obsidian/);
+    .md que não é UTF-8, ou que tem frontmatter e não tem Status, fica de fora
+    com aviso, com o nome do arquivo. O BOM do PowerShell 5.1 é aceito e
+    preservado.
     """
     cartoes, ignorados = [], []
     for caminho in sorted(Path(pasta).glob("*.md")):
+        if caminho.name in NOTAS_DO_VAULT or not caminho.is_file():
+            continue
         try:
             texto = caminho.read_bytes().decode("utf-8")
         except UnicodeDecodeError as caught:
