@@ -136,9 +136,13 @@ services:
       # do jogo, não desses plugins. O que se perde é ajuste de IA, melhoria
       # de mira e as granadas pré-gravadas — bots mais fracos e mais burros.
       #
-      # Religar quando a imagem publicar plugins recompilados pra build nova.
+      # Correção (B1.1, 26/09): esses plugins NÃO vêm da imagem; foram
+      # instalados à mão no volume em 05/09. Religar um por vez pela trilha de
+      # bots (docs/runbooks/trilha-de-bots.md), uma partida por passo.
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAI
-      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAimImprover
+      # B1.4: BotAimImprover religado (guarda explícita; sem a assinatura ele
+      # se desativa sozinho). Volta: descomentar a linha abaixo.
+      # - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAimImprover
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotBuy
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotHiderImpl
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotRandomizer
