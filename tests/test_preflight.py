@@ -226,10 +226,30 @@ def test_jogando_tem_precedencia_sobre_janela_por_processo(raiz):
     assert "janela aberta não vale" in r.motivo
 
 
-def test_jogando_tem_precedencia_sobre_janela_por_current_jsonl(raiz):
+def test_current_jsonl_recente_nao_derruba_janela_valida(raiz):
+    # Dentro da janela o servidor trunca/escreve o current.jsonl (boot,
+    # troca de mapa, partida só de bots): não é sinal do Victor.
     _abrir_janela(raiz)
     _current_jsonl(raiz, idade_s=60)
-    assert avaliar(raiz=raiz, agora=AGORA, listar=_lista()).codigo == JOGANDO
+    r = avaliar(raiz=raiz, agora=AGORA, listar=_lista())
+    assert r.codigo == JANELA
+    assert "current.jsonl modificado há 1 min, ignorado dentro da janela" in r.motivo
+
+
+def test_processo_do_victor_vence_janela_mesmo_com_current_jsonl_ignorado(raiz):
+    _abrir_janela(raiz)
+    _current_jsonl(raiz, idade_s=30)
+    r = avaliar(raiz=raiz, agora=AGORA, listar=_lista(_python("python wizard_tui.py", pid=3)))
+    assert r.codigo == JOGANDO
+    assert "wizard_tui" in r.motivo and "janela aberta não vale" in r.motivo
+
+
+def test_current_jsonl_recente_com_janela_vencida_da_3(raiz):
+    _abrir_janela(raiz, idade_s=45 * 60)
+    _current_jsonl(raiz, idade_s=60)
+    r = avaliar(raiz=raiz, agora=AGORA, listar=_lista())
+    assert r.codigo == JOGANDO
+    assert "current.jsonl" in r.motivo and "janela vencida" in r.motivo
 
 
 def test_falha_de_deteccao_tem_precedencia_sobre_janela(raiz):
