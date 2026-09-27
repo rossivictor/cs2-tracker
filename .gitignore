@@ -25,3 +25,20 @@ data/profile.json
 probe*.dem
 # Lock de tarefas agendadas do Claude Code; estado local da máquina.
 .claude/scheduled_tasks.lock
+
+# Harness dos agentes (card B0.4). O settings.local.json é da máquina: o
+# harness o copia pra toda worktree, e versionado ele trava o
+# `git worktree remove` sem --force (lição do kalendas).
+.claude/settings.local.json
+# Estado de runtime do protocolo de jogabilidade, não é projeto: marca e
+# registro das janelas (logs/janelas/ABERTA, logs/janelas/<data>.md), logs
+# salvos do servidor, estado do papel servidor e do candidato em teste, e
+# arquivos gerados pro container. Ancorados na raiz (lição do efcaa42).
+/logs/
+data/servidor.json
+data/candidato.json
+docker/runtime/
+# Board do Obsidian: vault próprio, fora do git (Q21=A). A KB em docs/ é
+# versionada; a config do Obsidian de quem abrir docs/ como vault, não.
+docs/board-cs2/
+docs/.obsidian/

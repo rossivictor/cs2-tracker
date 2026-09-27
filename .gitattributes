@@ -1,0 +1,4 @@
+# Script shell roda dentro do container Linux (docker/pre.sh é carregado com
+# `source` pelo entry.sh): com CRLF o bash quebra com $'\r'. A normalização
+# completa do repositório fica para o card T1.7.
+*.sh text eol=lf
