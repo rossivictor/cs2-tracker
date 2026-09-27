@@ -21,15 +21,22 @@ Por que cada checagem existe:
 - Relatório de formato fixo por papel, e board só pelo CLI (H1.3).
 - Nenhuma linha copiada do AGENTS.md: regra universal mora lá, e o papel
   guarda só o próprio procedimento (kalendas, L38).
-- As passagens de bastão que a revisão do H1.6 achou quebradas: todo
+- As passagens de bastão que a 1ª revisão do H1.6 achou quebradas: todo
   comando do board citado nos papéis passa pelo parser do CLI de verdade;
   G6/G7 RUIM reprova sem tirar o card de "Aguardando partida" (senão o
   trilho aparece livre com o candidato ruim na main); o QA separa a fase
   antes do merge da fase da partida; Agente+Humano é despachado; a
-  retomada tem comando; e a estrutura do servidor segue a numeração do
-  runbook do B1.3r, com a pausa para o merge do tech-manager.
+  retomada tem comando.
+- As regras da 2ª revisão e da janela de 27/09 (logs/janelas/2026-09-27.md),
+  uma por teste ou por linha de REGRAS_DAS_REVISOES: a coleta grava os dois
+  config-hash que o G7 exige; a Concluída sai da fase 2 inteira; o TM para
+  na pausa da janela; o degrau só de Python não pede janela; a janela
+  conta com as aprovações "ask" e com o vencimento no meio; o que o papel
+  diz que a guarda deixa, ela deixa (e o banco por cp ela barra); o aborto
+  por processo sai do candidato antes de subir o container.
 
-Só leitura de arquivo versionado: nada de processo, rede, Docker ou banco.
+Só leitura de arquivo versionado e a guarda em processo, com um checkout
+falso no tmp_path: nada de processo, rede, Docker ou banco.
 """
 import json
 import re
@@ -48,8 +55,9 @@ from tools.board.modelo import STATUS  # noqa: E402
 
 AGENTES = RAIZ / ".claude" / "agents"
 AGENTS_MD = RAIZ / "AGENTS.md"
-RUNBOOK_B13R = RAIZ / "docs" / "runbooks" / "b1.3-cssharp-1.0.375.md"
+EVIDENCIA = RAIZ / "tools" / "evidencia_partida.py"
 PYTHON = "C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe"
+REGISTRO = "C:/Users/Victor/Projetos/cs2-tracker/logs/janelas/<data>.md"
 TOPO = "Este arquivo e o AGENTS.md já estão no seu contexto; não os abra com Read"
 MAX_LINHAS = 120
 
@@ -77,7 +85,7 @@ RELATORIO = {
     "qa": [
         "VEREDITO: APROVADO | REPROVADO | DEVOLUÇÃO TÉCNICA | SEM EVIDÊNCIA",
         "CRITÉRIOS", "ATENDIDO | NÃO ATENDIDO | SEM EVIDÊNCIA", "TESTES", "G7",
-        "BOARD", "FREIO",
+        "BOARD", "FREIO", "PRÓXIMO PASSO", "servidor refaz a coleta",
     ],
     "tech-manager": [
         "DECISÃO DE FILA:", "PR:", "MERGE:", "TAGS:", "BOARD", "RECLASSIFICADO:",
@@ -85,34 +93,59 @@ RELATORIO = {
     ],
     "servidor": [
         "JANELA:", "RUNBOOK:", "PREFLIGHT:", "BACKUP E SNAPSHOT:", "MUDANÇA:", "G6:",
-        "FECHAMENTO:", "RESULTADO:", "REGISTRO: logs/janelas/<data>.md",
+        "FECHAMENTO:", "RESULTADO:", f"REGISTRO: {REGISTRO}",
     ],
 }
 
-# Regra que o card manda codificar em cada papel. Sumir com uma delas numa
-# poda de texto derruba o teste.
+# Poucas invariantes por papel, as que definem o papel. O resto das regras
+# vem com o motivo em REGRAS_DAS_REVISOES ou num teste próprio: lista longa
+# de frases literais quebra a cada lição nova e desestimula manter o papel.
 REGRAS_DO_PAPEL = {
-    "dev": ["não consulta o board", "Docker", "`wizard_tui.py`", "`start_match.py`",
-            "Não abre PR, não mergeia", "Não edita critério de aceite",
-            "fora de card de CI", "**Retomada**", "git switch --detach origin/<branch>",
-            "git push origin HEAD:<branch>", "git revert <sha do revert>", "DEPOIS DO MERGE"],
-    "qa": ["nunca edita código", "tools/evidencia_partida.py", "cópias",
-           "**Reprovação:**", "**Devolução técnica:**", "2ª reprovação", "3ª devolução",
-           "**Fase 1, card em `Em testes`**", "**Fase 2, card em `Aguardando partida`**",
-           "DEPOIS DO MERGE", "**sem `--status`**", "Sem Edit nem Write"],
+    "dev": ["Não lê nem grava o board", "Não abre PR, não mergeia", "**Retomada**",
+            "DEPOIS DO MERGE"],
+    "qa": ["nunca edita código", "**Reprovação:**", "**Devolução técnica:**",
+           "**Fase 2, card em `Aguardando partida`**"],
     "tech-manager": ["--merge --delete-branch", "Squash ou rebase, nunca", "candidato-N",
-                     "jogavel-<AAAA-MM-DD", "Trilho único", "janela aberta (preflight 4)",
-                     "devolução técnica", "3ª devolução", "`aguardando merge`",
-                     "Executor `Agente` ou `Agente+Humano`", "**Retomada**",
-                     "git revert -m 1 <merge>", "OK explícito do PM", "o runbook vence",
-                     "DEPOIS DO MERGE", "coleta do servidor salvou"],
-    "servidor": ["docs/runbooks/", "tools/jogavel.py", "pode mexer no servidor", "Backup",
-                 "Snapshot", "--force-recreate", "G6", "Fechamento (checklist G6)",
-                 "Rollback", "sem worktree", "**Pausa para o merge (entre os passos 2 e 3).**",
-                 "aguardando merge", "não rode o passo 0 nem recrie a marca",
-                 "Antes do recreate (passo 7), qualquer 3 aborta", "rev-parse HEAD",
-                 "anterior ao H1.3"],
+                     "**devolução técnica**"],
+    "servidor": ["sem worktree", "**Snapshot**", "**Fechamento (checklist G6):**",
+                 "**Pausa para o merge (entre os passos 2 e 3).**"],
 }
+
+# Regra que uma revisão do H1.6 mandou pôr no papel, com a origem. A = 1ª
+# revisão da 2ª rodada (máquina de estados), B = lente B; o que tem teste
+# próprio abaixo não se repete aqui.
+REGRAS_DAS_REVISOES = [
+    ("A-B2 execução = janela tem lease", "tech-manager", "execução = janela; PM abre o servidor"),
+    ("A-B2 o QA julga a janela na fase 1", "qa", "Card cuja execução foi a própria janela"),
+    ("A-B2 o dev faz os docs do registro", "dev", "Card cuja execução foi a janela"),
+    ("A-B3 smoke inconclusivo não é candidato no ar", "servidor",
+     "o RESULTADO não é `candidato no ar`"),
+    ("A-B3 smoke inconclusivo só com OK do Victor", "qa", "smoke INCONCLUSIVO só conta com o OK"),
+    ("A-B4 a pausa volta ao servidor", "tech-manager", '"PM: retome a janela <data> no passo 3"'),
+    ("A-B5 Victor no PC para o ask", "servidor", "fica no PC para aprovar os comandos docker em ask"),
+    ("A-B5 orçamento da janela", "servidor", "Não comece o passo 4 com menos de 25 min"),
+    ("A-B5 janela vencida no meio", "servidor", "Janela vencida no meio"),
+    ("A-B5 renovação é janela nova", "servidor", "Renovar é abrir janela nova"),
+    ("A-B7 banco sem cópia até o B0.6", "servidor", "banco sem cópia (guarda; B0.6)"),
+    ("B-B1 degrau sem infra sem janela", "tech-manager", "**Degrau sem infra**"),
+    ("B-B1 atualizar sem contradição", "tech-manager", "fora do `jogavel.py atualizar`"),
+    ("B-B1 ff sem janela", "servidor", "**Ff sem janela**"),
+    ("B-B5 a cópia do banco é do servidor", "servidor", "que é você quem faz"),
+    ("A tag de volta sem papéis", "servidor", "Tag sem `.claude/agents` ou `.claude/settings.json`"),
+    ("A worktree atrás da main (TM)", "tech-manager",
+     "`git fetch origin && git switch --detach origin/main`"),
+    ("A worktree atrás da main (QA)", "qa", "`git fetch origin && git switch --detach origin/main`"),
+    ("A ff do checkout depois do merge", "tech-manager", "PM: ff do checkout principal"),
+    ("A lease órfão", "tech-manager", "Lease órfão"),
+    ("A 2 reprovações não se despacham", "tech-manager", "`Reprovações` abaixo de 2"),
+    ("A saída 2/4 refaz a coleta", "qa", "o PRÓXIMO PASSO é o servidor refazer a coleta"),
+    ("A diff só de comentário no delta", "servidor", "checar_so_comentarios"),
+    ("A board sem semente", "tech-manager", "board ainda sem a semente do H1.9"),
+    ("B nome de tag ocupado", "tech-manager", "`jogavel-AAAA-MM-DD-2`"),
+    ("B revert sem QA é exceção", "tech-manager", 'exceção ao "depois do QA" do AGENTS.md'),
+    ("B preflight 4 não para o TM", "tech-manager", "com 4 você segue no Offline"),
+    ("B vigilância depois do PR #8", "servidor", "Desde o PR #8"),
+]
 
 
 class FrontmatterInvalido(ValueError):
@@ -369,7 +402,7 @@ def test_g6_ou_g7_ruim_reprova_sem_tirar_o_card_de_aguardando_partida():
     # ruim na main e a fila despacharia o card antes do revert.
     comandos = [o for c, o, _ in _comandos_do_board(_texto("qa")) if c == "mover"]
     assert any(o.get("reprovacao") and "status" not in o for o in comandos)
-    assert "O card fica em `Aguardando partida`, segurando o trilho" in _texto("qa")
+    assert "fica em `Aguardando partida`, segurando o trilho" in _texto("qa")
 
 
 def test_tech_manager_so_libera_o_trilho_depois_do_revert():
@@ -388,12 +421,187 @@ def test_tech_manager_nao_segura_agente_mais_humano_pela_parte_do_victor():
     assert "`Agente+Humano` só com" not in texto
 
 
-def test_estrutura_do_servidor_segue_a_numeracao_do_runbook_do_b13r():
-    runbook = dict(re.findall(r"^### (\d+)\. (.+)$", RUNBOOK_B13R.read_text(encoding="utf-8"),
-                              re.MULTILINE))
-    papel = dict(re.findall(r"^(\d+)\. \*\*(.+?)\*\*", _texto("servidor"), re.MULTILINE))
-    assert sorted(runbook, key=int) == [str(n) for n in range(12)], "o runbook mudou"
-    assert sorted(papel, key=int) == sorted(runbook, key=int)
-    for numero, titulo in runbook.items():
-        primeira = re.sub(r"\W", "", titulo.split()[0]).lower()
-        assert primeira in papel[numero].lower(), f"passo {numero}: {titulo!r} x {papel[numero]!r}"
+def test_servidor_tem_os_passos_0_a_11_da_janela():
+    # A numeração é a do modelo de janela (runbook do B1.3r), mas o teste não
+    # prende o papel aos títulos de um runbook de card: um passo novo no
+    # runbook (o smoke corrigido, por exemplo) não quebra o H1.6.
+    passos = re.findall(r"^(\d+)\. \*\*", _texto("servidor"), re.MULTILINE)
+    assert passos == [str(n) for n in range(12)]
+
+
+# --------------------------------------------------------------- 2ª revisão e janela de 27/09
+
+
+def _secao(texto, inicio, fim):
+    """Do `inicio` até a próxima ocorrência de `fim` depois dele."""
+    ini = texto.index(inicio)
+    corte = texto.find(fim, ini + len(inicio))
+    return texto[ini:corte if corte >= 0 else None]
+
+
+def _movers(papel):
+    return [(o, bruto) for c, o, bruto in _comandos_do_board(_texto(papel)) if c == "mover"]
+
+
+def _passos_do_servidor():
+    return dict(re.findall(r"^(\d+)\. (.+)$", _texto("servidor"), re.MULTILINE))
+
+
+@pytest.mark.parametrize("origem, papel, trecho", REGRAS_DAS_REVISOES,
+                         ids=[r[0] for r in REGRAS_DAS_REVISOES])
+def test_regra_da_revisao_esta_no_papel(origem, papel, trecho):
+    assert trecho in _texto(papel), f"{papel}.md perdeu a regra {origem!r}"
+
+
+ROTULO_CONFIG_HASH = ("docker inspect cs2-spike --format "
+                      "'{{index .Config.Labels \"com.docker.compose.config-hash\"}}'")
+HASH_DE_AGORA = 'cd "$RAIZ" && docker compose config --hash cs2-server'
+PORTAO = ('"$PY" "$BK/preflight.py" --raiz "$RAIZ"; [ $? -eq 4 ] || '
+          '{ echo "JANELA FECHADA: não executei"; exit 1; }; docker stop cs2-spike')
+
+
+def test_coleta_grava_os_dois_config_hash_que_o_g7_exige():
+    # A-B1: sem --config-hash e --config-hash-janela o evidencia_partida.py
+    # nunca dá OK (SEM EVIDÊNCIA por construção), e o candidato ficaria para
+    # sempre em "Aguardando partida". A janela de 27/09 não gravou nenhum.
+    ferramenta = EVIDENCIA.read_text(encoding="utf-8")
+    assert '"--config-hash"' in ferramenta and '"--config-hash-janela"' in ferramenta
+    servidor, qa = _texto("servidor"), _texto("qa")
+    coleta = _secao(servidor, "## Coleta pós-partida", "\n## ")
+    for trecho in (ROTULO_CONFIG_HASH, HASH_DE_AGORA, "config-hash-janela.txt",
+                   "config-hash.txt", "head.txt"):
+        assert trecho in coleta, trecho
+    g6 = _passos_do_servidor()["9"]
+    assert "config-hash da janela" in g6 and "config --hash cs2-server" in g6
+    comando = re.search(r"tools/evidencia_partida\.py --log [^\n]*", qa).group(0)
+    assert "--config-hash <h>" in comando and "--config-hash-janela <h>" in comando
+    assert "config-hash.txt" in qa and "config-hash-janela.txt" in qa
+
+
+@pytest.fixture
+def guarda_no_checkout(tmp_path):
+    """A guarda de verdade (tools/hooks/guarda.py), num checkout falso."""
+    hooks = str(RAIZ / "tools" / "hooks")
+    if hooks not in sys.path:
+        sys.path.insert(0, hooks)
+    import guarda
+    principal = tmp_path / "principal"
+    (principal / ".git").mkdir(parents=True)
+    prefixo = (f"export MSYS_NO_PATHCONV=1; RAIZ={principal.as_posix()}; PY={PYTHON}; "
+               f"BK={(tmp_path / 'backups' / 'b1.3r').as_posix()}; ")
+
+    def decidir(comando, preflight=4):
+        evento = {"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": prefixo + comando}, "cwd": str(principal)}
+        codigo, erro, _ = guarda.decidir(evento, principal=principal.as_posix(),
+                                         preflight=lambda: preflight,
+                                         arquivo_env=str(tmp_path / "nao-existe.env"))
+        return codigo, erro
+    return decidir
+
+
+@pytest.mark.parametrize("comando", [
+    PORTAO, ROTULO_CONFIG_HASH, HASH_DE_AGORA, "docker inspect cs2-spike --format '{{.Created}}'",
+])
+def test_o_que_o_servidor_manda_rodar_passa_pela_guarda(guarda_no_checkout, comando):
+    # A janela de 27/09 parou na guarda (cópia do banco, docker logs depois do
+    # boot): comando que o papel manda rodar precisa passar por ela. O portão
+    # (A-B5) confere a janela na mesma chamada, e uma aprovação "ask" atrasada
+    # não age com a janela vencida.
+    assert comando in _texto("servidor")
+    codigo, erro = guarda_no_checkout(comando)
+    assert codigo == 0, erro
+
+
+def test_o_papel_nao_copia_o_banco_por_cp_e_a_guarda_barra_a_copia(guarda_no_checkout):
+    # A-B7 e B-B3: o passo 2 dizia "ou só cópia com sha256", que a guarda barra;
+    # o servidor pararia no meio da janela, com o relógio correndo.
+    assert not re.search(r"\bcp\b[^`\n]*cs2_tracker\.db", _texto("servidor"))
+    assert guarda_no_checkout('cp -p "$RAIZ/cs2_tracker.db" "$BK/"')[0] == 2
+    codigo, erro = guarda_no_checkout('cp -p "$RAIZ/docker/events-live/current.jsonl" "$BK/"')
+    assert codigo == 0, erro  # o que o passo 2 manda copiar, a guarda deixa
+
+
+def test_concluida_sem_caminho_de_jogo_espera_o_depois_do_merge_e_o_historico_guarda_o_merge():
+    # A-B2: com critério DEPOIS DO MERGE, card sem caminho de jogo ia direto a
+    # Concluída e a partida nunca era julgada. A-nb: merge e tag sem --texto
+    # sumiam do Histórico.
+    movers = _movers("tech-manager")
+    assert any(o.get("status") == "Aguardando partida" and "candidato" not in o
+               for o, _ in movers)
+    assert ("sem caminho de jogo e sem critério DEPOIS DO MERGE: `mover --card=<ID> "
+            "--status=Concluída") in _texto("tech-manager")
+    for opcoes, bruto in movers:
+        if opcoes.get("status") in ("Concluída", "Aguardando partida"):
+            assert "texto" in opcoes, bruto
+
+
+def test_concluida_do_degrau_sai_da_fase_2_inteira():
+    # A-B3: a Concluída olhava só o "G7 OK", e o resto do DEPOIS DO MERGE (o
+    # smoke INCONCLUSIVO de 27/09, por exemplo) passava sem veredito.
+    qa, tm = _texto("qa"), _texto("tech-manager")
+    fase2 = [o["texto"] for c, o, _ in _comandos_do_board(qa)
+             if str(o.get("texto", "")).startswith("FASE 2: ")]
+    assert {t.split(";")[0] for t in fase2} >= {"FASE 2: APROVADO", "FASE 2: REPROVADO"}
+    assert all("partida <data>" in t and "HEAD <sha" in t for t in fase2)
+    assert "todo critério DEPOIS DO MERGE do card ATENDIDO" in qa
+    assert "**Fase 2 APROVADO:**" in tm and "**G7 OK:**" not in tm
+
+
+def test_tech_manager_para_depois_do_merge_na_pausa_da_janela():
+    # A-B4: seguir para a fila e abrir um dev em primeiro plano bloqueia o TM
+    # por 30 a 90 min, e a janela vence com o candidato só no origin.
+    pausa = _secao(_texto("tech-manager"), "## Na pausa da janela", "\n## ")
+    assert "Não rode os passos 2 e 3 nem abra dev" in pausa
+    assert "gh pr merge <n> --merge --delete-branch" in pausa and "candidato-N" in pausa
+
+
+def test_tech_manager_nao_manda_e_proibe_o_atualizar():
+    # B-B1 e kalendas L65: "nunca muda pelas suas mãos" proibia o `atualizar`
+    # que o mesmo arquivo manda rodar; e degrau só de Python pedia janela.
+    tm = _texto("tech-manager")
+    assert "nunca muda pelas suas mãos" not in tm
+    assert "**Degrau de infra** (`Infra: true`" in tm
+
+
+def test_aborto_por_processo_sai_do_candidato_antes_de_subir_o_container():
+    # A-B6: com o container parado e o checkout no candidato, o `compose up -d`
+    # do start_match recriaria o container com o candidato, sem snapshot.
+    aborto = _secao(_texto("servidor"), "**Aborto por processo**", "\n**")
+    assert aborto.index("switch --detach <tag jogavel>") < aborto.index("docker start cs2-spike")
+    assert "o `docker logs` espera o preflight 0" in aborto
+
+
+def test_smoke_e_fechamento_cuidam_do_bot_join_after_player():
+    # B-B4: sem `bot_join_after_player 0` os bots não entram sem humano, e o
+    # smoke de 27/09 deu INCONCLUSIVO; o fechamento devolve o valor de antes.
+    passos = _passos_do_servidor()
+    assert "`bot_join_after_player`" in passos["1"]
+    assert "`bot_join_after_player 0` antes do `bot_quota`" in passos["10"]
+    assert "`bot_join_after_player` nos valores de antes" in passos["11"]
+
+
+def test_coleta_com_preflight_3_nao_prende_a_sessao_do_pm():
+    # B-B5: "espere a partida acabar" segurava a conversa com o Victor por
+    # tempo indefinido; ele joga 2 ou 3 mapas seguidos.
+    coleta = _secao(_texto("servidor"), "## Coleta pós-partida", "\n## ")
+    assert "espere a partida acabar" not in coleta.lower()
+    assert "RESULTADO `coleta adiada: preflight 3" in coleta
+
+
+@pytest.mark.parametrize("papel", PAPEIS)
+def test_registro_da_janela_pelo_caminho_absoluto(papel):
+    # O QA roda num worktree, onde logs/ não existe: o caminho relativo dá um
+    # SEM EVIDÊNCIA falso no G6.
+    assert not re.findall(r"(?<!cs2-tracker/)logs/janelas/<data>", _texto(papel))
+
+
+def test_terceira_devolucao_fica_gravada_e_o_revert_sai_em_pt_br():
+    # A-nb: "não devolva: escale" deixava o card segurando o trilho, e o aviso
+    # de 3 devoluções do validar nunca disparava. O `git revert` cru gera
+    # commit em inglês, sem "(card <ID>)".
+    assert any(o.get("status") == "Bloqueada" and o.get("devolucao")
+               for o, _ in _movers("tech-manager"))
+    commit = re.search(r'git revert --no-commit -m 1 <merge> && git commit -m "([^"]+)"',
+                       _texto("tech-manager"))
+    assert commit and commit.group(1).endswith("(card <ID>)")
