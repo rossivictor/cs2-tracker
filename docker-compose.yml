@@ -145,7 +145,9 @@ services:
       # RayTrace nativo). A pasta é gerada fora do repo (AGPL, gitignored);
       # build e volta: docs/runbooks/b1.4b-botaimimprover-upstream.md.
       - ./docker/plugins/BotAimImprover:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAimImprover
-      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotBuy
+      # B1.6: BotBuy religado (versão do volume; sem assinatura nem offset
+      # fixo, protege ItemServices nulo). Volta: descomentar a linha abaixo.
+      # - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotBuy
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotHiderImpl
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotRandomizer
       # B1.5: BotState religado (versão do volume; patches de FOV só escrevem
