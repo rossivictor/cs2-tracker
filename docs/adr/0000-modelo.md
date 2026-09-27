@@ -53,7 +53,7 @@ atualizado: AAAA-MM-DD
 
 ## Status
 
-<Proposto | Aceito em AAAA-MM-DD por <quem> | Substituído por [ADR-xxxx](xxxx-slug.md) em AAAA-MM-DD | Descartado em AAAA-MM-DD, porque...>
+<Proposto | Aceito em AAAA-MM-DD por <quem> | Substituído por ADR-xxxx (com link relativo para o arquivo dele) em AAAA-MM-DD | Descartado em AAAA-MM-DD, porque...>
 
 ## Fontes
 

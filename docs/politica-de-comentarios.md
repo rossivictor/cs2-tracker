@@ -5,6 +5,14 @@ fontes:
   - "backup:temp-artifacts/eb5adec0/audit/comments.json (summary, stats, items)"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (princípio 'Extrair antes de podar'; cards K1.9 e S1.1)"
   - "AGENTS.md:82-89"
+  - "start_match.py:708-715"
+  - "stats.py:42-47"
+  - "stats.py:111-140"
+  - "stats.py:153-155"
+  - "stats.py:234-249"
+  - "stats.py:416-427"
+  - "parser.py:527-537"
+  - "watcher.py:200-203"
 atualizado: 2026-09-26
 ---
 
@@ -14,7 +22,7 @@ atualizado: 2026-09-26
 
 ## Por que existe
 
-A auditoria de 26/09 contou 2.967 linhas de comentário e docstring em 15.654 (19%): 72% do `docker-compose.yml` e 69% do `gamemode_competitive_server.cfg`, que tem 77 linhas de diário do experimento de GOTV. O conhecimento é real, mas está espalhado. A mesma explicação aparece até 5 vezes (sink de log F2.2, `skip_lineups`, placar F4.4). Há comentário errado, como o `start_match.py:678-716`, que ensina a trocar o VPK com o servidor vivo, o que o `bafe2b4` mostrou que derruba o servidor. E há 162 citações D#/F#/M# em 34 arquivos e 63 datas em 26, que prendem o código ao histórico.
+A auditoria de 26/09 contou 2.967 linhas de comentário e docstring em 15.654 (19%): 72% do `docker-compose.yml` e 69% do `gamemode_competitive_server.cfg`, que tem 77 linhas de diário do experimento de GOTV. O conhecimento é real, mas está espalhado. A mesma explicação aparece até 5 vezes (sink de log F2.2, `skip_lineups`, placar F4.4). Há comentário errado, como o `start_match.py:708-715`, que ensina a trocar o VPK com o servidor vivo, o que o `bafe2b4` mostrou que derruba o servidor. E há 162 citações D#/F#/M# em 34 arquivos e 63 datas em 26, que prendem o código ao histórico.
 
 Os 147 blocos classificados se dividem em: 61 vão para a KB, 45 ficam curtos, 28 viram card e 13 são apagados.
 
@@ -23,7 +31,7 @@ Os 147 blocos classificados se dividem em: 61 vão para a KB, 45 ficam curtos, 2
 - **Invariante local**: o que quebra se a linha mudar. Exemplos: ordem obrigatória de chamadas, unidade, convenção de NULL (`COALESCE(is_human,1)`: NULL é o humano).
 - **Racional curto de uma escolha não óbvia ali mesmo.** Exemplo: `TICKRATE` duplicado de propósito para não puxar awpy (`stats.py:42-47`).
 - **Contrato na docstring**: o que a função recebe, o que devolve e o que levanta.
-- **Aviso de perigo imediato**, numa linha com link. Exemplo: `# nunca trocar o VPK com o servidor vivo (FATAL); ver [[<nota de armadilhas/>]]`. O `start_match.py:678-716` pede esse aviso no lugar do procedimento errado.
+- **Aviso de perigo imediato**, numa linha com link. Exemplo: `# nunca trocar o VPK com o servidor vivo (FATAL); ver [[engine-cs2-e-matchzy]]`, com um nome ilustrativo, porque a nota nasce no K1.4. O `start_match.py:708-715` pede esse aviso no lugar do procedimento errado.
 
 Limite: até ~3 linhas por bloco. Se precisar de mais, é nota da KB.
 
@@ -32,7 +40,7 @@ Limite: até ~3 linhas por bloco. Se precisar de mais, é nota da KB.
 | Conteúdo | Destino | Exemplo da auditoria |
 |---|---|---|
 | Decisão: por que X e não Y, e as alternativas | `adr/` | post_mortem aplicado no SELECT (`stats.py:234-249`) |
-| Procedimento passo a passo | `runbooks/` | troca do `botprofile.vpk` (`start_match.py:678-716`) |
+| Procedimento passo a passo | `runbooks/` | troca do `botprofile.vpk` (`start_match.py:708-715`) |
 | Pegadinha do engine, da MatchZy, de plugin ou do Windows | `armadilhas/` | M4A1-S e USP-S com nomes diferentes em kill e dano (`stats.py:111-140`) |
 | Definição de domínio: métrica, placar, lado | `dominio/` | KAST como K/S/T (`stats.py:416-427`) |
 | Como os módulos conversam | `arquitetura/` | ordem do pipeline de ingestão (`parser.py:527-537`) |
