@@ -19,7 +19,10 @@ Sinais de "Victor jogando" (qualquer um basta):
     (como script ou com -m). `pytest tests/test_watcher.py` não conta: o que
     vale é o nome do script, não um pedaço dele;
   - docker/events-live/current.jsonl modificado há menos de 10 min. Só o
-    mtime é consultado; o conteúdo nunca é lido.
+    mtime é consultado; o conteúdo nunca é lido. Com a janela aberta e
+    válida, este sinal é ignorado: quem escreve no arquivo é o servidor
+    (boot, troca de mapa, partida só de bots). Os sinais de processo
+    continuam valendo.
 
 Janela aberta: existe logs/janelas/ABERTA, criada há menos de 45 min (Q4=A).
 A idade vem do mtime da marca. Marca mais velha que isso (ou com data mais
@@ -365,8 +368,6 @@ def avaliar(raiz: Optional[Path] = None,
         momento = time.time() if agora is None else agora
         sinais = sinais_nos_processos(listar(), frozenset({os.getpid(), os.getppid()}))
         recente = sinal_current_jsonl(principal, momento)
-        if recente:
-            sinais.append(recente)
         idade_janela = idade_da_marca(principal, momento)
     except DeteccaoFalhou as exc:
         return Resultado(JOGANDO, f"falha segura, tratando como Victor jogando: {exc}")
@@ -377,6 +378,18 @@ def avaliar(raiz: Optional[Path] = None,
     aberta = idade_janela is not None and janela_vale(idade_janela)
     vencida = _janela_vencida(idade_janela) if idade_janela is not None and not aberta else None
 
+    # Dentro de uma janela válida quem mexe no current.jsonl é o próprio
+    # servidor: o plugin de captura trunca o arquivo em todo boot e troca de
+    # mapa, e a partida só de bots escreve nele. Aí o arquivo deixa de ser
+    # sinal de partida do Victor; processo dele (cs2.exe, TUI, watcher,
+    # start_match) continua valendo 3. Janela 27/09, B1.3r.
+    ignorado = None
+    if recente:
+        if aberta:
+            ignorado = recente
+        else:
+            sinais.append(recente)
+
     if sinais:
         motivo = "Victor jogando: " + "; ".join(sinais)
         if aberta:
@@ -386,8 +399,9 @@ def avaliar(raiz: Optional[Path] = None,
         return Resultado(JOGANDO, motivo)
     if aberta:
         minutos = max(0, int(idade_janela // 60))
+        extra = f"; {ignorado}, ignorado dentro da janela" if ignorado else ""
         return Resultado(JANELA, f"janela de manutenção aberta ({MARCA_JANELA.as_posix()}, "
-                                 f"criada há {minutos} min)")
+                                 f"criada há {minutos} min{extra})")
     if vencida:
         return Resultado(LIVRE, f"livre: nenhum sinal de partida; {vencida}")
     return Resultado(LIVRE, "livre: nenhum sinal de partida e nenhuma janela aberta")
