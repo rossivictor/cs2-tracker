@@ -602,6 +602,41 @@ def test_current_com_rounds_sem_log_nao_vira_ruim(tmp_path):
             "saber se a partida foi abandonada") in v["sem_evidencia"]
 
 
+_EU = "76561190000000001"
+_BOT = "76561190000000002"
+_CAUDA_27 = [  # recorte da partida 27 (27/09): morte pelo world na tela final
+    {"type": "snapshot", "round_num": 22, "tick": 125882},
+    {"type": "player_death", "round_num": 22, "tick": 127103, "attacker_name": "Jogador",
+     "attacker_steamid": _EU, "victim_name": "Jogador", "victim_steamid": _EU,
+     "weapon": "world", "headshot": False, "distance": 0},
+    {"type": "round_stats", "round_num": 22, "tick": 127240},
+    {"type": "round_officially_ended", "round_num": 22, "tick": 127240},
+]
+
+
+def test_morte_pelo_world_na_tela_final_e_cauda(tmp_path):
+    pasta = _pasta_eventos(tmp_path, {"current.jsonl": _CAUDA_27})
+    cauda = ep.analisar_current(pasta)
+    assert cauda["estado"] == "cauda_normal"
+    assert cauda["mortes_pos_jogo"] == 1
+    log = _arquivo(tmp_path, "docker.txt", [LIVE, FIM.format(64)])
+    v = ep.avaliar(log=log, eventos=pasta)["veredito"]
+    assert not any("current.jsonl" in m for m in v["ruim"])
+
+
+def test_morte_pelo_world_com_round_start_continua_round(tmp_path):
+    eventos = [{"type": "round_start", "round_num": 22, "tick": 125000}] + _CAUDA_27
+    pasta = _pasta_eventos(tmp_path, {"current.jsonl": eventos})
+    assert ep.analisar_current(pasta)["estado"] == "com_rounds"
+
+
+def test_morte_por_outro_jogador_na_cauda_continua_round(tmp_path):
+    outra = dict(_CAUDA_27[1], attacker_steamid=_BOT, attacker_name="Bot", weapon="ak47")
+    pasta = _pasta_eventos(tmp_path, {"current.jsonl": [_CAUDA_27[0], outra]})
+    cauda = ep.analisar_current(pasta)
+    assert cauda["estado"] == "com_rounds" and "mortes_pos_jogo" not in cauda
+
+
 def test_current_cauda_real_vazio_e_ausente(tmp_path):
     cauda = ep.analisar_current(EVENTOS)
     assert cauda["estado"] == "cauda_normal"

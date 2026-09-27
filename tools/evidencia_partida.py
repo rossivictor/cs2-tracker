@@ -436,10 +436,19 @@ def _tipo(evento) -> str:
     return tipo if isinstance(tipo, str) else str(tipo)
 
 
+def _morte_de_pos_jogo(evento) -> bool:
+    """O jogador morto pelo 'world' (atacante = vítima), sem round em curso:
+    é o resto da tela final (sair, trocar de time), não partida."""
+    atacante = evento.get("attacker_steamid")
+    return (_tipo(evento) == "player_death" and evento.get("weapon") == "world"
+            and bool(atacante) and atacante == evento.get("victim_steamid"))
+
+
 def analisar_current(pasta: Path) -> dict:
     """current.jsonl depois do arquivamento: só a cauda (snapshot, round_stats,
     round_officially_ended) é normal; qualquer outro evento é round que não
-    foi arquivado."""
+    foi arquivado. Exceção: sem round_start, a morte do próprio jogador pelo
+    'world' também é cauda (partida 27, 27/09: saída na tela final)."""
     caminho = pasta / "current.jsonl"
     if not caminho.is_file():
         return {"estado": "ausente"}
@@ -448,9 +457,16 @@ def analisar_current(pasta: Path) -> dict:
         return {"estado": "vazio", "linhas_ruins": ruins}
     tipos = Counter(_tipo(e) for e in eventos)
     fora = [e for e in eventos if _tipo(e) not in TIPOS_DA_CAUDA]
+    pos_jogo = 0
+    if not any(_tipo(e) == "round_start" for e in eventos):
+        pos_jogo = sum(1 for e in fora if _morte_de_pos_jogo(e))
+        fora = [e for e in fora if not _morte_de_pos_jogo(e)]
     rounds = {_int(e.get("round_num")) for e in (fora or eventos)}
-    return {"estado": "com_rounds" if fora else "cauda_normal", "tipos": dict(tipos),
-            "rounds": sorted(r for r in rounds if r is not None), "linhas_ruins": ruins}
+    res = {"estado": "com_rounds" if fora else "cauda_normal", "tipos": dict(tipos),
+           "rounds": sorted(r for r in rounds if r is not None), "linhas_ruins": ruins}
+    if pos_jogo:
+        res["mortes_pos_jogo"] = pos_jogo
+    return res
 
 
 def times(eventos) -> tuple:
