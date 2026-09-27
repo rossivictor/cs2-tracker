@@ -41,6 +41,8 @@ Aqui fica só o que vale para todo mundo, inclusive para a sessão que conversa 
 | rodar `wizard_tui.py`, `start_match.py` ou `watcher.py` de verdade | fakes e smoke com Pilot (G4); jogar é do Victor. Exceção: o papel servidor, em janela, pode rodar partida só de bots | plano, papel dev; Q7=A |
 | push na `main`, `--force`, `reset --hard`, reescrever histórico publicado | branch do card e PR | convenção; ask B0.4 |
 
+O hook `tools/hooks/guarda.py` barra boa parte desta tabela antes de todo Bash, PowerShell, Edit e Write, e PII em `docs/` e `tests/fixtures/` (`tools/hooks/pii.py`): o bloqueio diz motivo e alternativa; não contorne, pare e peça ao Victor. (B0.5)
+
 ## Janela de manutenção
 
 - Servidor, container, RCON e volume só mudam em janela aberta pelo Victor; quem opera é o papel servidor. (princípio 3; protocolo 9)

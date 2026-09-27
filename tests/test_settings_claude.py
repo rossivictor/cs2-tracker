@@ -197,10 +197,10 @@ def test_nenhuma_regra_de_comando_comeca_com_curinga(permissoes):
                 assert not padrao.startswith("*"), padrao
 
 
-def test_sem_allow_e_sem_hook_ainda(permissoes):
-    # Allow amplia poder e depende de confiança no workspace; o hook é o B0.5.
+def test_sem_allow(permissoes):
+    # Allow amplia poder e depende de confiança no workspace. O registro do
+    # hook de guarda (B0.5) é conferido em tests/test_guarda.py.
     assert "allow" not in permissoes
-    assert "hooks" not in json.loads(SETTINGS.read_text(encoding="utf-8"))
 
 
 def test_arquivos_proibidos_tem_deny_de_read_e_edit(permissoes):

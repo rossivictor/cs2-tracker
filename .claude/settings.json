@@ -227,5 +227,20 @@
       "PowerShell(git push *:main)",
       "PowerShell(git reset --hard*)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "\"C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe\" \"$CLAUDE_PROJECT_DIR/tools/hooks/guarda.py\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
   }
 }
