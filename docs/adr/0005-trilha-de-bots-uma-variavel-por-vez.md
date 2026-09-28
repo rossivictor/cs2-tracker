@@ -5,19 +5,23 @@ aliases: [ADR-0005]
 fontes:
   - "transcript eb5adec0 @ 2026-09-26T22:10:19Z"
   - "transcript de92b218 @ 2026-09-05T02:41:33Z"
-  - "docs/runbooks/trilha-de-bots.md:13-29"
-  - "docs/runbooks/trilha-de-bots.md:59-70"
-  - "docs/runbooks/trilha-de-bots.md:251-253"
+  - "docs/runbooks/trilha-de-bots.md:13-30"
+  - "docs/runbooks/trilha-de-bots.md:62-73"
+  - "docs/runbooks/trilha-de-bots.md:256-258"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:14-54"
   - "docs/historico/2026-09-26-handoff-plugins-de-bot.md:15-18"
-  - "docker-compose.yml:63-65"
+  - "docker-compose.yml:62-64"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:64-68"
   - "transcript eb5adec0 @ 2026-09-27T02:25:52Z"
   - "transcript eb5adec0 @ 2026-09-27T02:46:34Z"
   - "PR #4"
   - "backup:temp-artifacts/eb5adec0/audit/critic.json (gaps[2]; top_risks[5])"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (sprint B1; Q2, Q7, Q9, Q16 e Q17)"
-atualizado: 2026-09-27
+  - "docs/runbooks/trilha-de-bots.md:303-369 (registro e épocas)"
+  - "docs/runbooks/trilha-de-bots.md:371-443 (fechamento, sobras, Q16 e Q17)"
+  - "repo:cs2-tracker-builds CS2-Bot-Randomizer/BotRandomizer.cs:95-110 (upstream 18d1510, ancestral de 276f1ce)"
+  - "AGENTS.md:15"
+atualizado: 2026-09-28
 ---
 
 # ADR-0005: Trilha de bots primeiro, uma variável por vez
@@ -34,9 +38,9 @@ O B1.1 mostrou que o primeiro passo aprovado não funciona como uma linha. A CSS
 
 - **Prioridade:** a trilha de bots (B1) é a primeira frente de produto do programa. Ela anda junto com as sprints Offline (H1, T1, K1...), que não tocam no caminho de jogo. Durante a B1, só card da B1 edita o compose.
 - **Uma variável por partida:** cada passo muda uma coisa só, é aplicado em janela e é validado numa partida normal do Victor ([ADR-0004](0004-jogo-sempre-jogavel.md)). Os confundidores ficam registrados: o overflow no signon, o update do SteamCMD no boot e o RayTrace.
-- **Quando as versões são acopladas, a variável é o par compatível.** Metamod + CSSharp sobem e voltam juntos (B1.3r, `docker-compose.yml:63-64`). O rollback restaura os dois. Um par descasado nunca é estado intermediário aceitável.
-- **Ordem:** B1.3r (o par, com a suíte ainda mascarada) → B1.4 BotAimImprover → B1.5 BotState → B1.6 BotBuy → B1.7 BotAI → B1.8 NadeSystem → B1.9 BotRandomizer `5dfe948` → B1.10 (fechamento). Plugin sem guarda confirmada passa antes por partida só de bots, em janela pré-partida (Q7=A).
-- **Fixo durante a B1:** o `botprofile.vpk` High (Q9=A). A MatchZy segue na 0.8.15. Download de versão ou de plugin só com OK explícito (G5).
+- **Quando as versões são acopladas, a variável é o par compatível.** Metamod + CSSharp sobem e voltam juntos (B1.3r, `docker-compose.yml:62-63`). O rollback restaura os dois. Um par descasado nunca é estado intermediário aceitável.
+- **Ordem:** B1.3r (o par, com a suíte ainda mascarada) → B1.4 BotAimImprover → B1.5 BotState → B1.6 BotBuy → B1.7 BotAI → B1.8 NadeSystem → B1.9 BotRandomizer `18d1510` (o plano dizia `5dfe948`, que não existe no clone do upstream) → B1.10 (fechamento). Plugin sem guarda confirmada passa antes por partida só de bots, em janela pré-partida (Q7=A).
+- **Fixo durante a B1:** o `botprofile.vpk` High (Q9=A; o VPK acabou trocado duas vezes, ver Resultado). A MatchZy segue na 0.8.15. Download de versão ou de plugin só com OK explícito (G5).
 - **Fora da B1:** plugins nativos do Metamod, RayTrace e BotHider ficam na B2, fora do backlog ativo, que só acontece se Q16=A. Plugin que não religar fica registrado pelo nome como degradado ou mascarado. O que fazer com ele é a Q17, respondida no fim da B1.
 
 ## Alternativas consideradas
@@ -53,9 +57,16 @@ O B1.1 mostrou que o primeiro passo aprovado não funciona como uma linha. A CSS
 - O B1.3r não cabe numa janela de "terminei" (15 a 30 min): ele pede a janela da Q4, com snapshot do volume antes e smoke só de bots depois, por causa do risco #1446 (stack overflow no ChangeTeam do primeiro bot, com Metamod 1469).
 - Verificação: G6 na janela (assinaturas pelo nome, as linhas `complete` das duas versões, zero segfault) e G7 na partida seguinte.
 
+## Resultado (B1.10, 28/09)
+
+- **Plugins:** B1.3r, B1.4b (BotAimImprover do upstream `c3d10f5`), B1.5, B1.6, B1.8 e B1.9 (BotRandomizer do upstream `276f1ce`) religados. Cada passo foi validado numa partida do Victor, as partidas 26 a 31, com as tags `jogavel-2026-09-27` a `jogavel-2026-09-28`. Nenhum plugin que ficou no ar tem assinatura falhando. O BotAI segue mascarado: o Victor pulou o B1.7 por causa do offset fixo do `CCSBot`, e o B1.7a investiga. RayTrace, BotHider, BotVision e BotController ficam na B2.
+- **Onde a trilha saiu da regra:** a partida 27 validou três mudanças juntas (B1.4, B1.4b e VPK Medium), por escolha do Victor. O VPK não ficou fixo: foi para o Medium em 27/09 e para o Low em 28/09, por pedido dele, e a decisão vigente está no [AGENTS.md](../../AGENTS.md). No boot da troca para o Low, o steamcmd subiu a build do CS2 (2000918 → 2000919) sem OK prévio, e a próxima partida valida as duas mudanças juntas.
+- **Épocas:** dez linhas, da época 0 à do VPK Low, com as partidas de cada uma. É a base da coluna `bot_suite` do S2.4 ([registro](../runbooks/trilha-de-bots.md#épocas)).
+- **Q16 e Q17:** as recomendações estão no [fechamento do runbook](../runbooks/trilha-de-bots.md#fechamento). Para a Q17, a recomendação é (A), que no BotAI é o que o Victor já fez na prática. Para a Q16, também (A), mas só depois de a época Low ser validada e a P1 estar estável. As duas decisões são dele.
+
 ## Status
 
-Aceito em 2026-09-26. Em 27/09 (UTC), o Victor escolheu testar o par numa janela, com portão, que é a opção (B) do runbook do B1.3r, e com ela aprovou os downloads. O B1.3r é entregue pelo PR #4, que só é mergeado com a janela aberta. O B1.10 atualiza este ADR com o resultado de cada plugin.
+Aceito em 2026-09-26. Em 27/09 (UTC), o Victor escolheu testar o par numa janela, com portão, que é a opção (B) do runbook do B1.3r, e com ela aprovou os downloads. O B1.3r é entregue pelo PR #4, que só é mergeado com a janela aberta. O B1.10 atualiza este ADR com o resultado de cada plugin, na seção Resultado (28/09).
 
 ## Fontes
 
