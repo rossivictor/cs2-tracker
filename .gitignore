@@ -13,6 +13,7 @@ docker/plugins/Cs2TrackerEvents/*
 # binário não é redistribuído aqui; o runbook do passo fixa repo, commit e
 # sha256 (docs/runbooks/b1.4b-botaimimprover-upstream.md).
 docker/plugins/BotAimImprover/
+docker/plugins/BotRandomizer/
 docker/plugins-src/*/bin/
 docker/plugins-src/*/obj/
 .venv/
