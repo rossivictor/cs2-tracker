@@ -307,9 +307,9 @@ refeito, use uma linha nova com o mesmo passo e sufixo (ex.: `2b`).
 | 2 · B1.4 | 27/09 15:20–15:23 ("terminei") | máscara do BotAimImprover removida (versão do volume) | igual | não precisa (sem escrita no volume) | BotAimImprover INATIVO: `PickNewAimSpot signature resolved to zero address` | — |
 | 2b · B1.4b | 27/09 15:44–15:56 ("Pode juntar") | BotAimImprover do upstream `c3d10f5` por bind mount + VPK Medium (15:34) | igual | não precisa (bind mount) | `[BotAimImprover] Loaded (Linux)`; sha no container = manifesto | — |
 | 3 · B1.5 | 27/09 18:38–18:56 ("terminei") | máscara do BotState removida (versão do volume) | igual | não precisa | Smarter-Bot 1.9.4 carregado, sem falha de assinatura; `BotController API not available` | OK: 10 bots em mirage e de novo após troca de mapa; 0 crash |
-| 4 · B1.6 | | | | | | |
-| 5 · B1.7 | | | | | | |
-| 6 · B1.8 | | | | | | |
+| 4 · B1.6 | 27/09 19:52–20:17 ("fechei o jogo, pode seguir") | máscara do BotBuy removida (volume) | igual | não precisa | BotBuyPatch 1.0.12 carregado; 0 linha proibida | OK: bots entram antes e depois da troca (readição com o mapa assentado) |
+| 5 · B1.7 | — | **pulado** (decisão do Victor, 27/09): BotAI escreve por offset fixo do CCSBot (`0x5100+0x0C`), deslocado pelo update de 23/09; upstream sem correção desde 27/08 | — | — | — | — |
+| 6 · B1.8 | 27/09 21:17–21:28 ("terminei") | máscara do NadeSystem removida (volume) | igual | não precisa | NadeSystem 1.2.1, "3703 grenades in DB"; sem EmitSoundFilter | OK: 5 rounds, 0 crash, replays de smoke/flash; 182 cegueiras |
 | 7 · B1.9 | | | | | | |
 
 ### Partida (G7)
@@ -318,10 +318,10 @@ refeito, use uma linha nova com o mesmo passo e sufixo (ex.: `2b`).
 |---|---|---|---|---|---|---|---|
 | 1 · B1.3r | events_63_map0, de_inferno (partida 26, 13x7, 5x5) | não (MD1) | 0 | 0 (nenhum overflow) | sim | **OK** (config-hash 55765314… igual) | jogavel-2026-09-27 |
 | 2 · B1.4 + 2b · B1.4b | events_64_map0, de_dust2 (partida 27, 13x8, 5x5) | não (MD1) | 0 | 0 (1 overflow só no signon) | sim | **OK** (após correção do detector, PR #15) | jogavel-2026-09-27-2 (VPK Medium) |
-| 3 · B1.5 | | | | | | | |
-| 4 · B1.6 | | | | | | | |
-| 5 · B1.7 | | | | | | | |
-| 6 · B1.8 | | | | | | | |
+| 3 · B1.5 | events_65_map0, de_inferno (partida 28, 13x8) | não | 0 | 0 | sim | **OK** | jogavel-2026-09-27-3 |
+| 4 · B1.6 | events_66_map0, de_dust2 (partida 29, 13x8) | não | 0 | 0 | sim | **OK** · armas distintas dos bots 17 (ref. 11) | jogavel-2026-09-27-4 |
+| 5 · B1.7 | — | — | — | — | — | pulado | — |
+| 6 · B1.8 | events_67_map0, de_dust2 (partida 30, 5x13) | não | 0 | 0 | sim | **OK** · cegueiras de bot 10,17/rd (ref. 3,33) | jogavel-2026-09-27-5 |
 | 7 · B1.9 | | | | | | | |
 
 ### Notas por passo
@@ -331,8 +331,8 @@ se vier (não bloqueia).
 
 - **1 · B1.3r:** nenhuma assinatura falhou. RoundDamageRecap (ed0ard) carregado e sem máscara. O container reiniciou às 13:48 sem recreate (config-hash igual). Jogo "liso" na impressão do Victor.
 - **2 · B1.4:** o BotAimImprover do volume (05/09) não carrega na build atual; a correção veio do upstream (B1.4b). Bots da partida 27 (com B1.4b + Medium): 14 utility + 19 flash, 63 cegueiras. Impressão do Victor: "bem desafiador e bem maneiro de jogar".
-- **3 · B1.5:** BotController nativo não disponível (Metamod 1469 recusa plugins da interface 17): recursos do Smarter-Bot que dependem dele ficam desligados até a B2. No smoke, depois do `changelevel` a quota volta a zero no load: é preciso readicionar os bots para testar a entrada deles no mapa novo.
-- **4 · B1.6:**
-- **5 · B1.7:**
-- **6 · B1.8:**
+- **3 · B1.5:** Victor: K/D 0,41, ADR 46 na partida 28 (média até 26/09: K/D 2,93, ADR 130) — "beeem mais desafiador". BotController nativo não disponível (Metamod 1469 recusa plugins da interface 17): recursos do Smarter-Bot que dependem dele ficam desligados até a B2. No smoke, depois do `changelevel` a quota volta a zero no load: é preciso readicionar os bots para testar a entrada deles no mapa novo.
+- **4 · B1.6:** CTs trocaram a AUG pela M4A1 (146 vs 30 hits); entropia de armas 3,18 bits (ref. 2,54). Com BotState + BotBuy os bots deixaram de usar granada (0 dano/cegueira nas partidas 28 e 29).
+- **5 · B1.7:** pulado. Religar só com correção upstream do offset `m_gameState` do CCSBot, ou após verificação do offset na build atual.
+- **6 · B1.8:** granadas voltaram (324 replays na partida 30). Aviso do engine "Grenade has no weapon info" nas granadas replayed: a contagem de utility do motor não credita o bot. Victor: 9/13, K/D 0,69, primeira derrota da trilha.
 - **7 · B1.9:**
