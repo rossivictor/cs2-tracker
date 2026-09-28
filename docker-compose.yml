@@ -162,7 +162,10 @@ services:
       # 'CBaseEntity_EmitSoundFilter' is not found. The latest update may have
       # broken it." — ele spawna entidade e pede som por um caminho que a
       # atualização quebrou.
-      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/NadeSystem
+      # B1.8: NadeSystem religado (versão do volume). Sem guarda de assinatura,
+      # mas as chamadas nativas estão em try/catch; o DispatchSpawn que dava
+      # segfault na 1.0.373 resolve na 1.0.375 (B1.3r). Volta: descomentar.
+      # - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/NadeSystem
       # Passo 1 (Camada 1): expõe as pastas onde o MatchZy grava demo e CSV
       # de stats direto no host, sobrepondo o volume nomeado cs2-data só
       # nesses subcaminhos — sem isso, precisaríamos de `docker cp` manual
