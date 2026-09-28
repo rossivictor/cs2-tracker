@@ -1,6 +1,6 @@
 ---
 tipo: adr
-status: proposto
+status: aceito
 aliases: [ADR-0001]
 fontes:
   - "transcript eb5adec0 @ 2026-09-26T22:10:19Z"
@@ -24,7 +24,7 @@ fontes:
   - "parser.py:311-315"
   - "backup:temp-artifacts/eb5adec0/audit/ (critic.json gaps[0]; notion.json; docs.json vision_digest; tx_inicio_31_08_05_09.json e tx_web_wizard_prototipos_19_09.json, vision)"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (cards S2.2, S5.3 e S5.4)"
-atualizado: 2026-09-27
+atualizado: 2026-09-28
 ---
 
 # ADR-0001: Visão: partidas avulsas agora, modo carreira no horizonte longo
@@ -77,7 +77,7 @@ Ainda em 19/09, o Victor escreveu: "Minha ideia principal é fazer um jogo manei
 
 ## Status
 
-Proposto em 2026-09-26, a partir da escolha do Victor ("Avulsas agora, carreira depois"). Os seis pontos de extensão e as checagens foram escritos por agente. **Pendente:** a leitura dele (critério do K1.2, ~20 min). O que ele mudar nessa leitura entra aqui, e só então o status passa a `aceito`, com a data.
+Proposto em 2026-09-26, a partir da escolha do Victor ("Avulsas agora, carreira depois"). Os seis pontos de extensão e as checagens foram escritos por agente. **Aceito em 2026-09-28:** o Victor leu e aprovou sem mudanças ("Ok"; critério do K1.2 cumprido).
 
 ## Fontes
 
