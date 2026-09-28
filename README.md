@@ -242,7 +242,7 @@ e antes de subir o servidor, e nosso `pre.sh` insere a entrada que falta no
 em [docs/SPEC.md §10](docs/SPEC.md) (Passo 0).
 
 As três variantes ficam no volume em `overrides/{Low,Medium,High}/` (instaladas à mão em 05/09, não vêm da imagem). Este
-projeto usa **Medium** desde 27/09/2026. Pra trocar:
+projeto usa **Low** desde 28/09/2026. Pra trocar:
 
 **Pare o servidor ANTES de copiar.** O jogo mantém o VPK mapeado em memória
 enquanto roda; sobrescrever o arquivo por baixo de um processo vivo derruba o
@@ -252,11 +252,11 @@ perfil novo passa a valer, mas a partida em andamento morre junto.
 
 ```bash
 docker stop cs2-spike
-docker run --rm -v cs2-tracker_cs2-data:/d alpine cp /d/game/csgo/overrides/Medium/botprofile.vpk /d/game/csgo/overrides/botprofile.vpk
+docker run --rm -v cs2-tracker_cs2-data:/d alpine cp /d/game/csgo/overrides/Low/botprofile.vpk /d/game/csgo/overrides/botprofile.vpk
 docker start cs2-spike
 ```
 
-Troque `Medium` por `High` pro perfil mais agressivo. Na prática: `Low`
+Troque `Low` por `Medium` ou `High` pro perfil mais agressivo. Na prática: `Low`
 segura um round casual, `Medium` chega perto de um jogo competitivo online e
 `High` é o mais próximo de um nível "pro" que os bots do CS2 alcançam.
 
