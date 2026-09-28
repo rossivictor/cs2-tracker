@@ -41,7 +41,7 @@ As regras para agentes ficam no [AGENTS.md](../AGENTS.md), na raiz. O board de s
 | ADR | Decisão | Status |
 |---|---|---|
 | [0000](adr/0000-modelo.md) | Modelo de ADR | modelo |
-| [0001](adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md) | Visão: partidas avulsas agora, carreira no horizonte longo | proposto (falta a leitura do Victor) |
+| [0001](adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md) | Visão: partidas avulsas agora, carreira no horizonte longo | aceito (28/09) |
 | [0002](adr/0002-kb-e-board-no-obsidian.md) | KB versionada em `docs/` e board no Obsidian, sem Notion | aceito |
 | [0003](adr/0003-repo-publico.md) | Repo público, sem uso comercial e sem PII nova | aceito |
 | [0004](adr/0004-jogo-sempre-jogavel.md) | O jogo está sempre jogável | aceito |
