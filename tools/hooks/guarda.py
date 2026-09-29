@@ -33,6 +33,9 @@ Bloqueia:
     o volume do Docker, por ferramenta de arquivo, redirecionamento, comando
     (rm, cp, mv, ln, tee, Set-Content...), curinga (rm -rf docker/*),
     chamada .NET ([IO.File]::Delete) ou código inline (python -c);
+  - leitura com curinga que casa o cs2_tracker.db (e -wal, -shm, -journal)
+    do checkout principal: origem de cp/Copy-Item/copy, cat/type/Get-Content
+    e sqlite3 (card B0.5b); pasta que não se resolve falha fechado;
   - docker logs / compose logs quando tools/preflight.py não devolve 0 ou 4;
   - no Write/Edit, dado pessoal e segredo (tools/hooks/pii.py): segredo do
     .env em qualquer arquivo do repositório; SteamID em docs/**, tests/**,
@@ -257,7 +260,7 @@ def _motivo_curinga(forma, absoluto, ctx, modo):
     ela, vale o nome (banco e .env)."""
     if absoluto is None:
         nome = forma.lower().rsplit("/", 1)[-1]
-        if any(fnmatch.fnmatchcase(banco, nome) for banco in _NOMES_DO_BANCO):
+        if _nome_casa_banco(nome):
             return f"o curinga {forma} casa o banco cs2_tracker.db", ALT_BANCO
         if nome.startswith(".") and fnmatch.fnmatchcase(".env", nome):
             return f"o curinga {forma} casa o .env", ALT_ENV
@@ -271,6 +274,48 @@ def _motivo_curinga(forma, absoluto, ctx, modo):
         if any(_segmentos_casam(padrao, alvo[:k]) for k in tamanhos):
             return (f"o curinga {forma} alcança {protegido}",
                     "apague ou mova só o que você criou, pelo nome, sem curinga")
+    return None
+
+
+def _nome_casa_banco(nome):
+    """O curinga do nome (já em minúsculas) casa cs2_tracker.db, -wal, -shm
+    ou -journal?"""
+    return any(fnmatch.fnmatchcase(banco, nome) for banco in _NOMES_DO_BANCO)
+
+
+ALT_LEITURA = ("banco em tmp_path ou fixture; dado real só numa cópia mode=ro pedida ao PM "
+               "(tools/backup.py, card B0.6); curinga só numa pasta que não seja o checkout "
+               "principal (o cs2_tracker.db da SUA worktree pode)")
+
+
+def _motivo_leitura(bruto, ctx):
+    """(motivo, alternativa) se o curinga de um argumento de leitura (origem
+    de cp/Copy-Item/copy, cat/type/Get-Content, sqlite3) casa o banco do
+    checkout principal, senão None (card B0.5b). Com a pasta conhecida, casa
+    segmento a segmento com <principal>/cs2_tracker.db e os lados: *.db e *
+    barram no checkout principal e passam na worktree. Pasta que não se
+    resolve ("$RAIZ"/..., /tmp do Git Bash) falha fechado: vale o nome."""
+    if bruto.startswith("(") and bruto.endswith(")"):  # (Join-Path $PWD 'x') do PowerShell
+        for caminho in _caminhos_de_expressao(bruto[1:-1], ctx):
+            achado = _motivo_leitura(caminho, ctx)
+            if achado:
+                return achado
+        return None
+    bruto = _expandir(bruto, ctx.env, ctx, "caminho", sistema=True)
+    forma = _barras(bruto).rstrip("/")
+    if not _CURINGA.search(forma):
+        return None
+    absoluto = _absoluto(bruto, ctx.cwd)
+    if absoluto is None:
+        if _nome_casa_banco(forma.lower().rsplit("/", 1)[-1]):
+            return (f"o curinga {forma} casa o nome do banco cs2_tracker.db e a pasta não se "
+                    "resolve: pode ser o checkout principal (falha fechada)", ALT_LEITURA)
+        return None
+    padrao = absoluto.lower().split("/")
+    for banco in _NOMES_DO_BANCO:
+        alvo = f"{ctx.principal}/{banco}"
+        if _segmentos_casam(padrao, alvo.lower().split("/")):
+            return f"o curinga {forma} lê {alvo}, o banco do checkout principal", ALT_LEITURA
     return None
 
 
@@ -887,6 +932,8 @@ def _analisar_palavras(palavras, dialeto, ctx, env_local=None, expandido=False):
     if prog in _TODOS_ESCRITORES:  # perl tem os dois: -e e -i
         for alvo, modo in _alvos_de_escrita(prog, args):
             _checar_caminho(alvo, ctx, modo, prog)
+    if prog in _LEITORES:
+        _checar_leitura(prog, args, ctx)
     if prog not in _SEM_PORTA:
         _porta_generica(prog, args)
     if (tratador is None or desconhecido) and prog not in _SO_TEXTO:
@@ -1025,6 +1072,22 @@ def _alvos_de_escrita(prog, args):
                 alvos.append(destino.rstrip("/\\") + "/" + _barras(origem).rsplit("/", 1)[-1])
         return [(a, "escrita") for a in alvos]
     return [(a, "escrita") for a in caminhos + pos]
+
+
+# Leitores cujo curinga não pode casar o banco do checkout principal (B0.5b):
+# origem de cópia, cat/type/Get-Content (gc) e sqlite3, inclusive -readonly.
+_LEITORES = _COPIAR | {"cat", "type", "get-content", "gc", "sqlite3"}
+
+
+def _checar_leitura(prog, args, ctx):
+    """Confere todo argumento, nomeado ou posicional: -Path, -LiteralPath,
+    -readonly <banco> e o destino também. Só barra curinga que casa o banco,
+    então conferir a mais não bloqueia `cp docs/*.md destino/`."""
+    nomeados, pos = _args_ps(args)
+    for alvo in [v for _nome, v in nomeados] + pos:
+        achado = _motivo_leitura(alvo, ctx)
+        if achado:
+            raise Bloqueio(f"{prog} (leitura) em {alvo}: {achado[0]}", achado[1])
 
 
 # ----------------------------------------------------------- tratadores
