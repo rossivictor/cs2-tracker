@@ -91,6 +91,7 @@ C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/preflight.py
 
 ## Onde mora o conhecimento
 
+- Ordem das sprints: [`docs/agents/sprints.md`](docs/agents/sprints.md). Leia antes de propor ou despachar card: sprint seguinte só começa com a anterior fechada, salvo exceção do Victor registrada lá. (H1.9)
 - `docs/`: KB em construção (`SPEC.md`, `features/`; depois `adr/`, `runbooks/`, `armadilhas/`). O código diz o quê; a KB diz o porquê. (K1)
 - Board: `C:/Users/Victor/Projetos/cs2-tracker/docs/board-cs2/`, vault do Obsidian que só existe no checkout principal. Nasce do modelo versionado em `tools/board/modelo/` pelo `-m tools.board iniciar`, que só cria o que falta e nunca sobrescreve. (Q21=A; H1.4)
 - Backups, auditoria e plano: `C:/Users/Victor/cs2-tracker-backups/2026-09-26/` (plano em `temp-artifacts/eb5adec0/plan/all.json`). (B0.2)
