@@ -301,6 +301,77 @@ def test_comando_normal_passa(repo, ferramenta, lugar, comando):
     assert _comando(repo, ferramenta, lugar, comando) == (0, "", "")
 
 
+# --------------------------------- leitura com curinga do banco (card B0.5b)
+# Destino em {F} (absoluto, fora do repositório): antes do B0.5b só o destino
+# era conferido, e ali o curinga não alcança nada protegido, então todos
+# estes passavam. Decisão: curinga puro (*, *.db) lê o banco quando a pasta é
+# o checkout principal e barra; na worktree passa; pasta que não se resolve
+# ($RAIZ sem valor, /tmp do Git Bash) falha fechado pelo nome.
+
+LEITURA_DO_BANCO_BLOQUEADA = [
+    # Os 4 do Problema do card, em Bash.
+    ("Bash", "wt", 'cp -p "$RAIZ"/cs2_tracker.db* "{F}/destino/"'),
+    ("Bash", "wt", 'cp "{P}"/cs2_tracker.d? "{F}/destino/"'),
+    ("Bash", "wt", 'cp "{P}"/cs2_*.db "{F}/destino/"'),
+    ("Bash", "wt", 'cat "{P}"/cs2_tracker.db* > "{F}/destino/c.db"'),
+    # Os 2 em PowerShell.
+    ("PowerShell", "wt", "Copy-Item -Path {PW}\\cs2_tracker.db* -Destination {F}\\destino"),
+    ("PowerShell", "wt", "Get-Content {PW}\\cs2_tracker.db*"),
+    # Variações: $RAIZ com valor, lados do banco, sqlite3 -readonly, type, copy,
+    # gc, -LiteralPath e Join-Path, subir da worktree, curinga puro no principal.
+    ("Bash", "wt", 'RAIZ="{P}"; cp -p "$RAIZ"/cs2_tracker.db* "{F}/destino/"'),
+    ("Bash", "wt", 'cat "{P}"/cs2_tracker.db-w?l > "{F}/destino/wal"'),
+    ("Bash", "wt", 'cp "{P}"/cs2_* "{F}/destino/"'),
+    ("Bash", "wt", "sqlite3 -readonly \"{P}\"/cs2_*.db '.tables'"),
+    ("Bash", "wt", "cat ../../../cs2_tracker.db*"),
+    ("Bash", "wt", "cat /tmp/*.db"),
+    ("Bash", "principal", "cat *.db"),
+    ("Bash", "principal", "cat *"),
+    ("PowerShell", "wt", "type {PW}\\cs2_tracker.d?"),
+    ("PowerShell", "wt", "gc {PW}\\cs2_tracker.db-shm*"),
+    ("PowerShell", "wt", "cmd /c copy {PW}\\cs2_tracker.db* {F}\\destino\\"),
+    ("PowerShell", "wt", "Copy-Item -LiteralPath {PW}\\cs2_tracker.db-journal* {F}\\destino"),
+    ("PowerShell", "wt", "Copy-Item (Join-Path '{PW}' 'cs2_tracker.db*') {F}\\destino"),
+]
+
+
+@pytest.mark.parametrize("ferramenta,lugar,comando", LEITURA_DO_BANCO_BLOQUEADA)
+def test_curinga_que_le_o_banco_do_principal_e_bloqueado(repo, monkeypatch, ferramenta, lugar,
+                                                        comando):
+    monkeypatch.delenv("RAIZ", raising=False)
+    codigo, erro, _ = _comando(repo, ferramenta, lugar, comando)
+    assert codigo == 2, erro
+    assert erro.startswith("guarda (B0.5) bloqueou:")
+    assert "(leitura)" in erro
+    assert "Em vez disso:" in erro
+    assert "mode=ro pedida ao PM" in erro and "tools/backup.py" in erro
+
+
+LEITURA_LIBERADA = [
+    ("Bash", "wt", 'cp docs/*.md "{F}/destino/"'),
+    ("Bash", "principal", 'cp docs/*.md "{F}/destino/"'),
+    ("Bash", "wt", 'cp tests/*.py *.json "{F}/destino/"'),
+    ("PowerShell", "wt", "Get-Content docs\\*.md"),
+    # O banco que a suíte cria na PRÓPRIA worktree: apagar e ler pelo nome.
+    ("Bash", "wt", "rm -f cs2_tracker.db"),
+    ("PowerShell", "wt", "Remove-Item cs2_tracker.db"),
+    ("Bash", "wt", "cat cs2_tracker.db*"),
+    ("Bash", "wt", "cat *"),
+    # O backup do B0.6 e a cópia que ele produz.
+    ("Bash", "principal", f"{PYTHON_DO_JOGO} tools/backup.py --destino \"{{F}}/bk\" "
+                          "--leitura-com-jogo"),
+    ("Bash", "wt", f"{PYTHON_DO_JOGO} tools/backup.py --destino \"{{F}}/bk\""),
+    ("Bash", "wt", 'cp "{F}"/bk/cs2_tracker.backup.* "{F}/copia/"'),
+    ("Bash", "principal",
+     "sqlite3 -readonly \"{F}/bk/cs2_tracker.backup.db\" 'select count(*) from matches'"),
+]
+
+
+@pytest.mark.parametrize("ferramenta,lugar,comando", LEITURA_LIBERADA)
+def test_curinga_que_nao_le_o_banco_do_principal_passa(repo, ferramenta, lugar, comando):
+    assert _comando(repo, ferramenta, lugar, comando) == (0, "", "")
+
+
 def test_compose_na_worktree_fala_do_volume_e_do_checkout_principal(repo):
     _, erro, _ = _comando(repo, "Bash", "wt", "docker compose up -d")
     assert "fora do checkout principal" in erro
