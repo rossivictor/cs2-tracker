@@ -1132,32 +1132,50 @@ _LEITORES_SIMPLES = {
     "cat", "tac", "nl", "head", "tail", "less", "more", "bat", "type", "get-content", "gc",
     "sqlite3", "xxd", "od", "hexdump", "strings", "format-hex", "base64", "base32", "md5sum",
     "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha512sum", "b2sum", "cksum", "sort",
-    "uniq", "cut", "paste", "fold", "fmt", "column", "jq", "yq", "diff", "cmp", "comm",
-    "import-csv"}
-# Cujo 1º argumento (fora das opções) é o padrão ou o script, não um arquivo.
+    "uniq", "cut", "paste", "fold", "fmt", "column", "diff", "cmp", "comm", "import-csv"}
+# Cujo 1º argumento (fora das opções) é o padrão, o filtro ou o script, não um
+# arquivo. jq e yq entram aqui: `jq '.env' x.json` lê x.json, não '.env'.
 _LEITORES_COM_PADRAO = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "sed", "awk", "gawk",
-                        "select-string", "sls"}
+                        "select-string", "sls", "jq", "yq"}
 _LEITORES = _COPIAR | _LEITORES_SIMPLES | _LEITORES_COM_PADRAO
 # Opções que dão o padrão ou o script: sobrando isso, todo argumento é arquivo.
 _DA_PADRAO = ("-e", "-f", "--regexp", "--file", "-pattern", "-regexp", "-file")
+# Destas o valor, na palavra seguinte, é o padrão e não um arquivo:
+# grep -e '\.env' x. No jq o -e é só o código de saída.
+_PADRAO_NA_PROXIMA = ("-e", "--regexp", "-pattern", "-regexp")
+# Opções cujo valor, na palavra seguinte, é glob, número ou tipo: não se lê
+# (grep -rn X --exclude .env .). Só as que nunca apontam um arquivo de entrada.
+_VALOR_NA_PROXIMA = {"--exclude", "--include", "--exclude-dir", "--include-dir", "--glob",
+                     "--iglob", "--type", "--type-not", "--max-count", "--after-context",
+                     "--before-context", "--context", "--directories", "--devices", "--color",
+                     "--colour", "--label", "-g", "-t", "-T", "-m", "-A", "-B", "-C", "-d", "-D",
+                     "-exclude", "-include", "-encoding", "-context"}
 
 
-def _alvos_sem_padrao(args):
-    """Palavras de um grep, rg, sed, awk ou Select-String que podem ser
+def _alvos_sem_padrao(args, prog=""):
+    """Palavras de um grep, rg, sed, awk, jq ou Select-String que podem ser
     arquivo: tudo, menos o padrão (a 1ª palavra que não é opção, se nenhuma
-    opção o deu). Errar pra mais só barra um padrão que seja o nome do banco."""
-    palavras, padrao_dado, so_palavras = [], False, False
+    opção o deu) e o valor de opção de glob ou número. Errar pra mais só barra
+    um padrão que seja o nome do banco."""
+    da_padrao = ("-f", "--file") if prog in ("jq", "yq") else _DA_PADRAO
+    na_proxima = () if prog in ("jq", "yq") else _PADRAO_NA_PROXIMA
+    palavras, padrao_dado, so_palavras, pular = [], False, False, False
     for a in args:
-        if so_palavras or not (len(a) > 1 and a[0] == "-"):
+        if pular:
+            pular = False
+        elif so_palavras or not (len(a) > 1 and a[0] == "-"):
             palavras.append(a)
         elif a == "--":
             so_palavras = True
         else:
             nome, _sep, valor = a.partition("=") if "=" in a else a.partition(":")
-            if nome.startswith(_DA_PADRAO) or nome.lower().startswith(_DA_PADRAO[2:]):
+            if nome.startswith(da_padrao) or nome.lower().startswith(da_padrao[2:]):
                 padrao_dado = True
+                pular = not valor and nome.lower() in na_proxima
             elif valor and nome.lower() in ("-path", "-literalpath", "-lp", "--file"):
                 palavras.append(valor)
+            elif not valor and (nome in _VALOR_NA_PROXIMA or nome.lower() in _VALOR_NA_PROXIMA):
+                pular = True
     return palavras if padrao_dado else palavras[1:]
 
 
@@ -1167,7 +1185,7 @@ def _alvos_de_leitura(prog, args):
     barra o que alcança o banco ou o .env, então conferir a mais não bloqueia
     `cp docs/*.md destino/`."""
     if prog in _LEITORES_COM_PADRAO:
-        return _alvos_sem_padrao(args)
+        return _alvos_sem_padrao(args, prog)
     nomeados, pos = _args_ps(args)
     return [v for _nome, v in nomeados] + pos
 
@@ -1183,13 +1201,58 @@ def _checar_leitura(prog, args, ctx):
 # variável; o resto (@(Get-ChildItem x), @($a + $b)) é comando ou expressão.
 _ITEM_LISTA_PS = r"""(?:'(?:[^']|'')*'|"[^"`]*"|\$(?:env:)?\w+|\$\{[^}]*\})"""
 _LISTA_PS = re.compile(rf"^\s*(?:{_ITEM_LISTA_PS}(?:\s*,\s*{_ITEM_LISTA_PS})*)?\s*$")
-_ARG_LISTA_PS = re.compile(r"^(?P<param>-[A-Za-z]\w*:)?@\((?P<dentro>.*)\)$", re.DOTALL)
+# O argumento abre uma lista: @(...) puro, ou com parênteses, $(...), cast ou
+# vírgula na frente: (@('a')), $(@('a')), [string[]]@('a'), -Path:(@('a')).
+_ABRE_LISTA_PS = re.compile(
+    r"^(?P<param>-[A-Za-z]\w*:)?(?:\$?\(|,|\[[\w.\[\]]+\])*@\(")
+# Depois do fecha-parênteses da lista só cabe o que não troca o valor: mais
+# parênteses, índice (@('a')[0]) e membro (@('a').FullName). Soma, pipe ou
+# outro @(...) depois dela muda o que o cmdlet recebe, e a guarda não segue.
+_RESTO_DE_LISTA_PS = re.compile(r"^(?:\)|\[[^\[\]]*\]|\.\w+(?:\(\))?)*$")
+
+
+def _fechar_arroba_ps(texto, ini):
+    """Índice do `)` que fecha o `@(` cujo interior começa em `ini`, contando
+    parênteses e pulando texto entre aspas; None se não fecha."""
+    fundo, i, n = 1, ini, len(texto)
+    while i < n:
+        c = texto[i]
+        if c == "'":
+            i = texto.find("'", i + 1)
+            while i != -1 and texto[i + 1:i + 2] == "'":  # '' dentro de '...'
+                i = texto.find("'", i + 2)
+            if i == -1:
+                return None
+        elif c == '"':
+            i += 1
+            while i < n and texto[i] != '"':
+                i += 2 if texto[i] == "`" else 1
+        elif c == "(":
+            fundo += 1
+        elif c == ")":
+            fundo -= 1
+            if fundo == 0:
+                return i
+        i += 1
+    return None
+
+
+def _lista_ps_do_argumento(a):
+    """None se `a` não abre uma lista; senão (param, interior), com interior
+    None quando o que vem depois do `)` da lista a guarda não sabe seguir."""
+    m = _ABRE_LISTA_PS.match(a)
+    if not m:
+        return None
+    fim = _fechar_arroba_ps(a, m.end())
+    if fim is None or not _RESTO_DE_LISTA_PS.match(a[fim + 1:]):
+        return m.group("param") or "", None
+    return m.group("param") or "", a[m.end():fim]
 
 
 def _itens_de_lista_ps(dentro, ctx, env):
     """Os itens da lista, com as variáveis conhecidas trocadas pelo valor, ou
     None se algum não se resolve (comando, expressão, $x sem valor)."""
-    if not _LISTA_PS.match(dentro):
+    if dentro is None or not _LISTA_PS.match(dentro):
         return None
     toks = _Leitor(dentro, "ps").ler()
     if any(tok.tipo != "p" or tok.aninhados for tok in toks):
@@ -1200,32 +1263,33 @@ def _itens_de_lista_ps(dentro, ctx, env):
 
 def _abrir_listas_ps(prog, args, brutos, ctx, env):
     """Copy-Item @('a','b') d vira Copy-Item a b d: o item de @(...) passa a
-    ser argumento do cmdlet, e os outros checadores o veem. Lista que não se
-    resolve falha fechado (card B0.5c). Valor de -Value, -Encoding e afins é
+    ser argumento do cmdlet, e os outros checadores o veem. Vale também com
+    índice, membro, parênteses ou $() em volta da lista (card B0.5c): abrir
+    todos os itens é mais estrito que o [0], e é o que a guarda quer. Lista
+    que não se resolve falha fechado. Valor de -Value, -Encoding e afins é
     texto, não caminho, e fica como está. `brutos` são os argumentos antes de
     trocar as variáveis: @($f) tem que abrir como variável, não como texto
     solto; já `$x = @('a')` só aparece na palavra expandida (args)."""
     saida, anterior = [], ""
     for expandido, bruto in zip(args, brutos):
-        a = bruto if _ARG_LISTA_PS.match(bruto) else expandido
-        m = _ARG_LISTA_PS.match(a)
-        param = (m.group("param") or "")[1:-1] if m else ""
+        a = bruto if "@(" in bruto else expandido
+        achada = _lista_ps_do_argumento(a)
+        param = achada[0][1:-1] if achada and achada[0] else ""
         e_valor = (param.lower() in _PS_NAO_CAMINHO
                    or (anterior.startswith("-") and ":" not in anterior
                        and anterior[1:].lower() in _PS_NAO_CAMINHO))
         anterior = a
-        if not m or e_valor:
+        if not achada or e_valor:
             saida.append(a)
             continue
-        itens = _itens_de_lista_ps(m.group("dentro"), ctx, env)
+        itens = _itens_de_lista_ps(achada[1], ctx, env)
         if itens is None:
             raise Bloqueio(f"{prog} com {a} no PowerShell: a guarda não consegue resolver a "
                            "expressão de @(...), e o cmdlet lê, copia, grava ou apaga arquivo "
                            "(falha fechada)",
                            "escreva o caminho literal (Copy-Item 'docs/x.md' destino), sem @(...) "
                            "nem variável sem valor no comando")
-        prefixo = m.group("param") or ""
-        saida.extend(prefixo + item for item in itens)
+        saida.extend(achada[0] + item for item in itens)
     return saida
 
 

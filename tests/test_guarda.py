@@ -446,7 +446,61 @@ LEITURA_LITERAL_BLOQUEADA = [
     ("PowerShell", "wt", "Move-Item @('docs/a.md' + 'b') {F}/destino", LISTA),
     ("PowerShell", "wt", "Copy-Item -Path:@(Get-ChildItem docs) {F}/destino", LISTA),
     ("PowerShell", "principal", "Remove-Item @('x.txt', $y)", LISTA),
+    # @(...) com índice, membro, parênteses ou $() em volta (reprovação do QA):
+    # o item literal é analisado como argumento do cmdlet.
+    ("PowerShell", "wt", "Remove-Item @('{P}/cs2_tracker.db')[0]", BANCO),
+    ("PowerShell", "wt", "Set-Content @('{P}/cs2_tracker.db')[0] 'x'", BANCO),
+    ("PowerShell", "wt", "Set-Content (@('{P}/cs2_tracker.db')) 'x'", BANCO),
+    ("PowerShell", "wt", "Move-Item (@('{P}/cs2_tracker.db')) {F}/destino", BANCO),
+    ("PowerShell", "wt", "Copy-Item (@('{P}/.env')) {F}/destino", ENV),
+    ("PowerShell", "wt", "Get-Content @('{P}/.env')[0]", ENV),
+    ("PowerShell", "wt", "Get-Content (@('{P}/.env'))", ENV),
+    ("PowerShell", "wt", "Get-Content -Path (@('{P}/.env'))", ENV),
+    ("PowerShell", "wt", "Get-Content -Path:(@('{P}/.env'))", ENV),
+    ("PowerShell", "wt", "Get-Content $(@('{P}/.env'))", ENV),
+    ("PowerShell", "wt", "Get-Content @('{P}/.env').FullName", ENV),
+    ("PowerShell", "wt", "Get-Content (@('docs/README.md', '{P}/.env')[1])", ENV),
+    ("PowerShell", "wt", "Get-Content ((@('{P}/.env')))[0]", ENV),
+    # Expressão irresolúvel em volta ou dentro: falha fechado.
+    ("PowerShell", "wt", "Remove-Item @($sem_valor)[0]", LISTA),
+    ("PowerShell", "wt", "Remove-Item (@($sem_valor))", LISTA),
+    ("PowerShell", "wt", "Remove-Item @(Get-ChildItem {P} -Filter *.db)[0]", LISTA),
+    ("PowerShell", "wt", "Get-Content @(Get-ChildItem {P} -Force -Filter .env).FullName", LISTA),
+    ("PowerShell", "wt", "Get-Content @('docs/a.md')+@('{P}/.env')", LISTA),
+    ("PowerShell", "wt", "Get-Content @('docs/a.md')+'{P}/.env'", LISTA),
+    # O -Path:arquivo e o -e 'padrão' continuam lendo o arquivo protegido.
+    ("Bash", "wt", "grep -e x {P}/.env", ENV),
+    ("Bash", "wt", "grep -n -e '\\.env' -f {P}/.env x", ENV),
+    ("Bash", "wt", "jq '.a' {P}/.env", ENV),
+    ("Bash", "wt", "jq -r .env {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "rg -g '*.py' X {P}/.env", ENV),
+    ("PowerShell", "wt", "Select-String -Path {P}/.env -Pattern '\\.env'", ENV),
+    ("PowerShell", "wt", "Select-String -Pattern '.env' -Path {P}/.env", ENV),
 ]
+
+# Os cmdlets de leitura, cópia, escrita e remoção do cruzamento do QA, contra as
+# formas de @(...) com algo em volta: 7 envoltórios x 33 cmdlets.
+CMDLETS_DE_ARQUIVO = [
+    "Get-Content", "gc", "type", "cat", "Import-Csv", "Format-Hex",
+    "Copy-Item", "cpi", "copy", "cp", "Move-Item", "mi", "move", "mv", "Rename-Item", "ren",
+    "Remove-Item", "ri", "rm", "del", "erase", "rd", "rmdir",
+    "Set-Content", "sc", "Add-Content", "ac", "Out-File", "Clear-Content", "clc", "New-Item",
+    "ni", "tee"]
+ENVOLTORIOS_DE_LISTA = ["@('{P}/cs2_tracker.db')[0]", "(@('{P}/cs2_tracker.db'))",
+                        "$(@('{P}/cs2_tracker.db'))", "@('{P}/cs2_tracker.db').FullName",
+                        "(@('{P}/cs2_tracker.db'))[0]", "@(@('{P}/cs2_tracker.db'))",
+                        "-Path:(@('{P}/cs2_tracker.db'))"]
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("envoltorio", ENVOLTORIOS_DE_LISTA)
+@pytest.mark.parametrize("cmdlet", CMDLETS_DE_ARQUIVO)
+def test_lista_do_powershell_com_algo_em_volta_fecha_nos_cmdlets_de_arquivo(
+        repo, cmdlet, envoltorio, preflight_do_jogo):
+    codigo, erro, _ = _comando(repo, "PowerShell", "wt", f"{cmdlet} {envoltorio} {{F}}/d",
+                               preflight=lambda: preflight_do_jogo)
+    assert codigo == 2, erro
+    assert "Em vez disso:" in erro
 
 
 @pytest.mark.parametrize("preflight_do_jogo", [0, 3])
@@ -495,6 +549,31 @@ LEITURA_LITERAL_LIBERADA = [
     ("PowerShell", "wt", "Get-ChildItem @($sem_valor)"),  # cmdlet que não lê nem escreve
     ("PowerShell", "wt", "$linhas = @(Get-Content docs/README.md); $linhas.Count"),
     ("PowerShell", "wt", "git add @('docs/README.md')"),
+    # @(...) com índice, membro, parênteses ou $() em volta, em arquivo da worktree.
+    ("PowerShell", "wt", "Copy-Item @('docs/README.md')[0] {F}\\destino"),
+    ("PowerShell", "wt", "Copy-Item (@('docs/README.md')) {F}\\destino"),
+    ("PowerShell", "wt", "Copy-Item -Path:(@('docs/README.md')) -Destination {F}\\destino"),
+    ("PowerShell", "wt", "Get-Content (@('docs/README.md'))[0]"),
+    ("PowerShell", "wt", "Get-Content $(@('docs/README.md'))"),
+    ("PowerShell", "wt", "Get-Content @('docs/README.md').FullName"),
+    ("PowerShell", "wt", "Remove-Item (@('cs2_tracker.db'))"),
+    ("PowerShell", "wt", "Set-Content docs/nota.md -Value (@('a', 'b'))"),
+    ("PowerShell", "wt", "Get-ChildItem (@($sem_valor))[0]"),  # cmdlet que não lê nem escreve
+    ("PowerShell", "wt", "Set-Content docs/nota.md 'texto @(com lista) no meio'"),
+    # O valor de -e, --regexp e -Pattern é padrão, e o de --exclude é glob: não é
+    # arquivo. O jq lê o arquivo, não o filtro.
+    ("Bash", "wt", "grep -n -e '\\.env' AGENTS.md"),
+    ("Bash", "wt", "rg -n -e '\\.env' AGENTS.md"),
+    ("Bash", "wt", "grep -n --regexp '\\.env' AGENTS.md"),
+    ("Bash", "wt", "grep -rn X --exclude .env ."),
+    ("Bash", "wt", "grep -rn X --exclude=.env ."),
+    ("Bash", "wt", "rg -g '.env' X docs"),
+    ("Bash", "wt", "sed -n -e '/.env/p' docs/README.md"),
+    ("Bash", "wt", "jq '.env' x.json"),
+    ("Bash", "wt", "jq -e '.env' x.json"),
+    ("PowerShell", "wt", "Select-String -Path AGENTS.md -Pattern '\\.env'"),
+    ("PowerShell", "wt", "Select-String -Pattern '.env' -Path AGENTS.md"),
+    ("PowerShell", "wt", "Select-String -Pattern:'.env' -Path:AGENTS.md"),
 ]
 
 
