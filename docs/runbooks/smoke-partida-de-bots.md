@@ -11,6 +11,7 @@ fontes:
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:547-581 (passo 11, fechamento)"
   - "docs/runbooks/b1.9-botrandomizer-upstream.md:47-57"
   - "commit 5095d29 (esperar_warmup nasce no B0.9b, 28/09, depois dos smokes de 27/09)"
+  - "backup:../2026-09-27/b1.5/docker-logs-smoke.txt (Pronto e StartWarmup das duas trocas: linhas 218, 374, 460 e 604)"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:114-138 (Pronto no OnMapStart)"
   - "server-configs/cfg/gamemode_competitive_server.cfg:9-11"
   - "docker-compose.yml:42"
@@ -120,8 +121,10 @@ adiciona os bots da partida um a um e reafirma a quota (`start_match.py:345-370`
   load, **antes** do `Host activate` e do warmup da MatchZy. Nos logs dos smokes do B1.5, do
   B1.6 e do B1.9 (`docker-logs-smoke.txt` das coletas em
   `C:/Users/Victor/cs2-tracker-backups/2026-09-27/<passo>/`), a linha
-  `[MatchZy] [StartWarmup] ... Executing Warmup CFG from MatchZy/warmup.cfg` veio 4,0 s, 4,0 s e
-  4,35 s depois do `Pronto`. Bot readicionado antes disso cai quando o warmup zera a quota.
+  `[MatchZy] [StartWarmup] ... Executing Warmup CFG from MatchZy/warmup.cfg` veio de 1,5 s a
+  4,35 s depois do `Pronto`: no B1.5, 4,00 s na 1ª troca (de_inferno, linhas 218 e 374) e
+  1,52 s na 2ª (de_mirage, linhas 460 e 604); 4,02 s no B1.6 (linhas 187 e 342) e 4,35 s no
+  B1.9 (linhas 339 e 495). Bot readicionado antes disso cai quando o warmup zera a quota.
 - **O que fazer:** depois do `changelevel`, espere o `Pronto` novo, **depois** o `StartWarmup`
   novo, e mais uma folga, até ~30 s contados do `changelevel` (o que deu certo no B1.9). Só
   então reenvie as cvars de entrada e confira o `status`. A folga além do `StartWarmup` não foi
@@ -254,9 +257,11 @@ for c in get5_status bot_join_after_player sv_hibernate_when_empty bot_quota bot
 
 - O `fechamento-rcon.txt` precisa bater com a [referência](#referência-do-fechamento): `get5_status` none,
   `bot_join_after_player` true, `sv_hibernate_when_empty` e `mp_ignore_round_win_conditions`
-  false. `bot_quota` e `bot_quota_mode` saem do `gamemode_competitive_server.cfg`, reexecutado
-  no load do `de_mirage`: `10 fill` é o normal depois dessa troca (fechamento do B1.5), e `0`
-  também é jogável ([valores do boot](#valores-do-boot)).
+  false. `bot_quota` e `bot_quota_mode` são a única diferença aceita em relação à referência:
+  saem do `gamemode_competitive_server.cfg`, reexecutado no load do `de_mirage`, e por isso
+  `10 fill` é o normal depois dessa troca (fechamento do B1.5) mesmo que a referência lida
+  logo depois do boot diga `bot_quota 0`; os dois valores são jogáveis
+  ([valores do boot](#valores-do-boot)).
 - Se algo não voltar, um `docker restart cs2-spike` zera as cvars. Depois dele confira a
   build de novo: o SteamCMD roda a cada start (confundidor 3 da trilha).
 - Depois daqui, o runbook do passo segue com o próprio fechamento da janela (remoção da marca,
