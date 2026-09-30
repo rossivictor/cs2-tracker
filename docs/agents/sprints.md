@@ -4,7 +4,7 @@ status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.sprints)"
   - "backup:temp-artifacts/eb5adec0/plan/plan.md (seção 3, Sequência)"
-atualizado: 2026-09-28
+atualizado: 2026-09-30
 ---
 
 # Ordem das sprints
@@ -75,17 +75,19 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 | 27/09 | Passos da B1 por runbook à mão enquanto o `jogavel.py` não existe | PM | ver `docs/runbooks/trilha-de-bots.md` |
 | 26–28/09 | K1.1, K1.2 e K1.3 feitos antes da T1 | sem registro de decisão | ficam como estão; não abrem precedente |
 
-## Posição em 28/09
+## Posição em 30/09
 
-Tirada do board (`docs/board-cs2/`, fora do git): campos `Status` e `Depende de` dos cards, depois do semeio e do B1.10.
+Tirada do board (`docs/board-cs2/`, fora do git): campos `Status` e `Depende de` dos cards. O board manda no status; esta seção diz só quem é a sprint da vez e a fila dela, e pode estar um passo atrás.
 
 - **Trilho:** B1 fechada pelo B1.10 (tag `jogavel-2026-09-28`). A **B0 é a sprint aberta** e vai primeiro.
-- **Pista paralela:** a **H1 é a sprint aberta** (H1.1b, H1.7, H1.8, H1.9). O H1.8 depende do B0.7b, então a H1 só fecha depois da B0. T1 espera a H1.
-- **Fila da B0**, na ordem:
-  1. B0.3 e B0.6 (o B0.7 depende dos dois), depois B0.5b e B0.9b. Sem servidor.
+- **Pista paralela:** a **H1 é a sprint aberta** (H1.1b, H1.7, H1.8, H1.9). O H1.8 depende do B0.7b, então a H1 só fecha depois do B0.7b. T1 espera a H1.
+- **Feito na B0 em 29/09:** B0.3, B0.6, B0.5b e B0.9b (PRs #25 a #28).
+- **Fila da B0**, na ordem aprovada pelo Victor em 30/09:
+  1. B0.5c (guarda: leitura literal do banco e do `.env`, e `@(...)` no PowerShell). Sem servidor.
   2. B0.7 e B0.7b (`jogavel.py`). Sem servidor.
-  3. B0.8 e B0.11 (compose), aplicados na Janela 0 (B0.9), que o Victor abre. A partida seguinte dele fecha a B0 com uma tag.
+  3. B0.5d (guarda: formas indiretas) e B0.9c (acertos do runbook do smoke). Sem servidor.
+  4. B0.8 e B0.11 (compose), aplicados na Janela 0 (B0.9), que o Victor abre. A partida seguinte dele fecha a B0 com uma tag.
 - **Sobras da B1:** B1.10b, B1.7a e B1.8b sem servidor; B1.7 (BotAI) e B1.2 (depende do T1.1) no caminho de jogo, depois da B0.
 - **Validação pendente no jogo:** VPK Low e a build 2000919 do CS2, na próxima partida do Victor.
 
-Atualize esta seção a cada sprint fechada ou exceção nova.
+Quem fecha uma sprint, abre exceção ou muda a fila atualiza esta seção no mesmo dia (PM). Sprint nova semeada no board ganha a faixa na tabela "Ordem de execução".
