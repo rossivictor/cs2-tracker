@@ -10,7 +10,9 @@ Voltar ao jogável e atualizar o checkout principal sem depender de agente
              a última jogavel-* (ou X) e recria o container se a infra difere.
   atualizar  [--seco]: traz a origin/main com preflight 0; commit de infra só
              com janela aberta (preflight 4).
-  janela     abrir|fechar|vigiar: fatia 2 do B0.7, ainda não implementado.
+  janela     abrir --por "frase" [--teto N] | fechar [--feito ITEM...] |
+             vigiar [--intervalo S], todos com [--seco] e só no checkout
+             principal (fatia 2; protocolo, seção 8).
 
 Todo git, docker e preflight passa pelo Executor, o único ponto que roda
 processo: os testes o trocam por um docker falso e um repo em tmp_path. Com
@@ -18,9 +20,11 @@ processo: os testes o trocam por um docker falso e um repo em tmp_path. Com
 impresso; o que só lê roda (git diff, docker compose config, preflight). O
 git fetch do `atualizar` roda mesmo no --seco: só mexe em origin/*.
 
-Saída: 0 ok; 1 falha; 2 uso errado; 3 partida em curso ou preflight que não
-libera; 5 recusado por regra (infra sem janela, confirmação errada, branch);
-6 docker/pre.sh com '\\r' depois da troca (recreate abortado).
+Saída: 0 ok; 1 falha; 2 uso errado; 3 partida em curso, preflight que não
+libera ou vigília abortada por processo do Victor; 5 recusado por regra
+(infra sem janela, confirmação errada, branch, janela já aberta, checklist
+pendente); 6 docker/pre.sh com '\\r' depois da troca (recreate abortado);
+7 janela vencida (teto ou 45 min pelo mtime da marca).
 """
 from __future__ import annotations
 
@@ -40,7 +44,7 @@ from typing import Callable, Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import preflight  # noqa: E402
 
-OK, FALHA, USO, PARTIDA, RECUSA, CRLF = 0, 1, 2, 3, 5, 6
+OK, FALHA, USO, PARTIDA, RECUSA, CRLF, VENCIDA = 0, 1, 2, 3, 5, 6, 7
 
 CONTAINER = "cs2-spike"
 COMPOSE = "docker-compose.yml"
@@ -124,9 +128,10 @@ class Executor:
     def docker(self, *args, **kw) -> Chamada:
         return self("docker", *args, **kw)
 
-    def para_preflight(self, argv, **_kw):
-        """Adapta o executor ao `executar` do preflight.listar_processos."""
-        ch = self(*argv)
+    def para_preflight(self, argv, **kw):
+        """Adapta o executor ao `executar` do preflight.listar_processos,
+        com o timeout dele (30 s), não o de 120 s do executor."""
+        ch = self(*argv, timeout=kw.get("timeout"))
         if ch.codigo is None:
             raise subprocess.SubprocessError(ch.erro)
         return subprocess.CompletedProcess(argv, ch.codigo, ch.saida.encode("utf-8"), b"")
@@ -268,14 +273,20 @@ def sinais_de_partida(ex: Executor, agora: float) -> tuple:
     (preflight.py, sinais_nos_processos): para ele, o cs2.exe já basta para
     dar 3. Aqui o cs2.exe é só aviso, então o python cego bloqueia sempre:
     numa partida viva o cs2.exe está sempre lá, e o watcher seria invisível."""
-    bloqueios, avisos = [], []
     evento = evento_de_round_recente(ex.raiz, agora)
-    if evento:
-        bloqueios.append(evento)
+    bloqueios, avisos = sinais_de_processo(ex)
+    return ([evento] if evento else []) + bloqueios, avisos
+
+
+def sinais_de_processo(ex: Executor) -> tuple:
+    """(bloqueios, avisos) só da lista de processos, sem o current.jsonl:
+    é o que o `janela vigiar` olha, porque na janela quem escreve no
+    current.jsonl é o servidor (boot, changelevel, smoke só de bots)."""
+    bloqueios, avisos = [], []
     try:
         processos = preflight.listar_processos(ex.para_preflight)
     except preflight.DeteccaoFalhou as exc:
-        return bloqueios + [f"sem certeza sobre o watcher: {exc}"], avisos
+        return [f"sem certeza sobre o watcher: {exc}"], avisos
     proprios = frozenset({os.getpid(), os.getppid()})
     cegos = [p.pid for p in processos if p.linha is None and p.pid not in proprios
              and preflight._eh_python(p.nome)]
@@ -433,13 +444,19 @@ def cmd_status(args, ex: Executor, agora: float, **_kw) -> int:
     candidato = ex.raiz / CANDIDATO
     if candidato.is_file():
         print(f"candidato: {candidato.read_text(encoding='utf-8').strip()}")
-    ch = ex.docker("ps", "-a", "--filter", f"name=^{CONTAINER}$", "--format", "{{.Status}}")
-    print(f"container {CONTAINER}: {ch.saida.strip() or 'não existe'}" if ch.ok else
-          f"container {CONTAINER}: docker indisponível ({ch.erro.strip() or ch.codigo})")
+    print(f"container {CONTAINER}: {estado_container(ex)}")
     return OK
 
 
-def cmd_voltar(args, ex: Executor, agora: float, entrada: Callable = input) -> int:
+def estado_container(ex: Executor) -> str:
+    """Status do `docker ps` ("Up 2 hours", "Exited (255) ..."), só leitura."""
+    ch = ex.docker("ps", "-a", "--filter", f"name=^{CONTAINER}$", "--format", "{{.Status}}")
+    if not ch.ok:
+        return f"docker indisponível ({ch.erro.strip() or ch.codigo})"
+    return ch.saida.strip() or "não existe"
+
+
+def cmd_voltar(args, ex: Executor, agora: float, entrada: Callable = input, **_kw) -> int:
     alvo = args.tag or ultima_tag_jogavel(ex)
     if not alvo or not ex.git("rev-parse", "--verify", "--quiet", f"{alvo}^{{commit}}").ok:
         print(f"voltar: tag {alvo or 'jogavel-*'} não encontrada")
@@ -521,10 +538,219 @@ def cmd_atualizar(args, ex: Executor, **_kw) -> int:
     return OK
 
 
-def cmd_janela(args, ex: Executor, **_kw) -> int:
-    print(f"janela {args.acao}: ainda não implementado (fatia 2 do card B0.7). "
-          "Siga o runbook do passo.")
-    return FALHA
+# ------------------------------------------------------------ janela
+
+MARCA = preflight.MARCA_JANELA
+TETO_MAX_MIN = preflight.DURACAO_MAX_JANELA_S // 60
+INTERVALO_VIGIA_S = 30  # protocolo 8: vigiar a cada ≤30 s
+AVISO_FIM_S = 5 * 60    # avisa quando faltam 5 min para o teto
+PARADO_MAX_S = 5 * 60   # container parado no máximo ~5 min por passo
+# Checklist de fechamento (G6) que pede RCON ou docker exec: à mão até o
+# B0.7b, e o `fechar` só passa com cada um confirmado por --feito.
+MANUAIS = {
+    "matchzy": 'MatchZy sem partida carregada: get5_status com "gamestate":"none" '
+               "(css_endmatch ou restart), pela RCON",
+    "cvars": 'cvars nos valores do "antes" da janela, pela RCON: mp_ignore_round_win_conditions 0, '
+             "sv_hibernate_when_empty, bot_quota e bot_join_after_player "
+             "(docs/runbooks/smoke-partida-de-bots.md)",
+    "sha256": "sha256 dos arquivos montados dentro do container = checkout (docker exec "
+              "sha256sum; o `coletar` do B0.7b automatiza)",
+}
+
+
+def _hora(t: float, formato: str = "%H:%M:%S") -> str:
+    return datetime.fromtimestamp(t).strftime(formato)
+
+
+def ler_marca(raiz: Path) -> dict:
+    """O que o `abrir` gravou na marca. Marca feita à mão vem vazia; o
+    preflight só lê o mtime dela."""
+    try:
+        dados = json.loads((raiz / MARCA).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return dados if isinstance(dados, dict) else {}
+
+
+def registrar(ex: Executor, dados: dict, linha: str, t: float) -> None:
+    """Acrescenta uma linha ao registro da janela (logs/janelas/<data da abertura>.md)."""
+    rel = dados.get("registro") or f"logs/janelas/{_hora(t, '%Y-%m-%d')}.md"
+    if ex.seco:
+        print(f"[seco] {rel} += {linha.strip()}")
+        return
+    arquivo = ex.raiz / rel
+    arquivo.parent.mkdir(parents=True, exist_ok=True)
+    with arquivo.open("a", encoding="utf-8") as f:
+        f.write(linha + "\n")
+
+
+def _avisar(ex: Executor, dados: dict, t: float, texto: str) -> None:
+    print(f"{_hora(t)} {texto}")
+    registrar(ex, dados, f"- {_hora(t)} vigiar: {texto}", t)
+
+
+def cmd_janela(args, ex: Executor, entrada: Callable = input,
+               relogio: Callable = time.time, **_kw) -> int:
+    if not eh_checkout_principal(ex.raiz):
+        print(f"janela recusada: {ex.raiz} não é o checkout principal, onde mora a marca")
+        return RECUSA
+    acao = {"abrir": janela_abrir, "fechar": janela_fechar, "vigiar": janela_vigiar}[args.acao]
+    return acao(args, ex, relogio, entrada)
+
+
+def janela_abrir(args, ex: Executor, relogio: Callable, _entrada) -> int:
+    marca = ex.raiz / MARCA
+    if marca.exists():
+        # Nada de renovar: a idade conta do mtime, e renovar é fechar e abrir
+        # de novo com novo OK do Victor (janela de 27/09, 08:23).
+        print(f"abrir recusado: janela {estado_janela(ex.raiz, relogio())}. Feche com `janela fechar`")
+        return RECUSA
+    por = (args.por or "").strip()
+    if not por:
+        print('abrir recusado: passe --por "<frase literal do Victor>" (o "pode mexer no servidor", '
+              'o "terminei" da trilha de bots ou o OK dele repassado pelo PM)')
+        return RECUSA
+    if not 0 < args.teto <= TETO_MAX_MIN:
+        print(f"abrir recusado: --teto vai de 1 a {TETO_MAX_MIN} min")
+        return USO
+    codigo, motivo = consultar_preflight(ex)
+    print(motivo)
+    if codigo != preflight.LIVRE:
+        print("abrir recusado: precisa de preflight 0 (janela nunca abre com o Victor jogando)")
+        return PARTIDA if codigo == preflight.JOGANDO else RECUSA
+    t = relogio()
+    head = ex.git("rev-parse", "HEAD").saida.strip()
+    ramo = ex.git("branch", "--show-current").saida.strip() or "destacado"
+    container = estado_container(ex)
+    dados = {"aberta_em": _hora(t, "%Y-%m-%dT%H:%M:%S"), "por": por, "teto_min": args.teto,
+             "head": head, "container": container,
+             "registro": f"logs/janelas/{_hora(t, '%Y-%m-%d')}.md"}
+    if ex.seco:
+        print(f"[seco] criaria {MARCA.as_posix()}: {json.dumps(dados, ensure_ascii=False)}")
+    else:
+        marca.parent.mkdir(parents=True, exist_ok=True)
+        marca.write_text(json.dumps(dados, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        os.utime(marca, (t, t))  # a idade conta daqui; ninguém mais mexe no mtime
+    fim = t + args.teto * 60
+    for linha in (f"\n# Janela {_hora(t, '%Y-%m-%d %H:%M')} (jogavel.py janela abrir)",
+                  f'- Aberta por: "{por}" · teto {args.teto} min',
+                  f"- Preflight: 0 às {_hora(t)} · marca ABERTA {_hora(t)} (vence {_hora(fim)})",
+                  f"- Checkout: {ramo} {head[:9]} · container {CONTAINER}: {container}"):
+        registrar(ex, dados, linha, t)
+    print(f"{'[seco] ' if ex.seco else ''}janela aberta às {_hora(t)}; vence às {_hora(fim)}. "
+          "Antes de mexer: backup.py, docker "
+          "logs salvos e snapshot se for mexer no volume. Deixe rodando: jogavel.py janela vigiar")
+    return OK
+
+
+def janela_fechar(args, ex: Executor, relogio: Callable, _entrada) -> int:
+    marca = ex.raiz / MARCA
+    if not marca.exists():
+        print(f"fechar: nenhuma janela aberta (sem {MARCA.as_posix()})")
+        return FALHA
+    dados, t = ler_marca(ex.raiz), relogio()
+    print(f"janela {estado_janela(ex.raiz, t)}\nchecklist de fechamento (G6):")
+    estado, antes = estado_container(ex), str(dados.get("container") or "")
+    # De pé, ou deixado como estava: parado já na abertura (janela VPK de 28/09).
+    como_estava = antes and not antes.startswith("Up") and not estado.startswith("docker indisponível")
+    feitos = set(args.feito or [])
+    itens = [(estado.startswith("Up") or bool(como_estava),
+              f"container {CONTAINER}: {estado} (na abertura: {antes or 'não registrado'})"),
+             (contar_cr(ex.raiz) == 0, "docker/pre.sh sem '\\r'")]
+    itens += [(chave in feitos, f"{chave} (à mão): {texto}") for chave, texto in MANUAIS.items()]
+    for ok, texto in itens:
+        print(f"  [{'ok' if ok else 'FALTA'}] {texto}")
+    if not all(ok for ok, _ in itens):
+        pendentes = [c for c in MANUAIS if c not in feitos]
+        extra = f" Confira à mão e passe --feito {' --feito '.join(pendentes)}." if pendentes else ""
+        print(f"fechar recusado: a marca fica até o checklist passar.{extra}")
+        return RECUSA
+    head = ex.git("rev-parse", "HEAD").saida.strip()
+    registrar(ex, dados, f"- Fechamento {_hora(t)} (jogavel.py janela fechar): container {estado} · "
+              f"pre.sh LF · à mão, pelo servidor: {', '.join(MANUAIS)} · checkout {head[:9]} "
+              f"(na abertura {str(dados.get('head') or '?')[:9]}) · ABERTA removida", t)
+    if ex.seco:
+        print(f"[seco] apagaria {MARCA.as_posix()}")
+    else:
+        marca.unlink()
+    print("janela fechada")
+    return OK
+
+
+def janela_vigiar(args, ex: Executor, relogio: Callable, entrada: Callable) -> int:
+    """Laço a cada ≤30 s. O tempo vem do relógio de parede e do mtime da
+    marca, nunca da soma dos ciclos: um comando preso (o docker que esperou
+    aprovação por horas em 27/09) aparece como ciclo lento no registro e não
+    esconde o vencimento."""
+    if not 0 < args.intervalo <= INTERVALO_VIGIA_S:
+        print(f"vigiar: --intervalo vai até {INTERVALO_VIGIA_S} s")
+        return USO
+    dados = ler_marca(ex.raiz)
+    teto_min = dados.get("teto_min")
+    teto = min(teto_min * 60 if isinstance(teto_min, int) and teto_min > 0 else TETO_MAX_MIN * 60,
+               TETO_MAX_MIN * 60)
+    vigiar_container = str(dados.get("container") or "").startswith("Up")
+    avisou_fim = avisou_parado = False
+    parado_desde = None
+    print(f"vigiando a janela a cada {args.intervalo:g} s (teto {teto // 60} min)")
+    while True:
+        ex.historico.clear()  # só o ciclo atual: a listagem de processos é grande
+        inicio = relogio()
+        bloqueios, avisos = sinais_de_processo(ex)
+        if bloqueios or avisos:
+            return _abortar(ex, dados, bloqueios + avisos, relogio, entrada)
+        estado = estado_container(ex)
+        t = relogio()
+        if t - inicio > INTERVALO_VIGIA_S:
+            lenta = max(ex.historico, key=lambda c: c.segundos)
+            _avisar(ex, dados, t, f"ciclo de {t - inicio:.0f} s (limite {INTERVALO_VIGIA_S} s): "
+                                  f"`{' '.join(lenta.argv)}` levou {lenta.segundos:.0f} s")
+        try:
+            idade = preflight.idade_da_marca(ex.raiz, t)
+        except preflight.DeteccaoFalhou as exc:
+            print(f"vigiar: {exc}")
+            return FALHA
+        if idade is None:
+            print(f"{_hora(t)} marca removida: janela fechada, fim da vigília")
+            return OK
+        restante = teto - idade
+        if restante <= 0 or not preflight.janela_vale(idade):
+            _avisar(ex, dados, t, f"JANELA VENCIDA (marca de {int(idade // 60)} min, teto "
+                                  f"{teto // 60} min): pare, devolva o jogável e rode `janela fechar`")
+            return VENCIDA
+        if restante <= AVISO_FIM_S and not avisou_fim:
+            avisou_fim = True
+            _avisar(ex, dados, t, f"faltam {int(restante // 60)} min para o teto "
+                                  f"({_hora(t + restante)}): comece o fechamento")
+        if vigiar_container and not estado.startswith("Up"):
+            parado_desde = t if parado_desde is None else parado_desde
+            if t - parado_desde > PARADO_MAX_S and not avisou_parado:
+                avisou_parado = True
+                _avisar(ex, dados, t, f"container {CONTAINER} parado há {int((t - parado_desde) // 60)} "
+                                      f"min (máximo ~5 min por passo): {estado}")
+        else:
+            parado_desde, avisou_parado = None, False
+        ex.dormir(max(0.0, args.intervalo - (relogio() - inicio)))
+
+
+def _abortar(ex: Executor, dados: dict, sinais: list, relogio: Callable, entrada: Callable) -> int:
+    """Processo do Victor na janela: avisa e devolve o checkout da abertura
+    pelo `voltar` (que recria só se a infra difere e recusa com partida em
+    curso). A marca fica: quem fecha é o `janela fechar`."""
+    _avisar(ex, dados, relogio(), "ABORTO, processo do Victor (" + "; ".join(sinais) +
+            "): pare tudo no servidor; a marca fica até o `janela fechar`")
+    head = dados.get("head")
+    if not head:
+        print("HEAD da abertura desconhecido (marca sem dados): confira e rode `jogavel.py voltar`")
+        return PARTIDA
+    if ex.git("rev-parse", "HEAD").saida.strip() == head:
+        print(f"checkout igual ao da abertura ({head[:9]}): nada a voltar pelo git")
+    else:
+        volta = argparse.Namespace(tag=head, agora=False, recriar=False)
+        codigo = cmd_voltar(volta, ex, relogio(), entrada)
+        _avisar(ex, dados, relogio(), f"voltar --tag {head[:9]} (checkout da abertura): saída {codigo}")
+    print("VPK, volume e pasta do plugin não voltam pelo git: siga o rollback do runbook do passo")
+    return PARTIDA
 
 
 def _perguntar(entrada: Callable, texto: str) -> str:
@@ -552,8 +778,16 @@ def montar_parser() -> argparse.ArgumentParser:
                         help="recria o container mesmo com a infra igual (depois do conserto do pre.sh)")
     atualizar = sub.add_parser("atualizar", help="traz a origin/main para o checkout")
     atualizar.add_argument("--seco", action="store_true", help="só mostra o que faria")
-    janela = sub.add_parser("janela", help="abrir, fechar ou vigiar a janela (fatia 2)")
+    janela = sub.add_parser("janela", help="abrir, fechar ou vigiar a janela de manutenção")
     janela.add_argument("acao", choices=("abrir", "fechar", "vigiar"))
+    janela.add_argument("--seco", action="store_true", help="só mostra o que faria")
+    janela.add_argument("--por", help="abrir: frase literal do Victor, ou o OK dele repassado pelo PM")
+    janela.add_argument("--teto", type=int, default=TETO_MAX_MIN,
+                        help=f"abrir: minutos de janela (até {TETO_MAX_MIN}; trilha de bots: 30)")
+    janela.add_argument("--feito", action="append", choices=tuple(MANUAIS),
+                        help="fechar: item do checklist conferido à mão (repita para cada um)")
+    janela.add_argument("--intervalo", type=float, default=INTERVALO_VIGIA_S,
+                        help=f"vigiar: segundos entre ciclos (até {INTERVALO_VIGIA_S})")
     return parser
 
 
@@ -562,7 +796,8 @@ COMANDOS = {"status": cmd_status, "voltar": cmd_voltar, "atualizar": cmd_atualiz
 
 
 def main(argv: Optional[list] = None, fabrica: Callable = Executor,
-         entrada: Callable = input, agora: Optional[float] = None) -> int:
+         entrada: Callable = input, agora: Optional[float] = None,
+         relogio: Callable = time.time) -> int:
     for fluxo in (sys.stdout, sys.stderr):  # em pipe o padrão seria cp1252
         try:
             fluxo.reconfigure(encoding="utf-8", errors="replace")
@@ -575,8 +810,8 @@ def main(argv: Optional[list] = None, fabrica: Callable = Executor,
         print(f"jogavel: {exc}", file=sys.stderr)
         return USO
     ex = fabrica(Path(raiz).absolute(), seco=getattr(args, "seco", False))
-    return COMANDOS[args.comando](args, ex, agora=time.time() if agora is None else agora,
-                                  entrada=entrada)
+    return COMANDOS[args.comando](args, ex, agora=relogio() if agora is None else agora,
+                                  entrada=entrada, relogio=relogio)
 
 
 if __name__ == "__main__":
