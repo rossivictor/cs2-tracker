@@ -39,9 +39,9 @@ Bloqueia:
   - leitura pelo nome literal do cs2_tracker.db (e -wal, -shm, -journal) do
     checkout principal e do .env: cat, head, xxd, grep, type, Get-Content,
     sqlite3 (inclusive -readonly), cópia e `< arquivo` (card B0.5c); no
-    PowerShell, cada item de @('a','b') vira argumento do cmdlet e o que não
-    se resolve (@(Get-ChildItem x), @($sem_valor)) ao lado de cmdlet que lê,
-    copia, grava ou apaga falha fechado;
+    PowerShell, ao lado de cmdlet que lê, copia, grava ou apaga, @(...) só
+    passa como lista literal nua (@('a', "b"), cada string vira argumento do
+    cmdlet); qualquer outro @( falha fechado;
   - docker logs / compose logs quando tools/preflight.py não devolve 0 ou 4;
   - no Write/Edit, dado pessoal e segredo (tools/hooks/pii.py): segredo do
     .env em qualquer arquivo do repositório; SteamID em docs/**, tests/**,
@@ -976,9 +976,8 @@ def _analisar_palavras(palavras, dialeto, ctx, env_local=None, expandido=False):
     tratador = _TRATADORES.get(prog)
     if tratador:
         tratador(prog, args, dialeto, ctx, env)
-    if dialeto == "ps" and "@(" in " ".join(args) and (prog in _LEITORES
-                                                       or prog in _TODOS_ESCRITORES):
-        args = _abrir_listas_ps(prog, args, brutos, ctx, env)
+    if dialeto == "ps" and (prog in _LEITORES or prog in _TODOS_ESCRITORES):
+        args = _abrir_listas_ps(prog, brutos, args)
     if prog in _TODOS_ESCRITORES:  # perl tem os dois: -e e -i
         for alvo, modo in _alvos_de_escrita(prog, args):
             _checar_caminho(alvo, ctx, modo, prog)
@@ -1148,8 +1147,11 @@ _PADRAO_NA_PROXIMA = ("-e", "--regexp", "-pattern", "-regexp")
 _VALOR_NA_PROXIMA = {"--exclude", "--include", "--exclude-dir", "--include-dir", "--glob",
                      "--iglob", "--type", "--type-not", "--max-count", "--after-context",
                      "--before-context", "--context", "--directories", "--devices", "--color",
-                     "--colour", "--label", "-g", "-t", "-T", "-m", "-A", "-B", "-C", "-d", "-D",
+                     "--colour", "--label", "-m", "-A", "-B", "-C", "-d", "-D",
                      "-exclude", "-include", "-encoding", "-context"}
+# No grep, -T não leva valor; no jq, nenhuma opção curta leva (jq -C . x.json).
+_VALOR_NA_PROXIMA_DE = {"rg": _VALOR_NA_PROXIMA | {"-g", "-t", "-T"},
+                        "ag": _VALOR_NA_PROXIMA | {"-g"}, "jq": set(), "yq": set()}
 
 
 def _alvos_sem_padrao(args, prog=""):
@@ -1159,6 +1161,7 @@ def _alvos_sem_padrao(args, prog=""):
     um padrão que seja o nome do banco."""
     da_padrao = ("-f", "--file") if prog in ("jq", "yq") else _DA_PADRAO
     na_proxima = () if prog in ("jq", "yq") else _PADRAO_NA_PROXIMA
+    com_valor = _VALOR_NA_PROXIMA_DE.get(prog, _VALOR_NA_PROXIMA)
     palavras, padrao_dado, so_palavras, pular = [], False, False, False
     for a in args:
         if pular:
@@ -1172,9 +1175,11 @@ def _alvos_sem_padrao(args, prog=""):
             if nome.startswith(da_padrao) or nome.lower().startswith(da_padrao[2:]):
                 padrao_dado = True
                 pular = not valor and nome.lower() in na_proxima
+                if valor and nome.lower() in ("-f", "--file", "-file"):  # --file=<arquivo>
+                    palavras.append(valor)
             elif valor and nome.lower() in ("-path", "-literalpath", "-lp", "--file"):
                 palavras.append(valor)
-            elif not valor and (nome in _VALOR_NA_PROXIMA or nome.lower() in _VALOR_NA_PROXIMA):
+            elif not valor and (nome in com_valor or nome.lower() in com_valor):
                 pular = True
     return palavras if padrao_dado else palavras[1:]
 
@@ -1197,99 +1202,38 @@ def _checar_leitura(prog, args, ctx):
             raise Bloqueio(f"{prog} (leitura) em {alvo}: {achado[0]}", achado[1])
 
 
-# Lista literal do PowerShell: @('a', "b", $x). Só entram texto entre aspas e
-# variável; o resto (@(Get-ChildItem x), @($a + $b)) é comando ou expressão.
-_ITEM_LISTA_PS = r"""(?:'(?:[^']|'')*'|"[^"`]*"|\$(?:env:)?\w+|\$\{[^}]*\})"""
-_LISTA_PS = re.compile(rf"^\s*(?:{_ITEM_LISTA_PS}(?:\s*,\s*{_ITEM_LISTA_PS})*)?\s*$")
-# O argumento abre uma lista: @(...) puro, ou com parênteses, $(...), cast ou
-# vírgula na frente: (@('a')), $(@('a')), [string[]]@('a'), -Path:(@('a')).
-_ABRE_LISTA_PS = re.compile(
-    r"^(?P<param>-[A-Za-z]\w*:)?(?:\$?\(|,|\[[\w.\[\]]+\])*@\(")
-# Depois do fecha-parênteses da lista só cabe o que não troca o valor: mais
-# parênteses, índice (@('a')[0]) e membro (@('a').FullName). Soma, pipe ou
-# outro @(...) depois dela muda o que o cmdlet recebe, e a guarda não segue.
-_RESTO_DE_LISTA_PS = re.compile(r"^(?:\)|\[[^\[\]]*\]|\.\w+(?:\(\))?)*$")
+# Lista literal nua do PowerShell (card B0.5c): @('a', "b") e nada em volta ou
+# dentro, só strings literais separadas por vírgula, na mesma linha. Nenhuma
+# aspa, nem as tipográficas que o PowerShell também aceita, dentro da string;
+# "$x", "`t" e 'it''s' não são literais simples e ficam de fora.
+_STRING_NUA_PS = r"""'[^'"\u2018-\u201e`$\r\n]*'|"[^'"\u2018-\u201e`$\r\n]*\""""
+_LISTA_NUA_PS = re.compile(
+    rf"^@\([ \t]*(?:{_STRING_NUA_PS})(?:[ \t]*,[ \t]*(?:{_STRING_NUA_PS}))*[ \t]*\)$")
 
 
-def _fechar_arroba_ps(texto, ini):
-    """Índice do `)` que fecha o `@(` cujo interior começa em `ini`, contando
-    parênteses e pulando texto entre aspas; None se não fecha."""
-    fundo, i, n = 1, ini, len(texto)
-    while i < n:
-        c = texto[i]
-        if c == "'":
-            i = texto.find("'", i + 1)
-            while i != -1 and texto[i + 1:i + 2] == "'":  # '' dentro de '...'
-                i = texto.find("'", i + 2)
-            if i == -1:
-                return None
-        elif c == '"':
-            i += 1
-            while i < n and texto[i] != '"':
-                i += 2 if texto[i] == "`" else 1
-        elif c == "(":
-            fundo += 1
-        elif c == ")":
-            fundo -= 1
-            if fundo == 0:
-                return i
-        i += 1
-    return None
-
-
-def _lista_ps_do_argumento(a):
-    """None se `a` não abre uma lista; senão (param, interior), com interior
-    None quando o que vem depois do `)` da lista a guarda não sabe seguir."""
-    m = _ABRE_LISTA_PS.match(a)
-    if not m:
-        return None
-    fim = _fechar_arroba_ps(a, m.end())
-    if fim is None or not _RESTO_DE_LISTA_PS.match(a[fim + 1:]):
-        return m.group("param") or "", None
-    return m.group("param") or "", a[m.end():fim]
-
-
-def _itens_de_lista_ps(dentro, ctx, env):
-    """Os itens da lista, com as variáveis conhecidas trocadas pelo valor, ou
-    None se algum não se resolve (comando, expressão, $x sem valor)."""
-    if dentro is None or not _LISTA_PS.match(dentro):
-        return None
-    toks = _Leitor(dentro, "ps").ler()
-    if any(tok.tipo != "p" or tok.aninhados for tok in toks):
-        return None
-    itens = [_expandir(tok.texto, env, ctx, "ps", sistema=True) for tok in toks]
-    return None if any("$" in item for item in itens) else itens
-
-
-def _abrir_listas_ps(prog, args, brutos, ctx, env):
-    """Copy-Item @('a','b') d vira Copy-Item a b d: o item de @(...) passa a
-    ser argumento do cmdlet, e os outros checadores o veem. Vale também com
-    índice, membro, parênteses ou $() em volta da lista (card B0.5c): abrir
-    todos os itens é mais estrito que o [0], e é o que a guarda quer. Lista
-    que não se resolve falha fechado. Valor de -Value, -Encoding e afins é
-    texto, não caminho, e fica como está. `brutos` são os argumentos antes de
-    trocar as variáveis: @($f) tem que abrir como variável, não como texto
-    solto; já `$x = @('a')` só aparece na palavra expandida (args)."""
-    saida, anterior = [], ""
-    for expandido, bruto in zip(args, brutos):
+def _abrir_listas_ps(prog, brutos, args):
+    """Copy-Item @('a','b') d vira Copy-Item a b d: cada string da lista nua
+    passa a ser argumento do cmdlet, e os outros checadores a veem. Qualquer
+    outro @( num argumento (índice, membro, método, cast, parênteses, $(...),
+    -Path:@(...), variável, comando, comentário ou quebra de linha, em volta ou
+    dentro) falha fechado: a guarda não tenta seguir a expressão. `brutos` são
+    os argumentos antes de trocar as variáveis; `$x = @('a')` só aparece
+    expandido. Item que começa com - é caminho, não opção: ganha ./ na frente."""
+    saida = []
+    for bruto, expandido in zip(brutos, args):
         a = bruto if "@(" in bruto else expandido
-        achada = _lista_ps_do_argumento(a)
-        param = achada[0][1:-1] if achada and achada[0] else ""
-        e_valor = (param.lower() in _PS_NAO_CAMINHO
-                   or (anterior.startswith("-") and ":" not in anterior
-                       and anterior[1:].lower() in _PS_NAO_CAMINHO))
-        anterior = a
-        if not achada or e_valor:
-            saida.append(a)
+        if "@(" not in a:
+            saida.append(expandido)
             continue
-        itens = _itens_de_lista_ps(achada[1], ctx, env)
-        if itens is None:
-            raise Bloqueio(f"{prog} com {a} no PowerShell: a guarda não consegue resolver a "
-                           "expressão de @(...), e o cmdlet lê, copia, grava ou apaga arquivo "
-                           "(falha fechada)",
-                           "escreva o caminho literal (Copy-Item 'docs/x.md' destino), sem @(...) "
-                           "nem variável sem valor no comando")
-        saida.extend(achada[0] + item for item in itens)
+        if not _LISTA_NUA_PS.match(a):
+            raise Bloqueio(f"{prog} com {a} no PowerShell: @(...) ao lado de cmdlet que lê, "
+                           "copia, grava ou apaga arquivo só passa como lista literal nua, "
+                           "e isto não é uma (falha fechada)",
+                           "escreva o caminho literal (Copy-Item 'docs/x.md' destino) ou a "
+                           "lista nua @('docs/x.md', 'docs/y.md'), sem índice, membro, método, "
+                           "cast, parênteses, $(...), variável, comentário nem quebra de linha")
+        for item in re.findall(_STRING_NUA_PS, a[2:-1]):
+            saida.append(("./" if item[1:2] == "-" else "") + item[1:-1])
     return saida
 
 

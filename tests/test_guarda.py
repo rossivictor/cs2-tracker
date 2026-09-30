@@ -411,8 +411,8 @@ LEITURA_LITERAL_BLOQUEADA = [
     ("PowerShell", "wt", "Get-Content @('{P}/cs2_tracker.db-wal')", BANCO),
     ("PowerShell", "wt", "Copy-Item @('{P}/cs2_tracker.db-journal') {F}/destino", BANCO),
     # Outras formas de ler o mesmo arquivo: pasta relativa, $RAIZ sem valor,
-    # outros leitores, URI do sqlite, cmd /c, -LiteralPath, -Path:@(...), lista
-    # com mais de um item, nome que o Windows lê como o mesmo arquivo.
+    # outros leitores, URI do sqlite, cmd /c, -LiteralPath, lista nua com mais
+    # de um item, nome que o Windows lê como o mesmo arquivo.
     ("Bash", "principal", "cat cs2_tracker.db", BANCO),
     ("Bash", "principal", "cat .env", ENV),
     ("Bash", "wt", "cat ../../../cs2_tracker.db", BANCO),
@@ -432,45 +432,18 @@ LEITURA_LITERAL_BLOQUEADA = [
     ("PowerShell", "wt", "cmd /c type {PW}\\cs2_tracker.db", BANCO),
     ("PowerShell", "wt", "Get-Content -LiteralPath {PW}\\.env", ENV),
     ("PowerShell", "wt", "gc -Path:{P}/cs2_tracker.db", BANCO),
-    ("PowerShell", "wt", "Copy-Item -Path:@('{P}/cs2_tracker.db') -Destination {F}/destino", BANCO),
-    ("PowerShell", "wt", "Copy-Item -Path @('docs/README.md', '{P}/.env') -Destination {F}/d", ENV),
     ("PowerShell", "wt", "Select-String -Pattern SRCDS -Path {P}/.env", ENV),
-    ("PowerShell", "wt", "$f = '{P}/.env'; Get-Content @($f)", ENV),
+    # Lista nua: cada string é argumento do cmdlet, inclusive a que começa com -.
+    ("PowerShell", "wt", "Copy-Item -Path @('docs/README.md', '{P}/.env') -Destination {F}/d", ENV),
+    ("PowerShell", "wt", 'Get-Content @( "docs/README.md" , "{P}/.env" )', ENV),
+    ("PowerShell", "wt", "Remove-Item @('-Filter', '{P}/cs2_tracker.db')", BANCO),
     ("PowerShell", "wt", "$lista = @('{P}/.env'); Get-Content $lista", ENV),
-    # @(...) que a guarda não resolve, ao lado de cmdlet que lê, copia, grava
-    # ou apaga: falha fechado.
-    ("PowerShell", "wt", "Copy-Item @(Get-ChildItem docs) {F}/destino", LISTA),
-    ("PowerShell", "wt", "Remove-Item @($sem_valor)", LISTA),
-    ("PowerShell", "wt", "Get-Content @($env:VARIAVEL_QUE_NAO_EXISTE_B05C)", LISTA),
-    ("PowerShell", "wt", "Set-Content @(\"$(Get-Random).db\") 'x'", LISTA),
-    ("PowerShell", "wt", "Move-Item @('docs/a.md' + 'b') {F}/destino", LISTA),
-    ("PowerShell", "wt", "Copy-Item -Path:@(Get-ChildItem docs) {F}/destino", LISTA),
-    ("PowerShell", "principal", "Remove-Item @('x.txt', $y)", LISTA),
-    # @(...) com índice, membro, parênteses ou $() em volta (reprovação do QA):
-    # o item literal é analisado como argumento do cmdlet.
-    ("PowerShell", "wt", "Remove-Item @('{P}/cs2_tracker.db')[0]", BANCO),
-    ("PowerShell", "wt", "Set-Content @('{P}/cs2_tracker.db')[0] 'x'", BANCO),
-    ("PowerShell", "wt", "Set-Content (@('{P}/cs2_tracker.db')) 'x'", BANCO),
-    ("PowerShell", "wt", "Move-Item (@('{P}/cs2_tracker.db')) {F}/destino", BANCO),
-    ("PowerShell", "wt", "Copy-Item (@('{P}/.env')) {F}/destino", ENV),
-    ("PowerShell", "wt", "Get-Content @('{P}/.env')[0]", ENV),
-    ("PowerShell", "wt", "Get-Content (@('{P}/.env'))", ENV),
-    ("PowerShell", "wt", "Get-Content -Path (@('{P}/.env'))", ENV),
-    ("PowerShell", "wt", "Get-Content -Path:(@('{P}/.env'))", ENV),
-    ("PowerShell", "wt", "Get-Content $(@('{P}/.env'))", ENV),
-    ("PowerShell", "wt", "Get-Content @('{P}/.env').FullName", ENV),
-    ("PowerShell", "wt", "Get-Content (@('docs/README.md', '{P}/.env')[1])", ENV),
-    ("PowerShell", "wt", "Get-Content ((@('{P}/.env')))[0]", ENV),
-    # Expressão irresolúvel em volta ou dentro: falha fechado.
-    ("PowerShell", "wt", "Remove-Item @($sem_valor)[0]", LISTA),
-    ("PowerShell", "wt", "Remove-Item (@($sem_valor))", LISTA),
-    ("PowerShell", "wt", "Remove-Item @(Get-ChildItem {P} -Filter *.db)[0]", LISTA),
-    ("PowerShell", "wt", "Get-Content @(Get-ChildItem {P} -Force -Filter .env).FullName", LISTA),
-    ("PowerShell", "wt", "Get-Content @('docs/a.md')+@('{P}/.env')", LISTA),
-    ("PowerShell", "wt", "Get-Content @('docs/a.md')+'{P}/.env'", LISTA),
-    # O -Path:arquivo e o -e 'padrão' continuam lendo o arquivo protegido.
+    # Opção sem valor não esconde o arquivo; --file=<arquivo> lê o arquivo.
     ("Bash", "wt", "grep -e x {P}/.env", ENV),
     ("Bash", "wt", "grep -n -e '\\.env' -f {P}/.env x", ENV),
+    ("Bash", "wt", "grep -T X {P}/.env", ENV),
+    ("Bash", "wt", "grep --file={P}/.env x", ENV),
+    ("Bash", "wt", "jq -C . {P}/.env", ENV),
     ("Bash", "wt", "jq '.a' {P}/.env", ENV),
     ("Bash", "wt", "jq -r .env {P}/cs2_tracker.db", BANCO),
     ("Bash", "wt", "rg -g '*.py' X {P}/.env", ENV),
@@ -478,29 +451,54 @@ LEITURA_LITERAL_BLOQUEADA = [
     ("PowerShell", "wt", "Select-String -Pattern '.env' -Path {P}/.env", ENV),
 ]
 
-# Os cmdlets de leitura, cópia, escrita e remoção do cruzamento do QA, contra as
-# formas de @(...) com algo em volta: 7 envoltórios x 33 cmdlets.
+# Critério 2 (trocado em 30/09): ao lado de cmdlet de arquivo, @( que não é
+# lista literal nua falha fechado, qualquer que seja o caminho de dentro,
+# inclusive um da worktree. {A} é o caminho; \n é quebra de linha de verdade.
 CMDLETS_DE_ARQUIVO = [
-    "Get-Content", "gc", "type", "cat", "Import-Csv", "Format-Hex",
+    "Get-Content", "gc", "type", "cat", "Import-Csv", "Format-Hex", "Select-String", "sls",
     "Copy-Item", "cpi", "copy", "cp", "Move-Item", "mi", "move", "mv", "Rename-Item", "ren",
     "Remove-Item", "ri", "rm", "del", "erase", "rd", "rmdir",
     "Set-Content", "sc", "Add-Content", "ac", "Out-File", "Clear-Content", "clc", "New-Item",
-    "ni", "tee"]
-ENVOLTORIOS_DE_LISTA = ["@('{P}/cs2_tracker.db')[0]", "(@('{P}/cs2_tracker.db'))",
-                        "$(@('{P}/cs2_tracker.db'))", "@('{P}/cs2_tracker.db').FullName",
-                        "(@('{P}/cs2_tracker.db'))[0]", "@(@('{P}/cs2_tracker.db'))",
-                        "-Path:(@('{P}/cs2_tracker.db'))"]
+    "ni", "tee", "Tee-Object"]
+ENVOLTORIOS_DE_LISTA = [
+    '@("{A}")[0]', '(@("{A}"))', '$(@("{A}"))', '@("{A}").FullName', '(@("{A}"))[0]',
+    '@(@("{A}"))', '-Path:(@("{A}"))', '-Path:@("{A}")', '( @("{A}") )', '$( @("{A}") )',
+    '([string[]] @("{A}"))', '[string[]]@("{A}")', '(<# c #>@("{A}"))', '(\n@("{A}"))',
+    '@("{A}").Trim()', '@("{A}"<# c #>)', '@(\n"{A}")', '@("{A}", \n"x")', '@("{A}" + "")',
+    '@("{A}")+@("x")', '@("{A}$x")', "@('{A}', $x)", '@("{A}`t")', "@('x', (\"{A}\"))",
+    '@(Get-Item "{A}")', '@($sem_valor)', "@('{A}’,’x')"]
+ALVOS_DA_LISTA = ["docs/README.md", "{P}/cs2_tracker.db", "{P}/.env"]
 
 
-@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
 @pytest.mark.parametrize("envoltorio", ENVOLTORIOS_DE_LISTA)
 @pytest.mark.parametrize("cmdlet", CMDLETS_DE_ARQUIVO)
-def test_lista_do_powershell_com_algo_em_volta_fecha_nos_cmdlets_de_arquivo(
-        repo, cmdlet, envoltorio, preflight_do_jogo):
-    codigo, erro, _ = _comando(repo, "PowerShell", "wt", f"{cmdlet} {envoltorio} {{F}}/d",
-                               preflight=lambda: preflight_do_jogo)
-    assert codigo == 2, erro
-    assert "Em vez disso:" in erro
+def test_arroba_que_nao_e_lista_nua_fecha_nos_cmdlets_de_arquivo(repo, cmdlet, envoltorio):
+    for alvo in ALVOS_DA_LISTA:
+        comando = f"{cmdlet} {envoltorio.replace('{A}', alvo)} {{F}}/d"
+        for preflight_do_jogo in (0, 3):
+            codigo, erro, _ = _comando(repo, "PowerShell", "wt", comando,
+                                       preflight=lambda: preflight_do_jogo)
+            assert codigo == 2, (comando, erro)
+            assert "só passa como lista literal nua" in erro, (comando, erro)
+            assert "Em vez disso: escreva o caminho literal" in erro
+
+
+@pytest.mark.parametrize("comando", [
+    "Copy-Item @('docs/README.md') {F}\\destino",
+    "Copy-Item @('docs/README.md', \"docs/SPEC.md\") {F}\\destino",
+    "Get-Content @( 'docs/README.md' )",
+    "Copy-Item -Path @('docs/README.md') -Destination {F}\\destino",
+    "Remove-Item @('cs2_tracker.db')",
+    "Set-Content docs/nota.md -Value @('a', 'b')"])
+def test_lista_literal_nua_passa_e_cada_string_vira_argumento(repo, comando):
+    assert _comando(repo, "PowerShell", "wt", comando) == (0, "", "")
+
+
+def test_arroba_entre_aspas_tambem_fecha(repo):
+    """A guarda não sabe se o @( veio de dentro de aspas: sobra bloqueio. Para
+    gravar esse texto, mande-o pelo pipe ('texto @(x)' | Set-Content arq)."""
+    assert _comando(repo, "PowerShell", "wt", "Set-Content docs/nota.md 'a @(b) c'")[0] == 2
+    assert _comando(repo, "PowerShell", "wt", "'a @(b) c' | Set-Content docs/nota.md")[0] == 0
 
 
 @pytest.mark.parametrize("preflight_do_jogo", [0, 3])
@@ -539,27 +537,11 @@ LEITURA_LITERAL_LIBERADA = [
     ("Bash", "wt", "sqlite3 -readonly \"{F}/bk/cs2_tracker.backup.db\" '.tables'"),
     ("Bash", "wt", "ls {P}/.env {P}/cs2_tracker.db"),  # só metadados: não lê o conteúdo
     ("PowerShell", "wt", "Get-Content -Path .env.example"),
-    ("PowerShell", "wt", "Remove-Item @('cs2_tracker.db')"),
-    ("PowerShell", "wt", "Copy-Item @('docs/README.md', 'docs/SPEC.md') {F}\\destino"),
-    ("PowerShell", "wt", "Copy-Item -Path:@('docs/README.md') -Destination {F}\\destino"),
-    ("PowerShell", "wt", "Set-Content docs/nota.md -Value @($linhas)"),
-    ("PowerShell", "wt", "Set-Content -Path docs/nota.md -Value:@('a', 'b')"),
-    ("PowerShell", "wt", "$f = '{F}/x.txt'; Remove-Item @($f)"),
-    ("PowerShell", "wt", "Get-Content @('docs/README.md')"),
-    ("PowerShell", "wt", "Get-ChildItem @($sem_valor)"),  # cmdlet que não lê nem escreve
+    # @(...) ao lado de comando que não lê nem escreve arquivo segue livre.
+    ("PowerShell", "wt", "Get-ChildItem @($sem_valor)"),
+    ("PowerShell", "wt", "Get-ChildItem (@($sem_valor))[0]"),
     ("PowerShell", "wt", "$linhas = @(Get-Content docs/README.md); $linhas.Count"),
     ("PowerShell", "wt", "git add @('docs/README.md')"),
-    # @(...) com índice, membro, parênteses ou $() em volta, em arquivo da worktree.
-    ("PowerShell", "wt", "Copy-Item @('docs/README.md')[0] {F}\\destino"),
-    ("PowerShell", "wt", "Copy-Item (@('docs/README.md')) {F}\\destino"),
-    ("PowerShell", "wt", "Copy-Item -Path:(@('docs/README.md')) -Destination {F}\\destino"),
-    ("PowerShell", "wt", "Get-Content (@('docs/README.md'))[0]"),
-    ("PowerShell", "wt", "Get-Content $(@('docs/README.md'))"),
-    ("PowerShell", "wt", "Get-Content @('docs/README.md').FullName"),
-    ("PowerShell", "wt", "Remove-Item (@('cs2_tracker.db'))"),
-    ("PowerShell", "wt", "Set-Content docs/nota.md -Value (@('a', 'b'))"),
-    ("PowerShell", "wt", "Get-ChildItem (@($sem_valor))[0]"),  # cmdlet que não lê nem escreve
-    ("PowerShell", "wt", "Set-Content docs/nota.md 'texto @(com lista) no meio'"),
     # O valor de -e, --regexp e -Pattern é padrão, e o de --exclude é glob: não é
     # arquivo. O jq lê o arquivo, não o filtro.
     ("Bash", "wt", "grep -n -e '\\.env' AGENTS.md"),
@@ -574,6 +556,9 @@ LEITURA_LITERAL_LIBERADA = [
     ("PowerShell", "wt", "Select-String -Path AGENTS.md -Pattern '\\.env'"),
     ("PowerShell", "wt", "Select-String -Pattern '.env' -Path AGENTS.md"),
     ("PowerShell", "wt", "Select-String -Pattern:'.env' -Path:AGENTS.md"),
+    ("PowerShell", "wt", 'Select-String -Path AGENTS.md -Pattern "\\.env"'),
+    ("Bash", "wt", 'grep -n -e "\\.env" AGENTS.md'),
+    ("Bash", "wt", "rg -T py X docs"),
 ]
 
 
