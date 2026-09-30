@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-Testes de tools/jogavel.py, fatia 1 do card B0.7: núcleo, status, voltar e
-atualizar.
+Testes de tools/jogavel.py, card B0.7: núcleo, status, voltar e atualizar
+(fatia 1) e janela abrir, fechar e vigiar (fatia 2).
 
 O checkout é um repo git de verdade em tmp_path (git init, com a origin num
 repo bare ao lado). Docker, lista de processos e preflight são falsos: o
 executor recebe um `rodar` que só deixa passar git, e só dentro de
-tmp_path. Nada do checkout principal é tocado.
+tmp_path. Nada do checkout principal é tocado. Na janela, relógio e sono
+também são falsos: o `vigiar` não espera de verdade.
 """
 import json
 import os
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -19,7 +21,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 
 import jogavel  # noqa: E402
-from jogavel import CRLF, FALHA, OK, PARTIDA, RECUSA, Executor, main  # noqa: E402
+from jogavel import CRLF, FALHA, OK, PARTIDA, RECUSA, VENCIDA, Executor, main  # noqa: E402
 
 AGORA = 1_800_000_000.0
 PS = r"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe"
@@ -61,6 +63,10 @@ class Mundo:
         self.compose_ok = True
         self.build, self.build_depois = "2000918", "2000918"
         self.docker = []
+        self.container = "Up 2 hours"
+        # Relógio falso da janela e um `docker ps` que "espera aprovação":
+        # avança o relógio uma vez (lição de 27/09).
+        self.relogio, self.docker_lento = None, 0
 
     def rodar(self, argv, cwd=None, capture_output=True, timeout=None, **_kw):
         assert Path(cwd).resolve().is_relative_to(self.raiz.parent.resolve()), cwd
@@ -98,7 +104,10 @@ class Mundo:
             self.build = self.build_depois
             return _feito(args, 0, "")
         if args[:1] == ["ps"]:
-            return _feito(args, 0, "Up 2 hours\n")
+            if self.docker_lento:
+                self.relogio.t += self.docker_lento
+                self.docker_lento = 0
+            return _feito(args, 0, self.container + "\n")
         raise AssertionError(f"docker inesperado: {args}")
 
 
@@ -491,8 +500,248 @@ def test_status_so_le(mundo, capsys):
     assert mundo.docker == ["ps -a --filter name=^cs2-spike$ --format {{.Status}}"]
 
 
-def test_janela_existe_no_parser_mas_fica_para_a_fatia_2(mundo, capsys):
-    assert _rodar(mundo, "janela", "vigiar") == FALHA
-    assert "fatia 2" in capsys.readouterr().out
+# ---------------------------------------------------------- janela
+
+class Relogio:
+    """Relógio de parede falso; `dormir` avança o tempo e pode mexer no
+    mundo no n-ésimo sono (processo que aparece, marca apagada)."""
+
+    def __init__(self, t=AGORA):
+        self.t, self.sonos, self.no_sono = t, [], {}
+
+    def __call__(self):
+        return self.t
+
+    def dormir(self, s):
+        self.sonos.append(s)
+        self.t += s
+        self.no_sono.get(len(self.sonos), lambda: None)()
+
+
+def _janela(mundo, *argv, rel=None):
+    rel = rel or Relogio()
+    mundo.relogio = rel
+
+    def fabrica(raiz, seco=False):
+        return Executor(raiz, seco=seco, rodar=mundo.rodar, relogio=rel, dormir=rel.dormir)
+    return main(["--raiz", str(mundo.raiz), "janela", *argv], fabrica=fabrica, relogio=rel,
+                entrada=lambda t: pytest.fail(f"não devia perguntar: {t}"))
+
+
+MARCA = "logs/janelas/ABERTA"
+REGISTRO = "logs/janelas/teste.md"
+
+
+def _marca(mundo, idade_s, **dados):
+    base = {"head": _head(mundo), "teto_min": 45, "container": "Up 2 hours", "registro": REGISTRO}
+    marca = mundo.raiz / MARCA
+    marca.parent.mkdir(parents=True, exist_ok=True)
+    marca.write_text(json.dumps({**base, **dados}))
+    os.utime(marca, (AGORA - idade_s, AGORA - idade_s))
+    return marca
+
+
+def _registro(mundo, rel=REGISTRO):
+    arquivo = mundo.raiz / rel
+    return arquivo.read_text(encoding="utf-8") if arquivo.exists() else ""
+
+
+def test_abrir_cria_marca_com_mtime_da_abertura_e_registro(mundo):
+    assert _janela(mundo, "abrir", "--por", "pode mexer no servidor", "--teto", "30") == OK
+    marca = mundo.raiz / MARCA
+    assert marca.stat().st_mtime == AGORA
+    dados = json.loads(marca.read_text(encoding="utf-8"))
+    assert (dados["por"], dados["teto_min"], dados["head"], dados["container"]) == (
+        "pode mexer no servidor", 30, _head(mundo), "Up 2 hours")
+    registro = _registro(mundo, f"logs/janelas/{datetime.fromtimestamp(AGORA):%Y-%m-%d}.md")
+    assert '- Aberta por: "pode mexer no servidor" · teto 30 min' in registro
+    assert f"- Checkout: main {_head(mundo)[:9]} · container cs2-spike: Up 2 hours" in registro
+    assert f"(vence {datetime.fromtimestamp(AGORA + 1800):%H:%M:%S})" in registro
+
+
+def test_abrir_recusa_com_preflight_3(mundo, capsys):
+    mundo.preflight = 3
+    assert _janela(mundo, "abrir", "--por", "terminei") == PARTIDA
+    assert not (mundo.raiz / "logs").exists()
+    assert "precisa de preflight 0" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("idade_s,estado", [(600, "aberta há 10 min"), (50 * 60, "vencida")])
+def test_abrir_recusa_com_marca_existente_e_nao_renova(mundo, capsys, idade_s, estado):
+    marca = _marca(mundo, idade_s)
+    assert _janela(mundo, "abrir", "--por", "pode mexer no servidor") == RECUSA
+    assert marca.stat().st_mtime == AGORA - idade_s
+    assert f"abrir recusado: janela {estado}" in capsys.readouterr().out
+
+
+def test_abrir_sem_frase_do_victor_recusa(mundo):
+    assert _janela(mundo, "abrir") == RECUSA
+    assert not (mundo.raiz / MARCA).exists()
+
+
+def test_abrir_seco_nao_cria_nada(mundo, capsys):
+    assert _janela(mundo, "abrir", "--seco", "--por", "terminei") == OK
+    assert not (mundo.raiz / "logs").exists()
+    saida = capsys.readouterr().out
+    assert "[seco] criaria logs/janelas/ABERTA" in saida and '+= - Aberta por: "terminei"' in saida
+
+
+def test_janela_recusa_fora_do_checkout_principal(mundo, tmp_path, capsys):
+    wt = tmp_path / "wt"
+    _git(mundo.raiz, "worktree", "add", "-q", "--detach", str(wt), "main")
+    mundo.raiz = wt
+    assert _janela(mundo, "abrir", "--por", "terminei") == RECUSA
+    assert not (wt / "logs").exists() and "não é o checkout principal" in capsys.readouterr().out
+
+
+TODOS = ("--feito", "matchzy", "--feito", "cvars", "--feito", "sha256")
+
+
+def test_fechar_recusa_com_checklist_pendente(mundo, capsys):
+    marca = _marca(mundo, 600)
+    assert _janela(mundo, "fechar", "--feito", "cvars") == RECUSA
+    saida = capsys.readouterr().out
+    assert marca.exists() and marca.stat().st_mtime == AGORA - 600
+    assert "[FALTA] matchzy (à mão)" in saida and "[ok] cvars (à mão)" in saida
+    assert "passe --feito matchzy --feito sha256" in saida and _registro(mundo) == ""
+
+
+@pytest.mark.parametrize("na_abertura,agora,codigo", [
+    ("Up 2 hours", "Exited (137) 1 minute ago", RECUSA),   # parado pela janela
+    ("Exited (255) 5 hours ago", "Exited (255) 6 hours ago", OK),  # deixado como estava
+    ("Up 2 hours", "Up 3 minutes", OK)])
+def test_fechar_confere_o_container(mundo, na_abertura, agora, codigo):
+    marca = _marca(mundo, 600, container=na_abertura)
+    mundo.container = agora
+    assert _janela(mundo, "fechar", *TODOS) == codigo
+    assert marca.exists() is (codigo != OK)
+
+
+def test_fechar_com_pre_sh_crlf_recusa(mundo, capsys):
+    _marca(mundo, 600)
+    (mundo.raiz / "docker/pre.sh").write_bytes(b"echo pre\r\n")
+    assert _janela(mundo, "fechar", *TODOS) == RECUSA
+    assert "[FALTA] docker/pre.sh sem '\\r'" in capsys.readouterr().out
+
+
+def test_fechar_com_checklist_completo_apaga_marca_e_registra(mundo):
+    _marca(mundo, 600)
+    assert _janela(mundo, "fechar", *TODOS) == OK
+    assert not (mundo.raiz / MARCA).exists()
+    linha = _registro(mundo)
+    assert "(jogavel.py janela fechar): container Up 2 hours · pre.sh LF" in linha
+    assert "à mão, pelo servidor: matchzy, cvars, sha256" in linha and "ABERTA removida" in linha
+
+
+def test_fechar_seco_nao_apaga(mundo, capsys):
+    _marca(mundo, 600)
+    assert _janela(mundo, "fechar", "--seco", *TODOS) == OK
+    assert (mundo.raiz / MARCA).exists() and _registro(mundo) == ""
+    assert "[seco] apagaria logs/janelas/ABERTA" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("listagem,processos,sinal", [
+    ("powershell", [(10, "cs2.exe", None)], "feche o CS2: cs2.exe (PID 10)"),
+    ("powershell", [(11, "python.exe", f"{PY} start_match.py")],
+     "feche o start_match (terminal da partida): python start_match (PID 11)"),
+    ("tasklist", [(4321, "python.exe", None)],
+     "sem certeza sobre o watcher: python sem linha de comando legível (PID 4321)")])
+def test_vigiar_aborta_quando_aparece_processo_do_victor(mundo, capsys, listagem, processos, sinal):
+    _marca(mundo, 600)
+    rel = Relogio()
+    mundo.listagem, mundo.processos = listagem, [(1, "explorer.exe", None)]
+
+    def aparece():
+        mundo.processos = mundo.processos + processos
+    rel.no_sono[2] = aparece
+    antes = _head(mundo)
+    assert _janela(mundo, "vigiar", rel=rel) == PARTIDA
+    assert rel.sonos == [30, 30]  # abortou no 3º ciclo, sem esperar mais
+    assert f"ABORTO, processo do Victor ({sinal}" in _registro(mundo)
+    assert "nada a voltar pelo git" in capsys.readouterr().out and _head(mundo) == antes
+
+
+@pytest.mark.parametrize("seco", [False, True])
+def test_vigiar_aborta_e_volta_ao_checkout_da_abertura(mundo, capsys, seco):
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    antes = _head(mundo)
+    _marca(mundo, 600, head=_tag(mundo))  # na janela o servidor trouxe um commit
+    mundo.processos = [(10, "cs2.exe", None)]
+    assert _janela(mundo, "vigiar", *(["--seco"] if seco else [])) == PARTIDA
+    saida = capsys.readouterr().out
+    assert _head(mundo) == (antes if seco else _tag(mundo))
+    assert f"voltar --tag {_tag(mundo)[:9]} (checkout da abertura): saída 0" in saida
+    assert ("[seco] git switch --detach" in saida) is seco and (_registro(mundo) == "") is seco
+
+
+@pytest.mark.parametrize("idade_min,teto,sonos,aviso", [
+    (44, 45, [30, 30], "faltam 1 min para o teto"),
+    (29.5, 30, [30], "faltam 0 min para o teto")])
+def test_vigiar_vence_pelo_mtime_da_marca(mundo, idade_min, teto, sonos, aviso):
+    marca = _marca(mundo, idade_min * 60, teto_min=teto)
+    rel = Relogio()
+    assert _janela(mundo, "vigiar", rel=rel) == VENCIDA
+    assert rel.sonos == sonos and marca.stat().st_mtime == AGORA - idade_min * 60
+    registro = _registro(mundo)
+    assert registro.count(aviso) == 1
+    assert f"JANELA VENCIDA (marca de {teto} min, teto {teto} min)" in registro
+
+
+def test_vigiar_ignora_current_jsonl_do_smoke_so_de_bots(mundo):
+    # Na janela quem escreve rounds no current.jsonl é o servidor (smoke,
+    # changelevel): só processo do Victor aborta.
+    _marca(mundo, 44 * 60)
+    _current(mundo, ["round_start", "player_hurt"], idade_s=5)
+    assert _janela(mundo, "vigiar") == VENCIDA
+    assert "ABORTO" not in _registro(mundo)
+
+
+def test_vigiar_com_docker_preso_vence_sem_contar_ciclos(mundo):
+    # O `docker ps` do 1º ciclo "espera aprovação" 20 min: a marca tinha 30
+    # min e passa a ter 50. Vence no mesmo ciclo, sem dormir.
+    _marca(mundo, 30 * 60)
+    mundo.docker_lento = 20 * 60
+    rel = Relogio()
+    assert _janela(mundo, "vigiar", rel=rel) == VENCIDA
+    assert rel.sonos == []
+    registro = _registro(mundo)
+    assert "ciclo de 1200 s (limite 30 s): `docker ps -a --filter name=^cs2-spike$ " in registro
+    assert "levou 1200 s" in registro and "JANELA VENCIDA (marca de 50 min" in registro
+
+
+def test_vigiar_com_docker_lento_avisa_antes_de_vencer(mundo):
+    _marca(mundo, 22 * 60)
+    mundo.docker_lento = 20 * 60  # 42 min: faltam 3
+    rel = Relogio()
+    assert _janela(mundo, "vigiar", rel=rel) == VENCIDA
+    # sem dormir depois do ciclo lento; os 3 min restantes em ciclos de 30 s
+    assert rel.sonos == [0.0] + [30] * 6
+    registro = _registro(mundo).splitlines()
+    assert [i for i, l in enumerate(registro) if "ciclo de 1200 s" in l or "faltam 3 min" in l
+            or "JANELA VENCIDA" in l] == [0, 1, 2]
+
+
+def test_vigiar_avisa_container_parado_mais_de_5_min(mundo):
+    _marca(mundo, 0, teto_min=10)
+    mundo.container = "Exited (137) 1 minute ago"
+    assert _janela(mundo, "vigiar") == VENCIDA
+    registro = _registro(mundo)
+    assert registro.count("container cs2-spike parado há 5 min (máximo ~5 min por passo)") == 1
+
+
+def test_vigiar_termina_quando_a_marca_some(mundo, capsys):
+    marca = _marca(mundo, 60)
+    rel = Relogio()
+    rel.no_sono[1] = marca.unlink
+    assert _janela(mundo, "vigiar", rel=rel) == OK
+    assert "marca removida: janela fechada" in capsys.readouterr().out
+
+
+def test_vigiar_intervalo_acima_de_30_s_e_uso_errado(mundo):
+    _marca(mundo, 60)
+    assert _janela(mundo, "vigiar", "--intervalo", "31") == jogavel.USO
+
+
+def test_janela_acao_desconhecida_e_uso_errado(mundo):
     with pytest.raises(SystemExit):
         _rodar(mundo, "janela", "outra")
