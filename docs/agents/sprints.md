@@ -80,13 +80,12 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 Tirada do board (`docs/board-cs2/`, fora do git): campos `Status` e `Depende de` dos cards. O board manda no status; esta seção diz só quem é a sprint da vez e a fila dela, e pode estar um passo atrás.
 
 - **Trilho:** B1 fechada pelo B1.10 (tag `jogavel-2026-09-28`). A **B0 é a sprint aberta** e vai primeiro.
-- **Pista paralela:** a **H1 é a sprint aberta** (H1.1b, H1.7, H1.8, H1.9). O H1.8 depende do B0.7b, então a H1 só fecha depois do B0.7b. T1 espera a H1.
-- **Feito na B0 em 29/09:** B0.3, B0.6, B0.5b e B0.9b (PRs #25 a #28).
-- **Fila da B0**, na ordem aprovada pelo Victor em 30/09:
-  1. B0.5c (guarda: leitura literal do banco e do `.env`, e `@(...)` no PowerShell). Sem servidor.
-  2. B0.7 e B0.7b (`jogavel.py`). Sem servidor.
-  3. B0.5d (guarda: formas indiretas) e B0.9c (acertos do runbook do smoke). Sem servidor.
-  4. B0.8 e B0.11 (compose), aplicados na Janela 0 (B0.9), que o Victor abre. A partida seguinte dele fecha a B0 com uma tag.
+- **Pista paralela:** a **H1 é a sprint aberta** (H1.1b, H1.7, H1.8, H1.9; o H1.10 está adiado). O H1.8 depende do B0.7b, então a H1 só fecha depois do B0.7b. T1 espera a H1.
+- **Feito na B0:** B0.3, B0.6, B0.5b e B0.9b em 28/09 (PRs #25 a #28); B0.7 (PRs #31 e #32) e B0.9c (PR #33) em 30/09.
+- **Fila da B0**, na ordem aprovada pelo Victor em 30/09 (B0.5c → B0.7 → B0.7b → B0.5d → B0.9c):
+  1. B0.5c (guarda: leitura literal do banco e do `.env`, e `@(...)` no PowerShell): parado depois de 2 reprovações, com o critério 2 em pauta para o Victor. O B0.5d espera por ele.
+  2. B0.7b (`jogavel.py` parte 2): parado pelo conflito do critério 5 (bloquear docker cru travaria os runbooks do servidor), em pauta para o Victor.
+  3. B0.8 e B0.11 (compose), aplicados na Janela 0 (B0.9), que o Victor abre. A partida seguinte dele fecha a B0 com uma tag.
 - **Sobras da B1:** B1.10b, B1.7a e B1.8b sem servidor; B1.7 (BotAI) e B1.2 (depende do T1.1) no caminho de jogo, depois da B0.
 - **Validação pendente no jogo:** VPK Low e a build 2000919 do CS2, na próxima partida do Victor.
 
