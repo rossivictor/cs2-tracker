@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """
 Testes de tools/jogavel.py, card B0.7: núcleo, status, voltar e atualizar
-(fatia 1) e janela abrir, fechar e vigiar (fatia 2).
+(fatia 1) e janela abrir, fechar e vigiar (fatia 2); card B0.7b: pasta do
+plugin pelo manifesto no voltar, marcar, comandos do servidor e coletar.
 
 O checkout é um repo git de verdade em tmp_path (git init, com a origin num
-repo bare ao lado). Docker, lista de processos e preflight são falsos: o
-executor recebe um `rodar` que só deixa passar git, e só dentro de
-tmp_path. Nada do checkout principal é tocado. Na janela, relógio e sono
+repo bare ao lado). Docker, RCON, lista de processos e preflight são falsos:
+o executor recebe um `rodar` que só deixa passar git, e só dentro de
+tmp_path. As cópias da pasta do plugin também ficam em tmp_path. Nada do
+checkout principal nem dos backups é tocado. Na janela, relógio e sono
 também são falsos: o `vigiar` não espera de verdade.
 """
+import hashlib
 import json
 import os
 import subprocess
@@ -64,6 +67,7 @@ class Mundo:
         self.build, self.build_depois = "2000918", "2000918"
         self.docker = []
         self.container = "Up 2 hours"
+        self.ps_falha = False
         # Relógio falso da janela e um `docker ps` que "espera aprovação":
         # avança o relógio uma vez (lição de 27/09).
         self.relogio, self.docker_lento = None, 0
@@ -107,7 +111,10 @@ class Mundo:
             if self.docker_lento:
                 self.relogio.t += self.docker_lento
                 self.docker_lento = 0
-            return _feito(args, 0, self.container + "\n")
+            return _feito(args, 1 if self.ps_falha else 0, "" if self.ps_falha else self.container + "\n")
+        if args == ["stop", "cs2-spike"]:
+            self.container = "Exited (0) 1 second ago"
+            return _feito(args, 0, "cs2-spike\n")
         raise AssertionError(f"docker inesperado: {args}")
 
 
@@ -123,6 +130,7 @@ def mundo(tmp_path, monkeypatch):
     raiz = tmp_path / "checkout"
     raiz.mkdir()
     monkeypatch.setattr(jogavel, "checkout_principal", lambda: raiz)
+    monkeypatch.setattr(jogavel, "COPIAS_PLUGIN", tmp_path / "copias")
     _git(raiz, "init", "-q", "-b", "main")
     for chave, valor in (("core.autocrlf", "false"), ("user.name", "Teste"),
                          ("user.email", "teste@example.invalid"), ("commit.gpgsign", "false")):
@@ -137,7 +145,9 @@ def mundo(tmp_path, monkeypatch):
     _git(raiz, "remote", "add", "origin", str(origem))
     _git(raiz, "push", "-q", "origin", "main", "--tags")
     _git(raiz, "fetch", "-q", "origin")
-    return Mundo(raiz)
+    mundo = Mundo(raiz)
+    mundo.copias = tmp_path / "copias"
+    return mundo
 
 
 def _rodar(mundo, *argv, entrada=None, agora=AGORA):
@@ -384,6 +394,158 @@ def test_recreate_recusa_clone_avulso(mundo, tmp_path, capsys):
     assert _rodar(mundo, "voltar", "--recriar") == RECUSA
     assert "não é o checkout principal" in capsys.readouterr().out
     assert not any(c.startswith("compose up") for c in mundo.docker)
+
+
+# ---------------------------------- pasta do plugin pelo manifesto (B0.7b)
+
+PLUGIN = "docker/plugins/Cs2TrackerEvents"
+BOM = {"Cs2TrackerEvents.dll": b"dll boa", "Cs2TrackerEvents.deps.json": b'{"deps": 1}',
+       "Cs2TrackerEvents.pdb": b"pdb bom"}
+# A pasta do checkout depois de um build ruim: DLL nova, .pdb sumido e um arquivo a mais.
+RUIM = {"Cs2TrackerEvents.dll": b"dll ruim", "Cs2TrackerEvents.deps.json": b'{"deps": 1}',
+        "extra.xml": b"<x/>"}
+
+
+def _sha(dados):
+    return hashlib.sha256(dados).hexdigest()
+
+
+def _copia(mundo, arquivos=BOM, formato="b0.3"):
+    """Cópia da pasta em copias/<sha256 da DLL>/, com o manifesto de um dos
+    dois formatos que existem nos backups."""
+    sha_dll = _sha(arquivos["Cs2TrackerEvents.dll"])
+    pasta = mundo.copias / sha_dll
+    pasta.mkdir(parents=True)
+    for nome, dados in arquivos.items():
+        (pasta / nome).write_bytes(dados)
+    if formato == "b0.3":
+        linhas = ["# Manifesto da pasta docker/plugins/Cs2TrackerEvents/ (card B0.3)",
+                  "# formato: sha256  bytes  mtime-da-origem  nome"]
+        linhas += [f"{_sha(d)}  {len(d)}  2026-09-23T19:10:55-03:00  {n}" for n, d in arquivos.items()]
+        (pasta / "MANIFEST.txt").write_text("\n".join(linhas) + "\n")
+    else:
+        (pasta / "MANIFESTO.sha256").write_text("".join(f"{_sha(d)} *{n}\n" for n, d in arquivos.items()))
+    return sha_dll
+
+
+def _pasta_plugin(mundo, arquivos):
+    pasta = mundo.raiz / PLUGIN
+    pasta.mkdir(parents=True, exist_ok=True)
+    for nome, dados in arquivos.items():
+        (pasta / nome).write_bytes(dados)
+    return pasta
+
+
+def _conteudo(pasta):
+    return {a.name: a.read_bytes() for a in pasta.iterdir()}
+
+
+def _tag_com_plugin(mundo, sha_dll, tag="jogavel-plugin", commit="jogavel-2026-09-26"):
+    _git(mundo.raiz, "tag", "-a", tag, commit, "-m", f"G7 ok\n\nplugin Cs2TrackerEvents: {sha_dll}")
+    return tag
+
+
+def test_voltar_restaura_a_pasta_inteira_do_plugin_com_o_container_parado(mundo, capsys):
+    sha_dll = _copia(mundo)
+    pasta = _pasta_plugin(mundo, RUIM)
+    assert _rodar(mundo, "voltar", "--tag", _tag_com_plugin(mundo, sha_dll)) == OK
+    saida = capsys.readouterr().out
+    assert _conteudo(pasta) == {"Cs2TrackerEvents.dll": b"dll boa", "Cs2TrackerEvents.deps.json": b'{"deps": 1}',
+                                "Cs2TrackerEvents.pdb": b"pdb bom"}
+    antes, = (mundo.raiz / "logs" / "jogavel").glob("*-voltar/plugin-antes")
+    assert _conteudo(antes) == RUIM  # nada se apaga: a pasta de antes fica como evidência
+    # para antes de trocar, e recria depois (a pasta do plugin é infra)
+    assert mundo.docker.index("stop cs2-spike") < mundo.docker.index("compose up -d --force-recreate")
+    assert f"pasta do plugin restaurada do manifesto {sha_dll[:12]} e conferida (3 arquivos)" in saida
+    assert "infra difere: docker/plugins/Cs2TrackerEvents/" in saida
+
+
+def test_voltar_com_a_pasta_igual_ao_manifesto_nao_para_nem_recria(mundo, capsys):
+    sha_dll = _copia(mundo)
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "voltar", "--tag", _tag_com_plugin(mundo, sha_dll)) == OK
+    assert f"pasta do plugin confere com o manifesto {sha_dll[:12]}" in capsys.readouterr().out
+    assert "stop cs2-spike" not in mundo.docker
+    assert not any(c.startswith("compose up") for c in mundo.docker)
+
+
+def test_voltar_com_container_ja_parado_restaura_sem_stop(mundo):
+    sha_dll = _copia(mundo)
+    pasta = _pasta_plugin(mundo, RUIM)
+    mundo.container = "Exited (137) 3 minutes ago"
+    assert _rodar(mundo, "voltar", "--tag", _tag_com_plugin(mundo, sha_dll)) == OK
+    assert _conteudo(pasta) == BOM and "stop cs2-spike" not in mundo.docker
+
+
+def test_voltar_com_copia_que_nao_confere_nao_troca_nada(mundo, capsys):
+    sha_dll = _copia(mundo)
+    (mundo.copias / sha_dll / "Cs2TrackerEvents.pdb").write_bytes(b"pdb corrompido")
+    pasta = _pasta_plugin(mundo, RUIM)
+    assert _rodar(mundo, "voltar", "--tag", _tag_com_plugin(mundo, sha_dll)) == FALHA
+    assert "não confere com o próprio manifesto (sha256 diferente: Cs2TrackerEvents.pdb)" in capsys.readouterr().out
+    assert _conteudo(pasta) == RUIM and "stop cs2-spike" not in mundo.docker
+
+
+def test_voltar_sem_saber_se_o_container_parou_nao_troca_a_dll(mundo, capsys):
+    sha_dll = _copia(mundo)
+    pasta = _pasta_plugin(mundo, RUIM)
+    mundo.ps_falha = True
+    assert _rodar(mundo, "voltar", "--tag", _tag_com_plugin(mundo, sha_dll)) == FALHA
+    assert "o container não está comprovadamente parado" in capsys.readouterr().out
+    assert _conteudo(pasta) == RUIM and "stop cs2-spike" not in mundo.docker
+
+
+def test_voltar_entende_o_manifesto_do_sha256sum_e_o_plugin_forcado(mundo):
+    # Tag antiga, sem a linha do `marcar`: o sha256 da DLL vem do --plugin.
+    sha_dll = _copia(mundo, formato="sha256sum")
+    pasta = _pasta_plugin(mundo, RUIM)
+    assert _rodar(mundo, "voltar", "--plugin", sha_dll) == OK
+    assert _conteudo(pasta) == BOM
+
+
+def test_voltar_de_tag_sem_registro_do_plugin_so_avisa(mundo, capsys):
+    pasta = _pasta_plugin(mundo, RUIM)
+    assert _rodar(mundo, "voltar") == OK
+    assert "jogavel-2026-09-26 não registra o manifesto" in capsys.readouterr().out
+    assert _conteudo(pasta) == RUIM and "stop cs2-spike" not in mundo.docker
+
+
+def test_voltar_seco_nao_troca_o_plugin(mundo, capsys):
+    sha_dll = _copia(mundo)
+    pasta = _pasta_plugin(mundo, RUIM)
+    assert _rodar(mundo, "voltar", "--seco", "--tag", _tag_com_plugin(mundo, sha_dll)) == OK
+    saida = capsys.readouterr().out
+    assert _conteudo(pasta) == RUIM and "stop cs2-spike" not in mundo.docker
+    assert "[seco] docker stop cs2-spike" in saida and "[seco] restauraria" in saida
+
+
+def test_pre_sh_crlf_aborta_antes_de_parar_pelo_plugin(mundo):
+    sha_dll = _copia(mundo)
+    pasta = _pasta_plugin(mundo, RUIM)
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    _git(mundo.raiz, "switch", "-q", "--detach", "jogavel-2026-09-26")
+    _commit(mundo.raiz, "crlf", {"docker/pre.sh": b"echo pre\r\n"})
+    _tag_com_plugin(mundo, sha_dll, commit="HEAD")
+    _git(mundo.raiz, "switch", "-q", "main")
+    assert _rodar(mundo, "voltar", "--tag", "jogavel-plugin") == CRLF
+    assert _conteudo(pasta) == RUIM and "stop cs2-spike" not in mundo.docker
+
+
+def test_ler_manifesto_dos_dois_formatos(tmp_path):
+    b03 = tmp_path / "MANIFEST.txt"
+    b03.write_text("# comentário\n" + "a" * 64 + "  49152  2026-09-23T19:10:55-03:00  X.dll\n\n")
+    sha256sum = tmp_path / "MANIFESTO.sha256"
+    sha256sum.write_text("B" * 64 + " *Y.deps.json\n" + "c" * 64 + "  Z.pdb\n")
+    assert jogavel.ler_manifesto(b03) == {"X.dll": "a" * 64}
+    assert jogavel.ler_manifesto(sha256sum) == {"Y.deps.json": "b" * 64, "Z.pdb": "c" * 64}
+
+
+@pytest.mark.parametrize("linha", ["abc  X.dll", "a" * 64, "a" * 64 + "  ../X.dll", ""])
+def test_ler_manifesto_recusa_linha_fora_do_formato(tmp_path, linha):
+    arquivo = tmp_path / "MANIFEST.txt"
+    arquivo.write_text(linha + "\n")
+    with pytest.raises(ValueError):
+        jogavel.ler_manifesto(arquivo)
 
 
 # ---------------------------------------------------------- --seco

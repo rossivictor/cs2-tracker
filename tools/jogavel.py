@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
 Voltar ao jogável e atualizar o checkout principal sem depender de agente
-(card B0.7, parte 1; protocolo de jogabilidade, seções 2, 5 e 7 do plano de
-26/09). Runbook: docs/runbooks/voltar-ao-jogavel.md.
+(cards B0.7 e B0.7b; protocolo de jogabilidade, seções 2, 3, 5 a 9 do plano
+de 26/09). Runbook: docs/runbooks/voltar-ao-jogavel.md.
 
   status     só lê: HEAD, última tag jogavel-*, delta até origin/main, janela,
              preflight, pre.sh, runtime file e container.
-  voltar     [--tag X] [--seco] [--agora] [--recriar]: volta o checkout para
-             a última jogavel-* (ou X) e recria o container se a infra difere.
+  voltar     [--tag X] [--seco] [--agora] [--recriar] [--plugin SHA]: volta o
+             checkout para a última jogavel-* (ou X), restaura a pasta do
+             plugin de captura pelo manifesto sha256 (container parado) e
+             recria o container se a infra ou a pasta do plugin mudou.
   atualizar  [--seco]: traz a origin/main com preflight 0; commit de infra só
              com janela aberta (preflight 4).
   janela     abrir --por "frase" [--teto N] | fechar [--feito ITEM...] |
@@ -29,6 +31,7 @@ pendente); 6 docker/pre.sh com '\\r' depois da troca (recreate abortado);
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -55,6 +58,19 @@ PLUGINS = "docker/plugins/"
 CANDIDATO = Path("data/candidato.json")
 PASTA_LOGS = Path("logs/jogavel")
 PREFLIGHT = Path(__file__).resolve().parent / "preflight.py"
+# Pasta do plugin de captura: ignorada pelo git, não volta com o switch.
+PLUGIN_CAPTURA = Path("docker/plugins/Cs2TrackerEvents")
+DLL_CAPTURA = "Cs2TrackerEvents.dll"
+# Cópias da pasta, uma por sha256 da DLL, com o manifesto ao lado (card B0.3;
+# versoes-conhecidas.md, "Manifesto do plugin de captura"). A velha nunca se
+# apaga: um build novo ganha uma pasta nova.
+COPIAS_PLUGIN = Path("C:/Users/Victor/cs2-tracker-backups/plugins/Cs2TrackerEvents")
+# MANIFEST.txt é o do B0.3; MANIFESTO.sha256, o dos builds do upstream (B1.4b, B1.9).
+NOMES_MANIFESTO = ("MANIFEST.txt", "MANIFESTO.sha256")
+RE_SHA = re.compile(r"^[0-9a-f]{64}$")
+# Linha que o `marcar` grava na mensagem da tag anotada.
+RE_PLUGIN_NA_TAG = re.compile(r"^plugin Cs2TrackerEvents: ([0-9a-f]{64})\s*$", re.M)
+PARADO = ("Exited", "Created", "não existe")
 
 # Partida em curso (protocolo 7): evento de round há menos de 2 min. São
 # todos os tipos que o plugin grava fora o snapshot (Cs2TrackerEventsPlugin.cs
@@ -415,6 +431,140 @@ def recriar(ex: Executor, build_antes: Optional[str], sem_build: str = "não reg
     return OK
 
 
+def parar_container(ex: Executor) -> int:
+    """`docker stop` e confere que parou. Sem conseguir ler o estado não
+    há certeza de que o servidor está parado: falha (DLL não se troca com
+    o servidor vivo)."""
+    estado = estado_container(ex)
+    if estado.startswith("docker indisponível"):
+        print(f"container {CONTAINER}: {estado}; sem certeza de que está parado")
+        return FALHA
+    if estado.startswith(PARADO):
+        print(f"container {CONTAINER} já parado: {estado}")
+        return OK
+    ch = ex.docker("stop", CONTAINER, muda=True, timeout=180)
+    if ch.seco:
+        return OK
+    depois = estado_container(ex)
+    if not ch.ok or not depois.startswith(PARADO):
+        print(f"falhou: docker stop {CONTAINER} ({ch.erro.strip() or ch.codigo}); estado: {depois}")
+        return FALHA
+    print(f"container {CONTAINER} parado em {ch.segundos:.0f} s: {depois}")
+    return OK
+
+
+# ------------------------------------------------ manifesto do plugin
+
+def sha256_de(arquivo: Path) -> str:
+    h = hashlib.sha256()
+    with Path(arquivo).open("rb") as f:
+        for bloco in iter(lambda: f.read(1 << 20), b""):
+            h.update(bloco)
+    return h.hexdigest()
+
+
+def ler_manifesto(arquivo: Path) -> dict:
+    """{nome: sha256}. Entende o MANIFEST.txt do B0.3 (sha256, bytes, mtime e
+    nome) e a saída do sha256sum (sha256 e nome, com '*' no modo binário):
+    o sha256 é a 1ª coluna e o nome, a última. Linha fora disso é erro, e
+    manifesto que não se lê inteiro não restaura nada."""
+    itens = {}
+    # Os comentários podem vir em cp1252; as linhas de dados são ASCII.
+    texto = Path(arquivo).read_text(encoding="utf-8", errors="replace")
+    for n, linha in enumerate(texto.splitlines(), 1):
+        partes = linha.split()
+        if not partes or partes[0].startswith("#"):
+            continue
+        nome = partes[-1].lstrip("*")
+        if len(partes) < 2 or not RE_SHA.match(partes[0].lower()) or nome in ("", ".", "..") \
+                or "/" in nome or "\\" in nome:
+            raise ValueError(f"{Path(arquivo).name}:{n}: linha fora do formato 'sha256 ... nome'")
+        itens[nome] = partes[0].lower()
+    if not itens:
+        raise ValueError(f"{Path(arquivo).name}: manifesto vazio")
+    return itens
+
+
+def diferencas(pasta: Path, esperado: dict, ignorar: tuple = ()) -> list:
+    """O que a pasta tem de diferente do manifesto: arquivo que falta, sha256
+    diferente, ou arquivo (ou subpasta) a mais."""
+    atuais = {a.name: a for a in pasta.iterdir() if a.name not in ignorar} if pasta.is_dir() else {}
+    difs = [f"falta {n}" for n in esperado if n not in atuais]
+    difs += [f"sha256 diferente: {n}" for n, sha in esperado.items()
+             if n in atuais and (not atuais[n].is_file() or sha256_de(atuais[n]) != sha)]
+    difs += [f"a mais: {n}" for n in sorted(set(atuais) - set(esperado))]
+    return difs
+
+
+def manifesto_da_copia(copia: Path) -> Optional[Path]:
+    return next((copia / n for n in NOMES_MANIFESTO if (copia / n).is_file()), None)
+
+
+def plugin_do_alvo(ex: Executor, alvo: str) -> Optional[str]:
+    """sha256 da DLL que o `marcar` gravou na mensagem da tag anotada."""
+    ch = ex.git("tag", "-l", "--format=%(contents)", alvo)
+    achado = RE_PLUGIN_NA_TAG.search(ch.saida) if ch.ok else None
+    return achado.group(1) if achado else None
+
+
+def restaurar_plugin(ex: Executor, sha_dll: str, pasta: Path) -> tuple:
+    """Passo 4 do voltar (protocolo 7): a pasta do plugin de captura volta a
+    ser a cópia do manifesto, inteira (DLL, .deps.json, .pdb), com o
+    container parado, e é conferida depois. O que havia antes vai para
+    `pasta`/plugin-antes (nada se apaga). Devolve (código, mudou)."""
+    copia = COPIAS_PLUGIN / sha_dll
+    manifesto = manifesto_da_copia(copia)
+    if manifesto is None:
+        print(f"pasta do plugin: sem manifesto ({' nem '.join(NOMES_MANIFESTO)}) em {copia}")
+        return FALHA, False
+    try:
+        esperado = ler_manifesto(manifesto)
+    except (OSError, ValueError) as exc:
+        print(f"pasta do plugin: manifesto ilegível: {exc}")
+        return FALHA, False
+    if esperado.get(DLL_CAPTURA) != sha_dll:
+        print(f"pasta do plugin: o manifesto de {copia} não dá {DLL_CAPTURA} com sha256 {sha_dll[:12]}")
+        return FALHA, False
+    destino = ex.raiz / PLUGIN_CAPTURA
+    difs = diferencas(destino, esperado)
+    if not difs:
+        print(f"pasta do plugin confere com o manifesto {sha_dll[:12]}: nada a restaurar")
+        return OK, False
+    print(f"pasta do plugin difere do manifesto {sha_dll[:12]}: {'; '.join(difs)}")
+    ruins = diferencas(copia, esperado, ignorar=NOMES_MANIFESTO)
+    if ruins:
+        print(f"a cópia {copia} não confere com o próprio manifesto ({'; '.join(ruins)}): nada foi trocado")
+        return FALHA, False
+    if not eh_checkout_principal(ex.raiz):
+        print(f"pasta do plugin: {ex.raiz} não é o checkout principal, nada foi trocado")
+        return RECUSA, False
+    codigo = parar_container(ex)  # DLL não se troca com o servidor vivo
+    if codigo != OK:
+        print("pasta do plugin não restaurada: o container não está comprovadamente parado")
+        return codigo, False
+    if ex.seco:
+        print(f"[seco] restauraria {destino} de {copia} ({len(esperado)} arquivos)")
+        return OK, True
+    antes = pasta / "plugin-antes"
+    antes.mkdir(parents=True, exist_ok=True)
+    destino.mkdir(parents=True, exist_ok=True)
+    for item in list(destino.iterdir()):
+        if item.name in esperado and item.is_file():
+            shutil.copy2(item, antes / item.name)  # evidência do que havia
+        else:
+            shutil.move(str(item), str(antes / item.name))
+    for nome in esperado:
+        shutil.copy2(copia / nome, destino / nome)  # por cima: o bind da pasta segue valendo
+    sobra = diferencas(destino, esperado)
+    if sobra:
+        print(f"ATENÇÃO: depois da cópia a pasta ainda difere do manifesto: {'; '.join(sobra)}. "
+              f"O container ficou parado; a pasta de antes está em {antes}")
+        return FALHA, True
+    print(f"pasta do plugin restaurada do manifesto {sha_dll[:12]} e conferida "
+          f"({len(esperado)} arquivos); a de antes ficou em {antes}")
+    return OK, True
+
+
 # ---------------------------------------------------------- comandos
 
 def _pasta(ex: Executor, nome: str) -> Path:
@@ -485,20 +635,33 @@ def cmd_voltar(args, ex: Executor, agora: float, entrada: Callable = input, **_k
         build, sem_build = salvar_logs(ex, pasta), "não registrada"
     if not trocar_de_commit(ex, pasta, alvo, ("switch", "--detach", alvo)):
         return FALHA
-    print(f"checkout em {alvo}. Pasta do plugin de captura: a restauração pelo "
-          "manifesto é do B0.7b; até lá, siga docs/runbooks/voltar-ao-jogavel.md")
+    print(f"checkout em {alvo}")
     cr = contar_cr(ex.raiz)
     if cr:
-        # O HEAD já está no alvo: o voltar de novo não veria diferença de infra.
+        # Antes de parar o container pelo plugin: abortado aqui, o jogo segue de
+        # pé. O HEAD já está no alvo: o voltar de novo não veria diferença de infra.
         extra = " --recriar" if infra or args.recriar else ""
         print(f"ABORTADO antes do recreate: docker/pre.sh tem {cr} '\\r'. Conserte com\n"
               f"  {conserto_cr(ex.raiz)}\ne rode de novo: tools/jogavel.py voltar --tag {alvo}{extra}")
         return CRLF
+    sha_plugin = args.plugin or plugin_do_alvo(ex, alvo)
+    codigo_plugin, plugin_mudou = OK, False
+    if sha_plugin:
+        codigo_plugin, plugin_mudou = restaurar_plugin(ex, sha_plugin, pasta)
+        if codigo_plugin != OK and plugin_mudou:
+            return codigo_plugin  # pasta pela metade: o container fica parado
+    else:
+        print(f"pasta do plugin: {alvo} não registra o manifesto (tag anterior ao B0.7b ou commit "
+              "sem tag); confira à mão pelo manifesto em docs/runbooks/versoes-conhecidas.md ou "
+              "rode com --plugin <sha256 da DLL>")
+    if plugin_mudou:
+        infra = infra + [PLUGIN_CAPTURA.as_posix() + "/"]
     if not infra and not args.recriar:
         print("infra igual à do alvo: sem recreate")
-        return OK
+        return codigo_plugin
     print("infra difere: " + (", ".join(infra) or "--recriar"))
-    return recriar(ex, build, sem_build)
+    codigo = recriar(ex, build, sem_build)
+    return codigo if codigo != OK else codigo_plugin
 
 
 def cmd_atualizar(args, ex: Executor, **_kw) -> int:
@@ -746,7 +909,7 @@ def _abortar(ex: Executor, dados: dict, sinais: list, relogio: Callable, entrada
     if ex.git("rev-parse", "HEAD").saida.strip() == head:
         print(f"checkout igual ao da abertura ({head[:9]}): nada a voltar pelo git")
     else:
-        volta = argparse.Namespace(tag=head, agora=False, recriar=False)
+        volta = argparse.Namespace(tag=head, agora=False, recriar=False, plugin=None)
         codigo = cmd_voltar(volta, ex, relogio(), entrada)
         _avisar(ex, dados, relogio(), f"voltar --tag {head[:9]} (checkout da abertura): saída {codigo}")
     print("VPK, volume e pasta do plugin não voltam pelo git: siga o rollback do runbook do passo")
@@ -758,6 +921,12 @@ def _perguntar(entrada: Callable, texto: str) -> str:
         return entrada(texto).strip()
     except EOFError:
         return ""
+
+
+def _sha256_arg(texto: str) -> str:
+    if not RE_SHA.match(texto.lower()):
+        raise argparse.ArgumentTypeError("esperado o sha256 inteiro (64 hex)")
+    return texto.lower()
 
 
 def montar_parser() -> argparse.ArgumentParser:
@@ -776,6 +945,8 @@ def montar_parser() -> argparse.ArgumentParser:
                         help="volta mesmo com partida em curso, com confirmação digitada")
     voltar.add_argument("--recriar", action="store_true",
                         help="recria o container mesmo com a infra igual (depois do conserto do pre.sh)")
+    voltar.add_argument("--plugin", type=_sha256_arg, default=None,
+                        help="sha256 da DLL de captura a restaurar (tag sem o registro do `marcar`)")
     atualizar = sub.add_parser("atualizar", help="traz a origin/main para o checkout")
     atualizar.add_argument("--seco", action="store_true", help="só mostra o que faria")
     janela = sub.add_parser("janela", help="abrir, fechar ou vigiar a janela de manutenção")
