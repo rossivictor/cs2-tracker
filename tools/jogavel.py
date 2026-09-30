@@ -52,10 +52,14 @@ CANDIDATO = Path("data/candidato.json")
 PASTA_LOGS = Path("logs/jogavel")
 PREFLIGHT = Path(__file__).resolve().parent / "preflight.py"
 
-# Partida em curso (protocolo 7): evento de round há menos de 2 min.
+# Partida em curso (protocolo 7): evento de round há menos de 2 min. São
+# todos os tipos que o plugin grava fora o snapshot (Cs2TrackerEventsPlugin.cs
+# 452-703): sem o freeze_end, um round sem dano de 115 s somado a 15 s de
+# freeze passaria dos 2 min contados do round_start.
 PARTIDA_RECENTE_S = 120
-EVENTOS_DE_ROUND = {"round_start", "round_end", "player_death", "player_hurt",
-                    "bomb_planted", "bomb_defused"}
+EVENTOS_DE_ROUND = {"round_start", "freeze_end", "round_end", "round_stats",
+                    "round_officially_ended", "player_death", "player_hurt",
+                    "player_blind", "bomb_planted", "bomb_defused"}
 # O plugin grava um "snapshot" 2x por segundo, também depois do fim da
 # partida (Cs2TrackerEventsPlugin.cs:229): N snapshots depois do último
 # evento de round são ~N/2 s sem round.
@@ -257,16 +261,30 @@ def evento_de_round_recente(raiz: Path, agora: float) -> Optional[str]:
 def sinais_de_partida(ex: Executor, agora: float) -> tuple:
     """(bloqueios, avisos). Bloqueia só partida em curso: evento de round
     recente ou watcher ingerindo. cs2.exe, TUI e start_match viram aviso com
-    o que fechar. Sem conseguir listar processos, bloqueia (falha segura)."""
+    o que fechar. Sem conseguir listar processos, ou com python sem linha de
+    comando (só o tasklist respondeu), bloqueia (falha segura, G0).
+
+    O preflight só dá python sem linha como falha quando não há outro sinal
+    (preflight.py, sinais_nos_processos): para ele, o cs2.exe já basta para
+    dar 3. Aqui o cs2.exe é só aviso, então o python cego bloqueia sempre:
+    numa partida viva o cs2.exe está sempre lá, e o watcher seria invisível."""
     bloqueios, avisos = [], []
     evento = evento_de_round_recente(ex.raiz, agora)
     if evento:
         bloqueios.append(evento)
     try:
         processos = preflight.listar_processos(ex.para_preflight)
-        sinais = preflight.sinais_nos_processos(processos, frozenset({os.getpid(), os.getppid()}))
     except preflight.DeteccaoFalhou as exc:
         return bloqueios + [f"sem certeza sobre o watcher: {exc}"], avisos
+    proprios = frozenset({os.getpid(), os.getppid()})
+    cegos = [p.pid for p in processos if p.linha is None and p.pid not in proprios
+             and preflight._eh_python(p.nome)]
+    if cegos:
+        bloqueios.append("sem certeza sobre o watcher: python sem linha de comando "
+                         f"legível (PID {', '.join(map(str, cegos))})")
+    # Os cegos já bloquearam: passados como próprios, não levantam de novo e
+    # deixam os avisos (cs2.exe, TUI) saírem.
+    sinais = preflight.sinais_nos_processos(processos, proprios | frozenset(cegos))
     for sinal in sinais:
         if sinal.startswith("python watcher"):
             bloqueios.append(f"watcher ingerindo ({sinal})")
@@ -282,10 +300,17 @@ def trocar_de_commit(ex: Executor, pasta: Path, alvo: str, *comandos) -> bool:
     """Roda os comandos git de troca protegendo o runtime file: copia para
     `pasta`, tira do caminho (checkout -- se rastreado; apaga se não
     rastreado e o alvo o rastreia), troca, e restaura a cópia se o alvo
-    ainda o rastreia (protocolo 7, passo 2). Sem git stash."""
+    ainda o rastreia (protocolo 7, passo 2). Sem git stash.
+
+    Se um comando falha depois de outro já ter mudado o checkout (o merge
+    --ff-only depois do switch main do `atualizar`), volta ao HEAD de antes;
+    se nem isso der, diz onde ficou e o comando para voltar."""
     arquivo, copia = ex.raiz / RUNTIME, pasta / RUNTIME.name
     no_alvo = rastreado(ex, alvo, RUNTIME)
     tinha = arquivo.is_file()
+    sha_antes = ex.git("rev-parse", "HEAD").saida.strip()
+    ramo_antes = ex.git("branch", "--show-current").saida.strip()
+    volta = ("switch", ramo_antes) if ramo_antes else ("switch", "--detach", sha_antes)
     if tinha:
         print(f"{RUNTIME.as_posix()}: cópia em {copia}")
         if not ex.seco:
@@ -295,10 +320,17 @@ def trocar_de_commit(ex: Executor, pasta: Path, alvo: str, *comandos) -> bool:
             ex.git("checkout", "--", RUNTIME.as_posix(), muda=True)
         elif no_alvo and not ex.seco:
             arquivo.unlink()
-    for comando in comandos:
+    for i, comando in enumerate(comandos):
         ch = ex.git(*comando, muda=True)
         if not ch.ok:
             print(f"falhou: git {' '.join(comando)}\n{ch.erro.strip()}")
+            if i > 0:
+                if ex.git(*volta, muda=True).ok:
+                    print(f"voltei ao HEAD de antes ({ramo_antes or 'destacado em ' + sha_antes[:9]})")
+                else:
+                    agora = ex.git("branch", "--show-current").saida.strip() or "HEAD destacado"
+                    print(f"ATENÇÃO: o checkout ficou em {agora}, não no HEAD de antes. "
+                          f"Para voltar: git {' '.join(volta)}")
             if tinha and not ex.seco:
                 shutil.copy2(copia, arquivo)
             return False
@@ -339,13 +371,25 @@ def esperar_build(ex: Executor) -> Optional[str]:
         ex.dormir(INTERVALO_BUILD_S)
 
 
-def recriar(ex: Executor, build_antes: Optional[str]) -> int:
-    if not (ex.raiz / ".git").is_dir():
-        # Numa worktree o compose criaria projeto e volume novos, vazios
-        # (AGENTS.md, zonas proibidas).
+def checkout_principal() -> Path:
+    """O checkout principal do repo deste script (numa worktree, o dela)."""
+    return preflight.resolver_raiz_principal(preflight.raiz_do_script())
+
+
+def eh_checkout_principal(raiz: Path) -> bool:
+    try:
+        return Path(raiz).resolve() == Path(checkout_principal()).resolve()
+    except (preflight.DeteccaoFalhou, OSError):
+        return False
+
+
+def recriar(ex: Executor, build_antes: Optional[str], sem_build: str = "não registrada") -> int:
+    if not eh_checkout_principal(ex.raiz):
+        # Numa worktree ou num clone avulso (--raiz) o compose criaria
+        # projeto e volume novos, vazios (AGENTS.md, zonas proibidas).
         print(f"recreate recusado: {ex.raiz} não é o checkout principal")
         return RECUSA
-    print(f"build do CS2 antes: {build_antes or 'não registrada'}")
+    print(f"build do CS2 antes: {build_antes or sem_build}")
     ch = ex.docker("compose", "up", "-d", "--force-recreate", muda=True, timeout=900)
     if not ch.ok:
         print(f"falhou: docker compose up -d --force-recreate ({ch.segundos:.0f} s)\n{ch.erro.strip()}")
@@ -415,7 +459,13 @@ def cmd_voltar(args, ex: Executor, agora: float, entrada: Callable = input) -> i
     mudados = arquivos_mudados(ex, "HEAD", alvo) or []
     infra = infra_no_delta(ex, mudados)
     pasta = _pasta(ex, "voltar")
-    build = salvar_logs(ex, pasta)
+    if bloqueios:
+        # --agora: docker logs com partida em curso é proibido (AGENTS.md,
+        # protocolo 11). A build "depois" sai do container novo.
+        print("docker logs não lidos: partida em curso")
+        build, sem_build = None, "não lida (partida em curso)"
+    else:
+        build, sem_build = salvar_logs(ex, pasta), "não registrada"
     if not trocar_de_commit(ex, pasta, alvo, ("switch", "--detach", alvo)):
         return FALHA
     print(f"checkout em {alvo}. Pasta do plugin de captura: a restauração pelo "
@@ -431,7 +481,7 @@ def cmd_voltar(args, ex: Executor, agora: float, entrada: Callable = input) -> i
         print("infra igual à do alvo: sem recreate")
         return OK
     print("infra difere: " + (", ".join(infra) or "--recriar"))
-    return recriar(ex, build)
+    return recriar(ex, build, sem_build)
 
 
 def cmd_atualizar(args, ex: Executor, **_kw) -> int:
@@ -520,7 +570,7 @@ def main(argv: Optional[list] = None, fabrica: Callable = Executor,
             pass
     args = montar_parser().parse_args(argv)
     try:
-        raiz = args.raiz or preflight.resolver_raiz_principal(preflight.raiz_do_script())
+        raiz = args.raiz or checkout_principal()
     except preflight.DeteccaoFalhou as exc:
         print(f"jogavel: {exc}", file=sys.stderr)
         return USO

@@ -52,6 +52,10 @@ class Mundo:
     def __init__(self, raiz):
         self.raiz = raiz
         self.processos = []
+        # Quem responde a lista de processos: "powershell" (com linha de
+        # comando), "tasklist" (PowerShell sai 1, wmic ausente, tasklist sem
+        # linha de comando: o caso desta máquina) ou "nenhum".
+        self.listagem = "powershell"
         self.preflight = 0
         self.binds = [CFG, "docker/pre.sh", RUNTIME]
         self.compose_ok = True
@@ -67,8 +71,17 @@ class Mundo:
             self.docker.append(" ".join(argv[1:]))
             return self._docker(argv[1:])
         if nome == "powershell.exe":
+            if self.listagem != "powershell":
+                return _feito(argv, 1, "")
             linhas = [{"ProcessId": pid, "Name": n, "CommandLine": c} for pid, n, c in self.processos]
             return _feito(argv, 0, json.dumps(linhas))
+        if nome == "wmic.exe":
+            raise FileNotFoundError(argv[0])
+        if nome == "tasklist.exe":
+            if self.listagem != "tasklist":
+                return _feito(argv, 1, "")
+            return _feito(argv, 0, "".join(f'"{n}","{pid}","Console","1","1.000 K"\n'
+                                           for pid, n, _c in self.processos))
         if any(a.endswith("preflight.py") for a in argv):
             return _feito(argv, self.preflight, f"preflight {self.preflight}: falso")
         raise AssertionError(f"processo inesperado: {argv}")
@@ -94,11 +107,13 @@ def _feito(argv, codigo, saida):
 
 
 @pytest.fixture
-def mundo(tmp_path):
+def mundo(tmp_path, monkeypatch):
     """Checkout com a tag jogavel-2026-09-26 e a main um commit à frente
-    (só Python), com o runtime file modificado como o start_match deixa."""
+    (só Python), com o runtime file modificado como o start_match deixa.
+    Para o recreate, ele faz o papel do checkout principal."""
     raiz = tmp_path / "checkout"
     raiz.mkdir()
+    monkeypatch.setattr(jogavel, "checkout_principal", lambda: raiz)
     _git(raiz, "init", "-q", "-b", "main")
     for chave, valor in (("core.autocrlf", "false"), ("user.name", "Teste"),
                          ("user.email", "teste@example.invalid"), ("commit.gpgsign", "false")):
@@ -166,6 +181,40 @@ def test_so_cs2_exe_e_tui_avisam_o_que_fechar_e_voltam(mundo, capsys):
     assert _head(mundo) == _tag(mundo)
 
 
+def test_so_tasklist_com_cs2_e_python_sem_linha_recusa(mundo, capsys):
+    # Reprovação 1 do QA: PowerShell sai 1, wmic não existe, e o tasklist
+    # mostra o cs2.exe e um python sem linha de comando, que pode ser o
+    # watcher. O cs2.exe não pode esconder o python cego.
+    mundo.listagem = "tasklist"
+    mundo.processos = [(10, "cs2.exe", None), (4321, "python.exe", None)]
+    ex = Executor(mundo.raiz, rodar=mundo.rodar)
+    assert jogavel.sinais_de_partida(ex, AGORA) == (
+        ["sem certeza sobre o watcher: python sem linha de comando legível (PID 4321)"],
+        ["feche o CS2: cs2.exe (PID 10)"])
+    antes = _head(mundo)
+    assert _rodar(mundo, "voltar") == PARTIDA
+    saida = capsys.readouterr().out
+    assert "voltar recusado" in saida and "aviso: feche o CS2: cs2.exe (PID 10)" in saida
+    assert _head(mundo) == antes and mundo.docker == []
+
+
+def test_so_tasklist_so_com_cs2_avisa_e_volta(mundo, capsys):
+    mundo.listagem = "tasklist"
+    mundo.processos = [(10, "cs2.exe", None)]
+    assert _rodar(mundo, "voltar") == OK
+    assert "aviso: feche o CS2: cs2.exe (PID 10)" in capsys.readouterr().out
+    assert _head(mundo) == _tag(mundo)
+
+
+def test_sem_lista_de_processos_recusa(mundo, capsys):
+    mundo.listagem = "nenhum"
+    mundo.processos = [(10, "cs2.exe", None)]
+    antes = _head(mundo)
+    assert _rodar(mundo, "voltar") == PARTIDA
+    assert "sem certeza sobre o watcher: não deu pra listar os processos" in capsys.readouterr().out
+    assert _head(mundo) == antes
+
+
 def test_cauda_so_de_snapshots_depois_do_fim_nao_e_partida(mundo):
     # round_end e 300 snapshots (150 s a 2 por segundo): o arquivo é recente,
     # mas o último evento de round já passou de 2 min.
@@ -180,6 +229,21 @@ def test_idade_do_round_soma_mtime_e_snapshots(mundo):
     assert jogavel.evento_de_round_recente(mundo.raiz, AGORA) is None
 
 
+@pytest.mark.parametrize("tipo", ["freeze_end", "round_officially_ended", "player_blind", "round_stats"])
+def test_eventos_de_round_alem_de_dano_e_bomba(mundo, tipo):
+    _current(mundo, [tipo] + ["snapshot"] * 100, idade_s=10)
+    assert jogavel.evento_de_round_recente(mundo.raiz, AGORA) == f"current.jsonl com {tipo} há ~60 s"
+
+
+def test_round_sem_dano_conta_do_fim_do_freeze(mundo, capsys):
+    # 15 s de freeze (30 snapshots) e 115 s de round sem dano (230): do
+    # round_start são 130 s, do freeze_end são 115 s. Ainda é partida.
+    _current(mundo, ["round_start"] + ["snapshot"] * 30 + ["freeze_end"] + ["snapshot"] * 230,
+             idade_s=0)
+    assert _rodar(mundo, "voltar") == PARTIDA
+    assert "current.jsonl com freeze_end há ~115 s" in capsys.readouterr().out
+
+
 @pytest.mark.parametrize("digitado,codigo", [("VOLTAR", OK), ("sim", RECUSA)])
 def test_agora_pede_confirmacao_digitada(mundo, digitado, codigo):
     _current(mundo, ["round_start"], idade_s=5)
@@ -188,6 +252,22 @@ def test_agora_pede_confirmacao_digitada(mundo, digitado, codigo):
                   entrada=lambda t: perguntas.append(t) or digitado) == codigo
     assert perguntas and "Digite VOLTAR" in perguntas[0]
     assert (_head(mundo) == _tag(mundo)) is (codigo == OK)
+
+
+def test_agora_nao_le_docker_logs_antes_do_recreate(mundo, capsys):
+    # docker logs com partida em curso é proibido (AGENTS.md): a build
+    # "antes" fica sem leitura e a "depois" sai do container novo.
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    _commit(mundo.raiz, "cfg", {CFG: "bot_quota 5\n"})
+    _current(mundo, ["round_start"], idade_s=5)
+    mundo.build_depois = "2000919"
+    assert _rodar(mundo, "voltar", "--agora", entrada=lambda _t: "VOLTAR") == OK
+    saida = capsys.readouterr().out
+    assert mundo.docker == ["compose config --format json", "compose up -d --force-recreate",
+                            "logs cs2-spike"]
+    assert "build do CS2 antes: não lida (partida em curso)" in saida
+    assert "build do CS2 depois: 2000919" in saida and "a build do CS2 mudou" not in saida
+    assert not list((mundo.raiz / "logs" / "jogavel").glob("*/docker-logs.txt"))
 
 
 # ------------------------------------------------------ runtime file
@@ -286,6 +366,17 @@ def test_recreate_so_do_checkout_principal(mundo, tmp_path, capsys):
     assert not any(c.startswith("compose up") for c in mundo.docker)
 
 
+def test_recreate_recusa_clone_avulso(mundo, tmp_path, capsys):
+    clone = tmp_path / "clone"
+    subprocess.run(["git", "clone", "-q", "-c", "core.autocrlf=false", str(mundo.raiz), str(clone)],
+                   check=True)
+    assert (clone / ".git").is_dir()  # pasta .git, como a do principal
+    mundo.raiz = clone
+    assert _rodar(mundo, "voltar", "--recriar") == RECUSA
+    assert "não é o checkout principal" in capsys.readouterr().out
+    assert not any(c.startswith("compose up") for c in mundo.docker)
+
+
 # ---------------------------------------------------------- --seco
 
 def test_voltar_seco_nao_muda_nada(mundo, capsys):
@@ -356,6 +447,21 @@ def test_atualizar_so_python_avisa_para_reabrir(mundo, capsys):
     assert _head(mundo) == novo
     assert (mundo.raiz / RUNTIME).read_text() == '{"matchid": 99}\n'
     assert "Reabra a TUI e o uvicorn." in capsys.readouterr().out
+
+
+def test_atualizar_merge_falho_volta_ao_head_destacado(mundo, capsys):
+    # A main local divergiu da origin/main: o switch main passa, o merge
+    # --ff-only falha, e o checkout não pode ficar na main local.
+    _publicar(mundo, {"start_match.py": "v = 3\n"})
+    _commit(mundo.raiz, "local", {"notas.txt": "só aqui\n"})
+    _git(mundo.raiz, "switch", "-q", "--detach", "jogavel-2026-09-26")
+    assert _rodar(mundo, "atualizar") == FALHA
+    saida = capsys.readouterr().out
+    assert "falhou: git merge --ff-only origin/main" in saida
+    assert "voltei ao HEAD de antes (destacado em " in saida
+    assert _head(mundo) == _tag(mundo)
+    assert _git(mundo.raiz, "branch", "--show-current") == ""
+    assert (mundo.raiz / RUNTIME).read_text() == '{"matchid": 99}\n'
 
 
 def test_atualizar_seco_so_mostra(mundo, capsys):

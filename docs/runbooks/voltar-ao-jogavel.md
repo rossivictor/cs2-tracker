@@ -5,9 +5,12 @@ fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.playability_protocol, seções 2, 5 e 7)"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (judgements[1].must_fix[1], runtime file)"
   - "tools/jogavel.py:1-24"
-  - "tools/jogavel.py:229-276 (partida em curso)"
-  - "tools/jogavel.py:281-311 (runtime file)"
-  - "tools/jogavel.py:398-434 (voltar)"
+  - "tools/jogavel.py:55-62 (eventos de round)"
+  - "tools/jogavel.py:233-294 (partida em curso)"
+  - "tools/jogavel.py:299-343 (runtime file e volta do merge falho)"
+  - "tools/jogavel.py:374-404 (recreate só do checkout principal)"
+  - "tools/jogavel.py:442-484 (voltar)"
+  - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:452-703 (tipos de evento)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:641-670 (a volta à mão que o voltar substitui)"
   - "docs/runbooks/versoes-conhecidas.md:183-199 (manifesto do plugin de captura)"
 atualizado: 2026-09-30
@@ -36,24 +39,32 @@ C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/jogavel.py v
 
 Só com partida em curso (saída 3):
 
-- `current.jsonl` com evento de round (`round_start`, `round_end`, `player_death`,
-  `player_hurt`, bomba) há menos de 2 min. A idade soma o mtime do arquivo e os snapshots
-  gravados depois do último round (2 por segundo): a cauda de snapshots do fim da partida não
-  conta;
+- `current.jsonl` com evento de round há menos de 2 min: todo tipo que o plugin grava fora o
+  `snapshot` (`round_start`, `freeze_end`, `round_end`, `round_stats`,
+  `round_officially_ended`, `player_death`, `player_hurt`, `player_blind`, bomba). A idade soma
+  o mtime do arquivo e os snapshots gravados depois do último evento (2 por segundo): a cauda
+  de snapshots do fim da partida não conta. O `freeze_end` conta: um round sem dano nem
+  flash dura até 115 s depois dele, e do `round_start` já seriam mais de 2 min;
 - o `watcher.py` rodando (ingerindo);
-- a lista de processos falhou: sem certeza sobre o watcher, recusa.
+- sem certeza sobre o watcher, recusa: a lista de processos falhou, ou há `python` sem linha
+  de comando legível (só o `tasklist` respondeu: PowerShell falhou e o `wmic` não existe nesta
+  máquina). Recusa mesmo com o `cs2.exe` aberto, que numa partida viva sempre está. Qualquer
+  python aberto (o uvicorn, por exemplo) basta: feche-o ou use `--agora`.
 
 CS2, TUI e `start_match` abertos só geram aviso com o que fechar. Feche-os antes do recreate:
 o `start_match` sobe o container quando o acha parado e competiria com a volta.
 
 Numa emergência, `voltar --agora` segue mesmo com partida em curso, depois de você digitar
-`VOLTAR`. Qualquer outra resposta não muda nada (saída 5).
+`VOLTAR`. Qualquer outra resposta não muda nada (saída 5). Com partida em curso ele não lê
+`docker logs` (proibido nessa hora): a build "antes" sai como `não lida (partida em curso)`, o
+log do container antigo se perde no recreate, e a build "depois" é lida normalmente.
 
 ## O que ele faz, na ordem
 
 1. Salva `docker logs -t cs2-spike` em `logs/jogavel/<data>_<hora>-voltar/`, porque o
    recreate descarta o log do container antigo. Daí sai a build do CS2 "antes"
-   (`GC Connection established for server version N`).
+   (`GC Connection established for server version N`). Com `--agora` e partida em curso, pula
+   este passo.
 2. Protege o `docker/match_config.spike.json`, que o `start_match` reescreve a cada partida:
    copia para a mesma pasta, tira do caminho (`git checkout --` se rastreado; apaga se não
    rastreado e a tag o rastreia) e, depois da troca, restaura a cópia se a tag o rastreia. Se
@@ -73,7 +84,8 @@ Numa emergência, `voltar --agora` segue mesmo com partida em curso, depois de v
 **Build mudou** (`ATENÇÃO: a build do CS2 mudou`): o SteamCMD atualizou o jogo no boot. São
 duas variáveis, e o cliente do Victor precisa da mesma build. A build não volta por git.
 
-O recreate só roda do checkout principal: numa worktree, o compose criaria projeto e volume
+O recreate só roda do checkout principal, resolvido a partir do próprio `tools/jogavel.py`:
+numa worktree ou num clone avulso passado em `--raiz`, o compose criaria projeto e volume
 novos, vazios, e o `jogavel.py` recusa (saída 5).
 
 ## atualizar e status
@@ -84,6 +96,9 @@ novos, vazios, e o `jogavel.py` recusa (saída 5).
   destacado, antes `switch main`). Precisa de preflight 0. Commit que toca infra só passa com
   janela aberta (preflight 4); sem ela, recusa (saída 5) e lista os arquivos. No fim imprime
   "Reabra a TUI e o uvicorn". Infra trazida na janela ainda pede o recreate do servidor.
+  Se o `merge --ff-only` falhar depois do `switch main` (a main local divergiu), ele volta ao
+  HEAD de antes e sai com 1; se nem a volta der, imprime onde o checkout ficou e o
+  `git switch` para voltar.
 
 ## Saídas
 
