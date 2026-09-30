@@ -6,16 +6,18 @@ fontes:
   - "docs/runbooks/trilha-de-bots.md:342 (nota do passo 3, B1.5)"
   - "docs/runbooks/trilha-de-bots.md:213-253 (confundidores)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:198-225 (preparação do shell: rcon e prontos)"
-  - "docs/runbooks/b1.3-cssharp-1.0.375.md:275-286 (estado antes, cvars pela RCON)"
-  - "docs/runbooks/b1.3-cssharp-1.0.375.md:543-576 (passo 11, fechamento)"
-  - "docs/runbooks/b1.9-botrandomizer-upstream.md:50-55"
+  - "docs/runbooks/b1.3-cssharp-1.0.375.md:278-289 (estado antes, cvars pela RCON)"
+  - "docs/runbooks/b1.3-cssharp-1.0.375.md:483-497 (passo 9: cvars do boot, a referência do fechamento)"
+  - "docs/runbooks/b1.3-cssharp-1.0.375.md:547-581 (passo 11, fechamento)"
+  - "docs/runbooks/b1.9-botrandomizer-upstream.md:47-57"
+  - "commit 5095d29 (esperar_warmup nasce no B0.9b, 28/09, depois dos smokes de 27/09)"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:114-138 (Pronto no OnMapStart)"
   - "server-configs/cfg/gamemode_competitive_server.cfg:9-11"
   - "docker-compose.yml:42"
   - "start_match.py:345-370"
   - "tools/preflight.py:21-25"
   - ".claude/agents/servidor.md:54-64"
-atualizado: 2026-09-28
+atualizado: 2026-09-30
 ---
 
 # Smoke só de bots
@@ -35,9 +37,9 @@ pelo `changelevel` do [fechamento](#fechamento).
 
 ## Pré-condições
 
-1. Janela aberta (marca `logs/janelas/ABERTA`), G6 do passo feito e o estado "antes" salvo pela
-   RCON. A lista de cvars do "antes" precisa ter `bot_join_after_player`, porque o smoke o muda
-   (`.claude/agents/servidor.md`, passo 1).
+1. Janela aberta (marca `logs/janelas/ABERTA`), G6 do passo feito e a
+   [referência do fechamento](#referência-do-fechamento) salva pela RCON. A lista de cvars dela
+   precisa ter `bot_join_after_player`, porque o smoke o muda.
 2. Shell preparado como na [preparação do shell do B1.3r](b1.3-cssharp-1.0.375.md#preparação-do-shell):
    `RAIZ`, `PY`, a pasta `BK` do passo e as funções `rcon`, `prontos` e `esperar_pronto`. O
    `rcon` lê a senha do `.env` dentro do processo do Python e nunca a imprime; nunca rode
@@ -57,10 +59,22 @@ esperar_warmup() {   # espera uma linha StartWarmup além das $1 que já havia (
 }
 ```
 
+O `esperar_warmup` **nunca rodou ao vivo**. Ele nasceu neste runbook, em 28/09 (card B0.9b),
+depois dos smokes que ele resume: todos os do [registro G6](trilha-de-bots.md#janela-g6) são de
+27/09, e o registro não tem smoke depois disso. O padrão que ele conta veio dos
+`docker-logs-smoke.txt` dessas janelas ([armadilha 2](#armadilhas)), não de um teste da
+função. No primeiro smoke que a usar:
+
+- anote no registro da janela se ela devolveu `OK` ou `FALTA`;
+- antes de tratar um `FALTA` dela como troca de mapa que não terminou, confira no
+  `docker logs cs2-spike` se a linha `[MatchZy] [StartWarmup]` apareceu depois do
+  `changelevel`. Se apareceu, o erro é da função: registre e siga pela
+  [armadilha 2](#armadilhas), com a folga até ~30 s.
+
 ## Valores do boot
 
-O fechamento devolve estes valores. Compare sempre com o "antes" da **mesma** janela: ele é
-a referência, e a tabela diz o que já se viu.
+O fechamento devolve estes valores. A referência é a da **mesma** janela, pela
+[regra do fechamento](#referência-do-fechamento); a tabela só diz o que já se viu.
 
 | cvar ou estado | Visto no boot | De onde vem |
 |---|---|---|
@@ -208,20 +222,37 @@ grep -nE '<plugin do passo>|Unhandled exception|Error invoking callback|signatur
 
 ## Fechamento
 
+### Referência do fechamento
+
+Regra única, para este runbook e para o
+[passo 11 do B1.3r](b1.3-cssharp-1.0.375.md#11-fechamento-g6), com ou sem smoke: as cvars
+voltam às **do boot do candidato**, lidas pela RCON depois do G6 e antes da entrada do smoke.
+No B1.3r essa leitura é o `depois-rcon.txt` do
+[passo 9](b1.3-cssharp-1.0.375.md#9-g6-o-que-o-log-precisa-ter-e-não-ter), que traz o
+`bot_join_after_player`.
+
+- **Por quê:** o recreate da janela sobe um processo novo do jogo, com as cvars do boot, e é
+  nesse boot que o Victor joga a partida seguinte. O passo 9 do B1.3r chama esses valores de
+  "normais" e os guarda para o fechamento. O fechamento do B1.5 devolveu o
+  `bot_join_after_player 1`, o `true` do boot ([armadilha 3](#armadilhas)).
+- **O que não é referência:** o estado do passo 1 do runbook do passo (o `antes-rcon.txt` do
+  B1.3r) é do container anterior ao recreate. Ele serve para comparar build e inventário, não
+  cvar.
+
 ```bash
 rcon get5_status                          # gamestate "none"; se não for: rcon css_endmatch
 rcon "mp_ignore_round_win_conditions 0"
 rcon "bot_kick"
 rcon "bot_join_after_player 1"            # armadilha 3: o valor do boot é true
-rcon "bot_quota <valor do antes>"
-rcon "bot_quota_mode <valor do antes>"
-rcon "sv_hibernate_when_empty <valor do antes>"
+rcon "bot_quota <valor da referência>"
+rcon "bot_quota_mode <valor da referência>"
+rcon "sv_hibernate_when_empty <valor da referência>"
 P=$(prontos); rcon "changelevel de_mirage"   # zera os rounds do smoke e trunca o current.jsonl
 esperar_pronto "$P"
 for c in get5_status bot_join_after_player sv_hibernate_when_empty bot_quota bot_quota_mode mp_ignore_round_win_conditions; do echo "== $c"; rcon "$c"; done > "$BK/fechamento-rcon.txt" 2>&1
 ```
 
-- O `fechamento-rcon.txt` precisa bater com o "antes": `get5_status` none,
+- O `fechamento-rcon.txt` precisa bater com a [referência](#referência-do-fechamento): `get5_status` none,
   `bot_join_after_player` true, `sv_hibernate_when_empty` e `mp_ignore_round_win_conditions`
   false. `bot_quota` e `bot_quota_mode` saem do `gamemode_competitive_server.cfg`, reexecutado
   no load do `de_mirage`: `10 fill` é o normal depois dessa troca (fechamento do B1.5), e `0`
