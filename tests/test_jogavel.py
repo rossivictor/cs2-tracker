@@ -34,7 +34,8 @@ CFG = "server-configs/cfg/gamemode_competitive_server.cfg"
 
 
 def _git(raiz, *args):
-    return subprocess.run(["git", *args], cwd=raiz, capture_output=True, text=True, check=True).stdout.strip()
+    return subprocess.run(["git", *args], cwd=raiz, capture_output=True, encoding="utf-8",
+                          check=True).stdout.strip()
 
 
 def _commit(raiz, msg, arquivos=None, remover=(), tag=None):
@@ -546,6 +547,111 @@ def test_ler_manifesto_recusa_linha_fora_do_formato(tmp_path, linha):
     arquivo.write_text(linha + "\n")
     with pytest.raises(ValueError):
         jogavel.ler_manifesto(arquivo)
+
+
+# ------------------------------------------------------ marcar (B0.7b)
+
+NOTA = "B1.10 · PR #40"
+QUANDO = datetime.fromtimestamp(AGORA).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def _tags(mundo, padrao):
+    return _git(mundo.raiz, "tag", "-l", padrao).split()
+
+
+def test_marcar_candidato_cria_tag_registro_copia_e_candidato_json(mundo):
+    _pasta_plugin(mundo, BOM)
+    _git(mundo.raiz, "tag", "candidato-7", "jogavel-2026-09-26")  # o N segue o maior
+    sha, sha_dll = _head(mundo), _sha(b"dll boa")
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == OK
+    # tag anotada no commit, com o sha256 da DLL na mensagem, e na origin
+    assert _git(mundo.raiz, "rev-parse", "candidato-8^{commit}") == sha
+    assert _git(mundo.raiz, "cat-file", "-t", "candidato-8") == "tag"
+    mensagem = _git(mundo.raiz, "tag", "-l", "--format=%(contents)", "candidato-8")
+    assert mensagem.startswith(f"{NOTA}\n\nplugin Cs2TrackerEvents: {sha_dll}\n")
+    assert "refs/tags/candidato-8" in _git(mundo.raiz, "ls-remote", "--tags", "origin")
+    # cópia da pasta inteira, com o manifesto do B0.3
+    copia = mundo.copias / sha_dll
+    assert {n: d for n, d in _conteudo(copia).items() if n != "MANIFEST.txt"} == BOM
+    linhas = (copia / "MANIFEST.txt").read_text(encoding="utf-8").splitlines()
+    # sha256, bytes, mtime e nome, como o MANIFEST.txt do B0.3
+    assert [(l.split()[0], l.split()[1], l.split()[3]) for l in linhas if not l.startswith("#")] == [
+        (_sha(b'{"deps": 1}'), "11", "Cs2TrackerEvents.deps.json"),
+        (_sha(b"dll boa"), "7", "Cs2TrackerEvents.dll"),
+        (_sha(b"pdb bom"), "7", "Cs2TrackerEvents.pdb")]
+    registro = (mundo.raiz / "logs" / "jogavel" / "tags.md").read_text(encoding="utf-8")
+    assert registro == f"- {QUANDO} candidato-8 -> {sha[:9]} · plugin {sha_dll[:12]} · {NOTA}\n"
+    assert json.loads((mundo.raiz / "data" / "candidato.json").read_text(encoding="utf-8")) == {
+        "tag": "candidato-8", "commit": sha, "nota": NOTA, "plugin_captura": sha_dll, "marcado_em": QUANDO}
+
+
+def test_voltar_para_a_tag_do_marcar_restaura_o_plugin_dela(mundo):
+    pasta = _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "jogavel-2026-09-26", "-m", NOTA) == OK
+    for nome, dados in RUIM.items():
+        (pasta / nome).write_bytes(dados)
+    (pasta / "Cs2TrackerEvents.pdb").unlink()
+    assert _rodar(mundo, "voltar", "--tag", "candidato-1") == OK
+    assert _conteudo(pasta) == BOM
+
+
+def test_marcar_jogavel_com_nome_ocupado_e_fecha_o_candidato(mundo, capsys):
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "jogavel-2026-09-26", "-m", "B1.3r") == OK
+    _git(mundo.raiz, "tag", "jogavel-2027-01-15", "jogavel-2026-09-26")  # o dia de AGORA, noutro commit
+    assert _rodar(mundo, "marcar", "jogavel", "main", "-m", "G7 ok, partida 32") == OK
+    assert _git(mundo.raiz, "rev-parse", "jogavel-2027-01-15-2^{commit}") == _head(mundo)
+    assert not (mundo.raiz / "data" / "candidato.json").exists()
+    assert "data/candidato.json apagado: candidato-1 validado por jogavel-2027-01-15-2" in capsys.readouterr().out
+    # de novo no mesmo commit: já feita, sem tag nova
+    assert _rodar(mundo, "marcar", "jogavel", "main", "-m", "G7 ok, partida 32") == OK
+    assert _tags(mundo, "jogavel-2027-*") == ["jogavel-2027-01-15", "jogavel-2027-01-15-2"]
+
+
+def test_marcar_jogavel_mantem_o_candidato_que_nao_esta_nela(mundo):
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == OK
+    assert _rodar(mundo, "marcar", "jogavel", "jogavel-2026-09-26", "-m", "reteste") == OK
+    assert json.loads((mundo.raiz / "data" / "candidato.json").read_text(encoding="utf-8"))["tag"] == "candidato-1"
+
+
+def test_marcar_candidato_no_mesmo_commit_ja_esta_feito(mundo):
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == OK
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == OK
+    assert _tags(mundo, "candidato-*") == ["candidato-1"]
+
+
+def test_marcar_sem_a_pasta_do_plugin_nao_marca_nada(mundo, capsys):
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == FALHA
+    assert "a pasta só existe no checkout principal" in capsys.readouterr().out
+    assert _tags(mundo, "candidato-*") == [] and not (mundo.raiz / "data").exists()
+    assert not (mundo.raiz / "logs").exists() and not mundo.copias.exists()
+
+
+def test_marcar_nao_sobrescreve_copia_diferente(mundo, capsys):
+    _copia(mundo, {**BOM, "Cs2TrackerEvents.pdb": b"outro pdb"})  # mesma DLL, outra pasta
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == FALHA
+    assert "já existe e não é esta pasta" in capsys.readouterr().out
+    assert (mundo.copias / _sha(b"dll boa") / "Cs2TrackerEvents.pdb").read_bytes() == b"outro pdb"
+    assert _tags(mundo, "candidato-*") == []
+
+
+def test_marcar_reaproveita_copia_que_confere(mundo):
+    _copia(mundo)
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == OK
+    assert _tags(mundo, "candidato-*") == ["candidato-1"]
+
+
+def test_marcar_seco_nao_cria_nada(mundo, capsys):
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA, "--seco") == OK
+    saida = capsys.readouterr().out
+    assert _tags(mundo, "candidato-*") == [] and not mundo.copias.exists()
+    assert not (mundo.raiz / "logs").exists() and not (mundo.raiz / "data").exists()
+    assert "[seco] git tag -a candidato-1" in saida and "[seco] escreveria data/candidato.json" in saida
 
 
 # ---------------------------------------------------------- --seco

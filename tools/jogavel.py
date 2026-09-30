@@ -15,6 +15,10 @@ de 26/09). Runbook: docs/runbooks/voltar-ao-jogavel.md.
   janela     abrir --por "frase" [--teto N] | fechar [--feito ITEM...] |
              vigiar [--intervalo S], todos com [--seco] e só no checkout
              principal (fatia 2; protocolo, seção 8).
+  marcar     candidato|jogavel COMMIT -m "card e evidência" [--seco]: tag
+             anotada (com o sha256 da DLL de captura) e push, cópia da pasta
+             do plugin com manifesto, linha em logs/jogavel/tags.md e
+             data/candidato.json (a jogavel apaga o do candidato que contém).
 
 Todo git, docker e preflight passa pelo Executor, o único ponto que roda
 processo: os testes o trocam por um docker falso e um repo em tmp_path. Com
@@ -701,6 +705,154 @@ def cmd_atualizar(args, ex: Executor, **_kw) -> int:
     return OK
 
 
+# ------------------------------------------------------------ marcar
+
+# Registro das tags (fora do git, como o das janelas): uma linha por marcação.
+REGISTRO_TAGS = PASTA_LOGS / "tags.md"
+
+
+def copiar_plugin(ex: Executor, quando: str) -> tuple:
+    """Cópia da pasta do plugin do checkout em COPIAS_PLUGIN/<sha256 da DLL>/
+    com um MANIFEST.txt no formato do B0.3, conferida depois. Pasta que já
+    existe não se sobrescreve: ou confere com a do checkout, ou falha.
+    Devolve (código, sha256 da DLL)."""
+    origem = ex.raiz / PLUGIN_CAPTURA
+    if not (origem / DLL_CAPTURA).is_file():
+        print(f"marcar: sem {PLUGIN_CAPTURA.as_posix()}/{DLL_CAPTURA} em {ex.raiz} "
+              "(a pasta só existe no checkout principal)")
+        return FALHA, None
+    subpastas = sorted(a.name for a in origem.iterdir() if not a.is_file())
+    if subpastas:
+        print(f"marcar: a pasta do plugin tem subpasta ({', '.join(subpastas)}); o manifesto é plano")
+        return FALHA, None
+    itens = {a.name: sha256_de(a) for a in sorted(origem.iterdir())}
+    sha_dll = itens[DLL_CAPTURA]
+    copia = COPIAS_PLUGIN / sha_dll
+    if copia.exists():
+        manifesto = manifesto_da_copia(copia)
+        try:
+            esperado = ler_manifesto(manifesto) if manifesto else {}
+        except (OSError, ValueError):
+            esperado = {}
+        ruins = diferencas(copia, esperado, ignorar=NOMES_MANIFESTO) if esperado else ["sem manifesto legível"]
+        if esperado != itens or ruins:
+            print(f"marcar: {copia} já existe e não é esta pasta ({'; '.join(ruins) or 'manifesto diferente'}); "
+                  "nada se sobrescreve")
+            return FALHA, None
+        print(f"cópia da pasta do plugin já existe e confere: {copia}")
+        return OK, sha_dll
+    if ex.seco:
+        print(f"[seco] copiaria {origem} para {copia}, com MANIFEST.txt ({len(itens)} arquivos)")
+        return OK, sha_dll
+    copia.mkdir(parents=True)
+    linhas = [f"# Manifesto da pasta {PLUGIN_CAPTURA.as_posix()}/ (jogavel.py marcar, card B0.7b)",
+              f"# origem: {origem.as_posix()}/", f"# copiado em: {quando}",
+              "# formato: sha256  bytes  mtime-da-origem  nome"]
+    for nome, sha in itens.items():
+        shutil.copy2(origem / nome, copia / nome)
+        st = (origem / nome).stat()
+        mtime = datetime.fromtimestamp(st.st_mtime).astimezone().isoformat(timespec="seconds")
+        linhas.append(f"{sha}  {st.st_size}  {mtime}  {nome}")
+    (copia / "MANIFEST.txt").write_text("\n".join(linhas) + "\n", encoding="utf-8")
+    ruins = diferencas(copia, ler_manifesto(copia / "MANIFEST.txt"), ignorar=NOMES_MANIFESTO)
+    if ruins:
+        print(f"marcar: a cópia em {copia} não confere ({'; '.join(ruins)})")
+        return FALHA, None
+    print(f"pasta do plugin copiada e conferida em {copia} ({len(itens)} arquivos)")
+    return OK, sha_dll
+
+
+def nome_da_tag(ex: Executor, tipo: str, sha: str, hoje: str) -> tuple:
+    """(nome, já feita). candidato-N com o N seguinte ao maior; jogavel-DATA,
+    e -2, -3... com o nome ocupado. Tag nunca se move: a mesma marcação no
+    mesmo commit já está feita (tech-manager, Tags)."""
+    existentes = set(ex.git("tag", "-l", f"{tipo}-*").saida.split())
+    no_commit = set(ex.git("tag", "--points-at", sha).saida.split())
+    if tipo == "candidato":
+        feita = sorted(existentes & no_commit)
+        if feita:
+            return feita[0], True
+        numeros = [int(t[len("candidato-"):]) for t in existentes if t[len("candidato-"):].isdigit()]
+        return f"candidato-{max(numeros, default=0) + 1}", False
+    nome, n = f"jogavel-{hoje}", 1
+    while nome in existentes:
+        if nome in no_commit:
+            return nome, True
+        n += 1
+        nome = f"jogavel-{hoje}-{n}"
+    return nome, False
+
+
+def cmd_marcar(args, ex: Executor, agora: float, **_kw) -> int:
+    """Tag anotada (com o sha256 da DLL de captura), push, cópia da pasta do
+    plugin, linha em logs/jogavel/tags.md e data/candidato.json (protocolo,
+    seções 3 e 5)."""
+    ch = ex.git("rev-parse", "--verify", "--quiet", f"{args.commit}^{{commit}}")
+    if not ch.ok:
+        print(f"marcar: commit {args.commit} não encontrado")
+        return FALHA
+    sha, quando = ch.saida.strip(), _hora(agora, "%Y-%m-%dT%H:%M:%S")
+    if not ex.git("fetch", "origin", "--tags", timeout=300).ok:
+        print("aviso: git fetch --tags falhou; o nome sai das tags locais")
+    nome, feita = nome_da_tag(ex, args.tipo, sha, _hora(agora, "%Y-%m-%d"))
+    if feita:
+        print(f"{nome} já aponta para {sha[:9]}: a tag já está feita (só confiro o push)")
+        return OK if ex.git("push", "origin", f"refs/tags/{nome}", muda=True, timeout=120).ok else FALHA
+    codigo, sha_dll = copiar_plugin(ex, quando)
+    if codigo != OK:
+        print("marcar: nada foi marcado")
+        return codigo
+    nota = args.nota.strip()
+    mensagem = f"{nota}\n\nplugin Cs2TrackerEvents: {sha_dll}\nmarcada por jogavel.py marcar {args.tipo} em {quando}"
+    if not ex.git("tag", "-a", nome, sha, "-m", mensagem, muda=True).ok:
+        print(f"falhou: git tag -a {nome} {sha[:9]}")
+        return FALHA
+    enviada = ex.git("push", "origin", f"refs/tags/{nome}", muda=True, timeout=120).ok
+    if not enviada:
+        print(f"ATENÇÃO: a tag {nome} ficou só local; rode `git push origin {nome}`")
+    registrar_linha(ex, REGISTRO_TAGS, f"- {quando} {nome} -> {sha[:9]} · plugin {sha_dll[:12]} · {nota}")
+    arquivo = ex.raiz / CANDIDATO
+    if args.tipo == "candidato":
+        dados = {"tag": nome, "commit": sha, "nota": nota, "plugin_captura": sha_dll, "marcado_em": quando}
+        if ex.seco:
+            print(f"[seco] escreveria {CANDIDATO.as_posix()}: {json.dumps(dados, ensure_ascii=False)}")
+        else:
+            arquivo.parent.mkdir(parents=True, exist_ok=True)
+            arquivo.write_text(json.dumps(dados, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    elif arquivo.is_file():
+        fechar_candidato(ex, arquivo, sha, nome)
+    print(f"{'[seco] ' if ex.seco else ''}{nome} marcada em {sha[:9]} (plugin {sha_dll[:12]})")
+    return OK if enviada else FALHA
+
+
+def fechar_candidato(ex: Executor, arquivo: Path, sha: str, nome: str) -> None:
+    """O candidato que a jogavel contém passou pela partida: o
+    data/candidato.json sai, para o aviso de candidato (P1.1) não seguir."""
+    try:
+        candidato = json.loads(arquivo.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        candidato = {}
+    commit = str(candidato.get("commit") or "")
+    if not commit or not ex.git("merge-base", "--is-ancestor", commit, sha).ok:
+        print(f"{CANDIDATO.as_posix()} fica: o candidato ({candidato.get('tag', '?')}) não está em {nome}")
+        return
+    if ex.seco:
+        print(f"[seco] apagaria {CANDIDATO.as_posix()} ({candidato.get('tag')} validado por {nome})")
+        return
+    arquivo.unlink()
+    print(f"{CANDIDATO.as_posix()} apagado: {candidato.get('tag')} validado por {nome}")
+
+
+def registrar_linha(ex: Executor, rel: Path, linha: str) -> None:
+    if ex.seco:
+        print(f"[seco] {rel.as_posix()} += {linha}")
+        return
+    arquivo = ex.raiz / rel
+    arquivo.parent.mkdir(parents=True, exist_ok=True)
+    with arquivo.open("a", encoding="utf-8") as f:
+        f.write(linha + "\n")
+
+
 # ------------------------------------------------------------ janela
 
 MARCA = preflight.MARCA_JANELA
@@ -959,11 +1111,16 @@ def montar_parser() -> argparse.ArgumentParser:
                         help="fechar: item do checklist conferido à mão (repita para cada um)")
     janela.add_argument("--intervalo", type=float, default=INTERVALO_VIGIA_S,
                         help=f"vigiar: segundos entre ciclos (até {INTERVALO_VIGIA_S})")
+    marcar = sub.add_parser("marcar", help="tag candidato-N ou jogavel-DATA, com a cópia do plugin")
+    marcar.add_argument("tipo", choices=("candidato", "jogavel"))
+    marcar.add_argument("commit", help="commit a marcar (o merge do candidato; o HEAD da coleta na jogável)")
+    marcar.add_argument("-m", "--nota", required=True, help="card e evidência, na mensagem da tag")
+    marcar.add_argument("--seco", action="store_true", help="só mostra o que faria")
     return parser
 
 
 COMANDOS = {"status": cmd_status, "voltar": cmd_voltar, "atualizar": cmd_atualizar,
-            "janela": cmd_janela}
+            "janela": cmd_janela, "marcar": cmd_marcar}
 
 
 def main(argv: Optional[list] = None, fabrica: Callable = Executor,
