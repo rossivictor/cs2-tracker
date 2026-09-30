@@ -372,6 +372,153 @@ def test_curinga_que_nao_le_o_banco_do_principal_passa(repo, ferramenta, lugar, 
     assert _comando(repo, ferramenta, lugar, comando) == (0, "", "")
 
 
+# ------------- leitura pelo nome literal e @(...) do PowerShell (card B0.5c)
+# Só guarda.decidir com evento sintético: nenhum destes comandos roda de
+# verdade, e {P} é um checkout principal falso em tmp_path. Antes do B0.5c
+# só o curinga era conferido: o nome literal em cat/head/xxd/type/Get-Content
+# e sqlite3 -readonly passava, e o PowerShell não olhava dentro de @(...),
+# nem quando o cmdlet escrevia ou apagava.
+
+BANCO, ENV, LISTA = "banco", "env", "lista"
+ALTERNATIVA = {BANCO: ("mode=ro pedida ao PM", "tools/backup.py"), ENV: (".env.example",),
+               LISTA: ("Em vez disso: escreva o caminho literal",)}
+
+LEITURA_LITERAL_BLOQUEADA = [
+    # Os 7 do Problema, em Bash.
+    ("Bash", "wt", "cat {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "cat {P}/cs2_tracker.db > {F}/destino/c.db", BANCO),
+    ("Bash", "wt", "head -c 100 {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "xxd {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "sqlite3 -readonly {P}/cs2_tracker.db 'select count(*) from matches'", BANCO),
+    ("Bash", "wt", "sqlite3 {F}/x.db < {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "cat {P}/.env", ENV),
+    # Os 3 do Problema, em PowerShell.
+    ("PowerShell", "wt", "Get-Content {P}/cs2_tracker.db", BANCO),
+    ("PowerShell", "wt", "type {P}/cs2_tracker.db", BANCO),
+    ("PowerShell", "wt", "Get-Content {P}/.env", ENV),
+    # Os 5 do Problema com @(...): cópia, leitura, escrita e remoção.
+    ("PowerShell", "wt", "Copy-Item @('{P}/cs2_tracker.db') {F}/destino", BANCO),
+    ("PowerShell", "wt", "Copy-Item @('{P}/.env') {F}/destino", ENV),
+    ("PowerShell", "wt", "Get-Content @('{P}/.env')", ENV),
+    ("PowerShell", "wt", "Set-Content @('{P}/cs2_tracker.db') 'x'", BANCO),
+    ("PowerShell", "wt", "Move-Item @('{P}/cs2_tracker.db') {F}/destino", BANCO),
+    # -wal, -shm e -journal do banco.
+    ("Bash", "wt", "cat {P}/cs2_tracker.db-wal", BANCO),
+    ("Bash", "wt", "xxd {P}/cs2_tracker.db-shm", BANCO),
+    ("Bash", "wt", "head -c 10 {P}/cs2_tracker.db-journal", BANCO),
+    ("Bash", "wt", "sqlite3 -readonly {P}/cs2_tracker.db-wal .tables", BANCO),
+    ("PowerShell", "wt", "Get-Content {PW}\\cs2_tracker.db-shm", BANCO),
+    ("PowerShell", "wt", "Get-Content @('{P}/cs2_tracker.db-wal')", BANCO),
+    ("PowerShell", "wt", "Copy-Item @('{P}/cs2_tracker.db-journal') {F}/destino", BANCO),
+    # Outras formas de ler o mesmo arquivo: pasta relativa, $RAIZ sem valor,
+    # outros leitores, URI do sqlite, cmd /c, -LiteralPath, -Path:@(...), lista
+    # com mais de um item, nome que o Windows lê como o mesmo arquivo.
+    ("Bash", "principal", "cat cs2_tracker.db", BANCO),
+    ("Bash", "principal", "cat .env", ENV),
+    ("Bash", "wt", "cat ../../../cs2_tracker.db", BANCO),
+    ("Bash", "wt", 'cat "$RAIZ/cs2_tracker.db"', BANCO),
+    ("Bash", "wt", 'cat "$RAIZ"/.env', ENV),
+    ("Bash", "wt", "cat {P}/.ENV", ENV),
+    ("Bash", "wt", "cat {P}/cs2_tracker.db.", BANCO),
+    ("Bash", "wt", "cat '{P}/cs2_tracker.db::$DATA'", BANCO),
+    ("Bash", "wt", "grep SRCDS {P}/.env", ENV),
+    ("Bash", "wt", "grep -rn -e SRCDS {P}/.env", ENV),
+    ("Bash", "wt", "sed -n p {P}/.env", ENV),
+    ("Bash", "wt", "awk '{print}' {P}/.env", ENV),
+    ("Bash", "wt", "tail -n 3 {P}/.env", ENV),
+    ("Bash", "wt", "strings {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "sqlite3 -readonly 'file:{P}/cs2_tracker.db?mode=ro' .tables", BANCO),
+    ("Bash", "wt", "sqlite3 {F}/x.db .dump < {P}/.env", ENV),
+    ("PowerShell", "wt", "cmd /c type {PW}\\cs2_tracker.db", BANCO),
+    ("PowerShell", "wt", "Get-Content -LiteralPath {PW}\\.env", ENV),
+    ("PowerShell", "wt", "gc -Path:{P}/cs2_tracker.db", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Path:@('{P}/cs2_tracker.db') -Destination {F}/destino", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Path @('docs/README.md', '{P}/.env') -Destination {F}/d", ENV),
+    ("PowerShell", "wt", "Select-String -Pattern SRCDS -Path {P}/.env", ENV),
+    ("PowerShell", "wt", "$f = '{P}/.env'; Get-Content @($f)", ENV),
+    ("PowerShell", "wt", "$lista = @('{P}/.env'); Get-Content $lista", ENV),
+    # @(...) que a guarda não resolve, ao lado de cmdlet que lê, copia, grava
+    # ou apaga: falha fechado.
+    ("PowerShell", "wt", "Copy-Item @(Get-ChildItem docs) {F}/destino", LISTA),
+    ("PowerShell", "wt", "Remove-Item @($sem_valor)", LISTA),
+    ("PowerShell", "wt", "Get-Content @($env:VARIAVEL_QUE_NAO_EXISTE_B05C)", LISTA),
+    ("PowerShell", "wt", "Set-Content @(\"$(Get-Random).db\") 'x'", LISTA),
+    ("PowerShell", "wt", "Move-Item @('docs/a.md' + 'b') {F}/destino", LISTA),
+    ("PowerShell", "wt", "Copy-Item -Path:@(Get-ChildItem docs) {F}/destino", LISTA),
+    ("PowerShell", "principal", "Remove-Item @('x.txt', $y)", LISTA),
+]
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("ferramenta,lugar,comando,tipo", LEITURA_LITERAL_BLOQUEADA)
+def test_leitura_pelo_nome_e_lista_do_powershell_sao_bloqueadas(
+        repo, monkeypatch, ferramenta, lugar, comando, tipo, preflight_do_jogo):
+    for nome in ("RAIZ", "DATA", "VARIAVEL_QUE_NAO_EXISTE_B05C"):
+        monkeypatch.delenv(nome, raising=False)
+    codigo, erro, _ = _comando(repo, ferramenta, lugar, comando,
+                               preflight=lambda: preflight_do_jogo)
+    assert codigo == 2, erro
+    assert erro.startswith("guarda (B0.5) bloqueou:")
+    assert "Em vez disso:" in erro
+    for trecho in ALTERNATIVA[tipo]:
+        assert trecho in erro, erro
+
+
+LEITURA_LITERAL_LIBERADA = [
+    # O que o card manda continuar passando.
+    ("Bash", "wt", f"{PYTHON_DO_JOGO} tools/backup.py --destino \"{{F}}/bk\""),
+    ("Bash", "principal", f"{PYTHON_DO_JOGO} tools/backup.py --destino \"{{F}}/bk\""),
+    ("Bash", "wt", "rm -f cs2_tracker.db"),
+    ("PowerShell", "wt", "Remove-Item cs2_tracker.db"),
+    ("Bash", "wt", "cat docs/README.md"),
+    ("PowerShell", "wt", "Get-Content .env.example"),
+    ("PowerShell", "wt", "Copy-Item @('docs/README.md') {F}\\destino"),
+    ("Bash", "wt", "git status"),
+    # Vizinhos que não podem virar falso positivo.
+    ("Bash", "wt", "cat cs2_tracker.db"),  # o banco da PRÓPRIA worktree
+    ("Bash", "wt", "cat .env.example"),
+    ("Bash", "wt", "head -n 5 docs/README.md"),
+    ("Bash", "wt", "grep -rn '.env' docs"),
+    ("Bash", "wt", "grep -rn 'cs2_tracker.db' docs AGENTS.md"),
+    ("Bash", "wt", "sed -n p docs/README.md"),
+    ("Bash", "wt", "cat \"{F}\"/bk/cs2_tracker.backup.db"),
+    ("Bash", "wt", "sqlite3 -readonly \"{F}/bk/cs2_tracker.backup.db\" '.tables'"),
+    ("Bash", "wt", "ls {P}/.env {P}/cs2_tracker.db"),  # só metadados: não lê o conteúdo
+    ("PowerShell", "wt", "Get-Content -Path .env.example"),
+    ("PowerShell", "wt", "Remove-Item @('cs2_tracker.db')"),
+    ("PowerShell", "wt", "Copy-Item @('docs/README.md', 'docs/SPEC.md') {F}\\destino"),
+    ("PowerShell", "wt", "Copy-Item -Path:@('docs/README.md') -Destination {F}\\destino"),
+    ("PowerShell", "wt", "Set-Content docs/nota.md -Value @($linhas)"),
+    ("PowerShell", "wt", "Set-Content -Path docs/nota.md -Value:@('a', 'b')"),
+    ("PowerShell", "wt", "$f = '{F}/x.txt'; Remove-Item @($f)"),
+    ("PowerShell", "wt", "Get-Content @('docs/README.md')"),
+    ("PowerShell", "wt", "Get-ChildItem @($sem_valor)"),  # cmdlet que não lê nem escreve
+    ("PowerShell", "wt", "$linhas = @(Get-Content docs/README.md); $linhas.Count"),
+    ("PowerShell", "wt", "git add @('docs/README.md')"),
+]
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("ferramenta,lugar,comando", LEITURA_LITERAL_LIBERADA)
+def test_leitura_que_nao_toca_o_banco_nem_o_env_do_principal_passa(
+        repo, ferramenta, lugar, comando, preflight_do_jogo):
+    assert _comando(repo, ferramenta, lugar, comando,
+                    preflight=lambda: preflight_do_jogo) == (0, "", "")
+
+
+def test_lista_do_powershell_abre_cada_item_como_argumento_do_cmdlet(repo):
+    """Gabarito à mão: com o banco no meio da lista e a lista no meio dos
+    argumentos, o motivo cita o item (o banco), não a lista inteira."""
+    _, erro, _ = _comando(repo, "PowerShell", "wt",
+                          "Copy-Item @('docs/README.md', '{P}/cs2_tracker.db') {F}\\d")
+    assert "cs2_tracker.db" in erro and "@(" not in erro.split("Em vez disso:")[0]
+
+
+def test_leitura_do_env_explica_a_alternativa(repo):
+    _, erro, _ = _comando(repo, "Bash", "wt", "cat {P}/.env")
+    assert ".env.example" in erro and "não se lê, copia nem imprime" in erro
+
+
 def test_compose_na_worktree_fala_do_volume_e_do_checkout_principal(repo):
     _, erro, _ = _comando(repo, "Bash", "wt", "docker compose up -d")
     assert "fora do checkout principal" in erro

@@ -36,6 +36,12 @@ Bloqueia:
   - leitura com curinga que casa o cs2_tracker.db (e -wal, -shm, -journal)
     do checkout principal: origem de cp/Copy-Item/copy, cat/type/Get-Content
     e sqlite3 (card B0.5b); pasta que não se resolve falha fechado;
+  - leitura pelo nome literal do cs2_tracker.db (e -wal, -shm, -journal) do
+    checkout principal e do .env: cat, head, xxd, grep, type, Get-Content,
+    sqlite3 (inclusive -readonly), cópia e `< arquivo` (card B0.5c); no
+    PowerShell, cada item de @('a','b') vira argumento do cmdlet e o que não
+    se resolve (@(Get-ChildItem x), @($sem_valor)) ao lado de cmdlet que lê,
+    copia, grava ou apaga falha fechado;
   - docker logs / compose logs quando tools/preflight.py não devolve 0 ou 4;
   - no Write/Edit, dado pessoal e segredo (tools/hooks/pii.py): segredo do
     .env em qualquer arquivo do repositório; SteamID em docs/**, tests/**,
@@ -185,7 +191,8 @@ class Contexto:
 
 
 ALT_BANCO = ("banco em tmp_path ou fixture; dado real só numa cópia mode=ro pedida ao PM "
-             "(apagar o cs2_tracker.db que a suíte cria na SUA worktree pode, pelo nome)")
+             "(tools/backup.py); apagar o cs2_tracker.db que a suíte cria na SUA worktree "
+             "pode, pelo nome")
 ALT_ENV = "use o .env.example; o .env é do Victor, e só ele edita"
 ALT_PERFIL = "perfil em tmp_path nos testes"
 ALT_EVENTS = "fixture anonimizada em tests/fixtures/"
@@ -284,17 +291,29 @@ def _nome_casa_banco(nome):
 
 
 ALT_LEITURA = ("banco em tmp_path ou fixture; dado real só numa cópia mode=ro pedida ao PM "
-               "(tools/backup.py, card B0.6); curinga só numa pasta que não seja o checkout "
-               "principal (o cs2_tracker.db da SUA worktree pode)")
+               "(tools/backup.py, card B0.6); nome ou curinga só numa pasta que não seja o "
+               "checkout principal (o cs2_tracker.db da SUA worktree pode)")
+ALT_ENV_LEITURA = ("use o .env.example; o .env é do Victor: não se lê, copia nem imprime "
+                   "(o SRCDS_TOKEN e a senha do RCON iriam para a conversa)")
+
+
+def _nome_do_arquivo(forma):
+    """Último segmento em minúsculas, como o Windows o enxerga: sem ponto ou
+    espaço no fim e sem fluxo alternativo (cs2_tracker.db::$DATA)."""
+    nome = forma.lower().rsplit("/", 1)[-1]
+    return nome.split(":", 1)[0].rstrip(". ")
 
 
 def _motivo_leitura(bruto, ctx):
-    """(motivo, alternativa) se o curinga de um argumento de leitura (origem
-    de cp/Copy-Item/copy, cat/type/Get-Content, sqlite3) casa o banco do
-    checkout principal, senão None (card B0.5b). Com a pasta conhecida, casa
-    segmento a segmento com <principal>/cs2_tracker.db e os lados: *.db e *
-    barram no checkout principal e passam na worktree. Pasta que não se
-    resolve ("$RAIZ"/..., /tmp do Git Bash) falha fechado: vale o nome."""
+    """(motivo, alternativa) se um argumento de leitura (origem de
+    cp/Copy-Item/copy, cat/type/Get-Content, sqlite3, head, xxd...) ou o alvo
+    de um `<` lê o banco do checkout principal ou o .env, senão None.
+    Curinga (card B0.5b): com a pasta conhecida, casa segmento a segmento com
+    <principal>/cs2_tracker.db e os lados: *.db e * barram no checkout
+    principal e passam na worktree. Nome literal (card B0.5c): o banco barra
+    no checkout principal e passa na worktree; o .env barra em qualquer
+    pasta, como na escrita. Pasta que não se resolve ("$RAIZ"/..., /tmp do
+    Git Bash) falha fechado: vale o nome."""
     if bruto.startswith("(") and bruto.endswith(")"):  # (Join-Path $PWD 'x') do PowerShell
         for caminho in _caminhos_de_expressao(bruto[1:-1], ctx):
             achado = _motivo_leitura(caminho, ctx)
@@ -302,20 +321,43 @@ def _motivo_leitura(bruto, ctx):
                 return achado
         return None
     bruto = _expandir(bruto, ctx.env, ctx, "caminho", sistema=True)
+    if bruto.lower().startswith("file:"):  # sqlite3 -readonly file:<banco>?mode=ro
+        bruto = bruto[5:].split("?", 1)[0]
+        if _DRIVE.match(bruto.lstrip("/")):
+            bruto = bruto.lstrip("/")
     forma = _barras(bruto).rstrip("/")
-    if not _CURINGA.search(forma):
-        return None
     absoluto = _absoluto(bruto, ctx.cwd)
+    if not _CURINGA.search(forma):
+        return _motivo_leitura_literal(forma, absoluto, ctx)
     if absoluto is None:
-        if _nome_casa_banco(forma.lower().rsplit("/", 1)[-1]):
+        nome = forma.lower().rsplit("/", 1)[-1]
+        if _nome_casa_banco(nome):
             return (f"o curinga {forma} casa o nome do banco cs2_tracker.db e a pasta não se "
                     "resolve: pode ser o checkout principal (falha fechada)", ALT_LEITURA)
+        if nome.startswith(".") and fnmatch.fnmatchcase(".env", nome):
+            return (f"o curinga {forma} casa o .env e a pasta não se resolve (falha fechada)",
+                    ALT_ENV_LEITURA)
         return None
     padrao = absoluto.lower().split("/")
     for banco in _NOMES_DO_BANCO:
         alvo = f"{ctx.principal}/{banco}"
         if _segmentos_casam(padrao, alvo.lower().split("/")):
             return f"o curinga {forma} lê {alvo}, o banco do checkout principal", ALT_LEITURA
+    if _segmentos_casam(padrao, f"{ctx.principal}/.env".lower().split("/")):
+        return f"o curinga {forma} lê {ctx.principal}/.env", ALT_ENV_LEITURA
+    return None
+
+
+def _motivo_leitura_literal(forma, absoluto, ctx):
+    nome = _nome_do_arquivo(forma)
+    if nome == ".env":
+        return f"{forma} é o .env (segredos do servidor)", ALT_ENV_LEITURA
+    if nome in _NOMES_DO_BANCO:
+        if absoluto is None:
+            return (f"{forma} tem o nome do banco cs2_tracker.db e a pasta não se resolve: "
+                    "pode ser o checkout principal (falha fechada)", ALT_LEITURA)
+        if ctx.no_principal(posixpath.dirname(absoluto)):
+            return f"{forma} é o banco cs2_tracker.db do checkout principal", ALT_LEITURA
     return None
 
 
@@ -819,6 +861,10 @@ def _analisar_segmento(segmento, dialeto, ctx):
             if alvo.lower() not in _NULOS:
                 alvo = _expandir(alvo, ctx.env, ctx, dialeto, sistema=True)
                 _checar_caminho(alvo, ctx, "escrita", f"redirecionamento {op}")
+        elif op == "<":  # sqlite3 x.db < cs2_tracker.db: lê o arquivo (card B0.5c)
+            achado = _motivo_leitura(alvo, ctx)
+            if achado:
+                raise Bloqueio(f"redirecionamento < (leitura) em {alvo}: {achado[0]}", achado[1])
     if palavras:
         _analisar_palavras(palavras, dialeto, ctx)
 
@@ -913,6 +959,7 @@ def _analisar_palavras(palavras, dialeto, ctx, env_local=None, expandido=False):
         filho.expandindo = ctx.expandindo | {chave}
         analisar_comando(_corpo_com_args(ctx.funcoes[chave], args, dialeto), dialeto, filho)
         return
+    brutos = args
     args = [_expandir(a, env, ctx, dialeto) for a in args]
     if "$" in bruto:
         valor = _expandir(bruto, env, ctx, dialeto, sistema=True)
@@ -929,6 +976,9 @@ def _analisar_palavras(palavras, dialeto, ctx, env_local=None, expandido=False):
     tratador = _TRATADORES.get(prog)
     if tratador:
         tratador(prog, args, dialeto, ctx, env)
+    if dialeto == "ps" and "@(" in " ".join(args) and (prog in _LEITORES
+                                                       or prog in _TODOS_ESCRITORES):
+        args = _abrir_listas_ps(prog, args, brutos, ctx, env)
     if prog in _TODOS_ESCRITORES:  # perl tem os dois: -e e -i
         for alvo, modo in _alvos_de_escrita(prog, args):
             _checar_caminho(alvo, ctx, modo, prog)
@@ -1074,20 +1124,109 @@ def _alvos_de_escrita(prog, args):
     return [(a, "escrita") for a in caminhos + pos]
 
 
-# Leitores cujo curinga não pode casar o banco do checkout principal (B0.5b):
-# origem de cópia, cat/type/Get-Content (gc) e sqlite3, inclusive -readonly.
-_LEITORES = _COPIAR | {"cat", "type", "get-content", "gc", "sqlite3"}
+# Comandos que leem o arquivo e o mostram, copiam ou entregam a outro programa:
+# nem o curinga (B0.5b) nem o nome literal (B0.5c) podem alcançar o banco do
+# checkout principal ou o .env. Origem de cópia, cat/type/Get-Content (gc),
+# sqlite3 (inclusive -readonly), head, xxd e afins.
+_LEITORES_SIMPLES = {
+    "cat", "tac", "nl", "head", "tail", "less", "more", "bat", "type", "get-content", "gc",
+    "sqlite3", "xxd", "od", "hexdump", "strings", "format-hex", "base64", "base32", "md5sum",
+    "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha512sum", "b2sum", "cksum", "sort",
+    "uniq", "cut", "paste", "fold", "fmt", "column", "jq", "yq", "diff", "cmp", "comm",
+    "import-csv"}
+# Cujo 1º argumento (fora das opções) é o padrão ou o script, não um arquivo.
+_LEITORES_COM_PADRAO = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "sed", "awk", "gawk",
+                        "select-string", "sls"}
+_LEITORES = _COPIAR | _LEITORES_SIMPLES | _LEITORES_COM_PADRAO
+# Opções que dão o padrão ou o script: sobrando isso, todo argumento é arquivo.
+_DA_PADRAO = ("-e", "-f", "--regexp", "--file", "-pattern", "-regexp", "-file")
+
+
+def _alvos_sem_padrao(args):
+    """Palavras de um grep, rg, sed, awk ou Select-String que podem ser
+    arquivo: tudo, menos o padrão (a 1ª palavra que não é opção, se nenhuma
+    opção o deu). Errar pra mais só barra um padrão que seja o nome do banco."""
+    palavras, padrao_dado, so_palavras = [], False, False
+    for a in args:
+        if so_palavras or not (len(a) > 1 and a[0] == "-"):
+            palavras.append(a)
+        elif a == "--":
+            so_palavras = True
+        else:
+            nome, _sep, valor = a.partition("=") if "=" in a else a.partition(":")
+            if nome.startswith(_DA_PADRAO) or nome.lower().startswith(_DA_PADRAO[2:]):
+                padrao_dado = True
+            elif valor and nome.lower() in ("-path", "-literalpath", "-lp", "--file"):
+                palavras.append(valor)
+    return palavras if padrao_dado else palavras[1:]
+
+
+def _alvos_de_leitura(prog, args):
+    """Argumentos que `prog` pode ler: nomeados (-Path, -LiteralPath, o
+    -readonly <banco> do sqlite3...), posicionais e o destino também. Só
+    barra o que alcança o banco ou o .env, então conferir a mais não bloqueia
+    `cp docs/*.md destino/`."""
+    if prog in _LEITORES_COM_PADRAO:
+        return _alvos_sem_padrao(args)
+    nomeados, pos = _args_ps(args)
+    return [v for _nome, v in nomeados] + pos
 
 
 def _checar_leitura(prog, args, ctx):
-    """Confere todo argumento, nomeado ou posicional: -Path, -LiteralPath,
-    -readonly <banco> e o destino também. Só barra curinga que casa o banco,
-    então conferir a mais não bloqueia `cp docs/*.md destino/`."""
-    nomeados, pos = _args_ps(args)
-    for alvo in [v for _nome, v in nomeados] + pos:
+    for alvo in _alvos_de_leitura(prog, args):
         achado = _motivo_leitura(alvo, ctx)
         if achado:
             raise Bloqueio(f"{prog} (leitura) em {alvo}: {achado[0]}", achado[1])
+
+
+# Lista literal do PowerShell: @('a', "b", $x). Só entram texto entre aspas e
+# variável; o resto (@(Get-ChildItem x), @($a + $b)) é comando ou expressão.
+_ITEM_LISTA_PS = r"""(?:'(?:[^']|'')*'|"[^"`]*"|\$(?:env:)?\w+|\$\{[^}]*\})"""
+_LISTA_PS = re.compile(rf"^\s*(?:{_ITEM_LISTA_PS}(?:\s*,\s*{_ITEM_LISTA_PS})*)?\s*$")
+_ARG_LISTA_PS = re.compile(r"^(?P<param>-[A-Za-z]\w*:)?@\((?P<dentro>.*)\)$", re.DOTALL)
+
+
+def _itens_de_lista_ps(dentro, ctx, env):
+    """Os itens da lista, com as variáveis conhecidas trocadas pelo valor, ou
+    None se algum não se resolve (comando, expressão, $x sem valor)."""
+    if not _LISTA_PS.match(dentro):
+        return None
+    toks = _Leitor(dentro, "ps").ler()
+    if any(tok.tipo != "p" or tok.aninhados for tok in toks):
+        return None
+    itens = [_expandir(tok.texto, env, ctx, "ps", sistema=True) for tok in toks]
+    return None if any("$" in item for item in itens) else itens
+
+
+def _abrir_listas_ps(prog, args, brutos, ctx, env):
+    """Copy-Item @('a','b') d vira Copy-Item a b d: o item de @(...) passa a
+    ser argumento do cmdlet, e os outros checadores o veem. Lista que não se
+    resolve falha fechado (card B0.5c). Valor de -Value, -Encoding e afins é
+    texto, não caminho, e fica como está. `brutos` são os argumentos antes de
+    trocar as variáveis: @($f) tem que abrir como variável, não como texto
+    solto; já `$x = @('a')` só aparece na palavra expandida (args)."""
+    saida, anterior = [], ""
+    for expandido, bruto in zip(args, brutos):
+        a = bruto if _ARG_LISTA_PS.match(bruto) else expandido
+        m = _ARG_LISTA_PS.match(a)
+        param = (m.group("param") or "")[1:-1] if m else ""
+        e_valor = (param.lower() in _PS_NAO_CAMINHO
+                   or (anterior.startswith("-") and ":" not in anterior
+                       and anterior[1:].lower() in _PS_NAO_CAMINHO))
+        anterior = a
+        if not m or e_valor:
+            saida.append(a)
+            continue
+        itens = _itens_de_lista_ps(m.group("dentro"), ctx, env)
+        if itens is None:
+            raise Bloqueio(f"{prog} com {a} no PowerShell: a guarda não consegue resolver a "
+                           "expressão de @(...), e o cmdlet lê, copia, grava ou apaga arquivo "
+                           "(falha fechada)",
+                           "escreva o caminho literal (Copy-Item 'docs/x.md' destino), sem @(...) "
+                           "nem variável sem valor no comando")
+        prefixo = m.group("param") or ""
+        saida.extend(prefixo + item for item in itens)
+    return saida
 
 
 # ----------------------------------------------------------- tratadores
