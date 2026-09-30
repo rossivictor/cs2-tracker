@@ -19,6 +19,11 @@ de 26/09). Runbook: docs/runbooks/voltar-ao-jogavel.md.
              anotada (com o sha256 da DLL de captura) e push, cópia da pasta
              do plugin com manifesto, linha em logs/jogavel/tags.md e
              data/candidato.json (a jogavel apaga o do candidato que contém).
+  recriar (up, recreate) | parar (stop) | rcon "cmd" | snapshot --destino D |
+  restaurar --de TGZ | soak, todos com [--seco]: comandos do servidor, só
+             com logs/janelas/ABERTA dentro dos 45 min, preflight 4 e cwd e
+             --raiz no checkout principal (protocolo 9). Cada uso vira uma
+             linha no registro da janela.
 
 Todo git, docker e preflight passa pelo Executor, o único ponto que roda
 processo: os testes o trocam por um docker falso e um repo em tmp_path. Com
@@ -1068,6 +1073,203 @@ def _abortar(ex: Executor, dados: dict, sinais: list, relogio: Callable, entrada
     return PARTIDA
 
 
+# ------------------------------------------------ comandos do servidor
+
+VOLUME = "cs2-tracker_cs2-data"
+IMAGEM = "xbird/cs2-matchzy"
+# Snapshot do volume (runbook do B1.3r, passo 6): addons inteiro e os
+# *_version.txt que o setup compara; o gameinfo.gi entra só como referência.
+SNAPSHOT_ITENS = ("cssharp_version.txt", "mmsource_version.txt", "matchzy_version.txt",
+                  "game/csgo/gameinfo.gi", "game/csgo/addons")
+SNAPSHOT_CONTAGENS = ("game/csgo/addons/metamod/", "game/csgo/addons/counterstrikesharp/")
+# Restauração (caminho 2 do rollback do B1.3r): nunca o gameinfo.gi (é da
+# build do jogo) nem o contador de matchid da MatchZy (reusaria um matchid).
+RESTAURAR_EXCLUI = ("game/csgo/gameinfo.gi",
+                    "game/csgo/addons/counterstrikesharp/plugins/MatchZy/matchzy.db*")
+# Entrada do smoke só de bots (smoke-partida-de-bots.md, passo 1): o
+# bot_join_after_player 0 vem antes da quota e do warmup_end (armadilha 1).
+SOAK_ENTRADA = ("sv_hibernate_when_empty 0", "bot_join_after_player 0", "bot_quota_mode normal",
+                "bot_quota 10", "mp_warmup_end", "status")
+# A mesma RCON do start_match e dos runbooks: a senha sai do .env dentro do
+# processo filho e nunca passa pela linha de comando nem pela saída.
+RCON_PY = ("import sys; sys.path.insert(0, '.'); from config import load_env; "
+           "from start_match import rcon_run; "
+           "print(rcon_run('127.0.0.1', 27015, load_env()['CS2_RCONPW'], sys.argv[1]))")
+
+
+def exigir_janela(ex: Executor, agora: float) -> Optional[int]:
+    """Portão dos comandos do servidor (protocolo 9): cwd e --raiz no
+    checkout principal, marca logs/janelas/ABERTA dentro dos 45 min e
+    preflight 4 (o Victor jogando vence a janela). None libera."""
+    try:
+        principal = Path(checkout_principal()).resolve()
+    except (preflight.DeteccaoFalhou, OSError) as exc:
+        print(f"recusado: checkout principal desconhecido ({exc})")
+        return RECUSA
+    if Path.cwd().resolve() != principal or ex.raiz.resolve() != principal:
+        print(f"recusado: rode do checkout principal ({principal}); cwd {Path.cwd()}, --raiz {ex.raiz}")
+        return RECUSA
+    try:
+        idade = preflight.idade_da_marca(ex.raiz, agora)
+    except preflight.DeteccaoFalhou as exc:
+        print(f"recusado: marca da janela ilegível ({exc})")
+        return RECUSA
+    if idade is None:
+        print(f"recusado: sem janela aberta ({MARCA.as_posix()}). Quem abre é o `janela abrir`, "
+              "depois da frase do Victor")
+        return RECUSA
+    if not preflight.janela_vale(idade):
+        print(f"recusado: janela {estado_janela(ex.raiz, agora)}; feche e peça outra")
+        return VENCIDA
+    codigo, motivo = consultar_preflight(ex)
+    print(motivo)
+    if codigo != preflight.JANELA:
+        print("recusado: precisa de preflight 4 (janela aberta e ninguém jogando)")
+        return PARTIDA if codigo == preflight.JOGANDO else RECUSA
+    return None
+
+
+def rcon(ex: Executor, comando: str) -> Chamada:
+    return ex(sys.executable, "-X", "utf8", "-c", RCON_PY, comando, muda=True, timeout=30)
+
+
+def imagem_do_container(ex: Executor) -> Optional[str]:
+    """Id da imagem do container, ou da tag local: com --pull=never nada se baixa."""
+    for argv in (("inspect", CONTAINER, "--format", "{{.Image}}"),
+                 ("image", "inspect", IMAGEM, "--format", "{{.Id}}")):
+        ch = ex.docker(*argv)
+        if ch.ok and ch.saida.strip():
+            return ch.saida.strip()
+    return None
+
+
+def tirar_snapshot(ex: Executor, destino: Path, rotulo: str, agora: float) -> Optional[Path]:
+    """Snapshot do volume só lendo (runbook do B1.3r, passo 6): container
+    descartável sem pull, volume :ro, tar que sai 0, sha256 ao lado e as
+    contagens de metamod/ e counterstrikesharp/ maiores que zero."""
+    if not ex.docker("volume", "inspect", VOLUME, "--format", "{{.Name}}").ok:
+        print(f"snapshot: o volume {VOLUME} não existe. Pare: um -v com nome errado cria volume vazio")
+        return None
+    img = imagem_do_container(ex)
+    if not img:
+        print(f"snapshot: sem a imagem do container nem a {IMAGEM} no disco (nada se baixa)")
+        return None
+    nome = f"volume-addons-{rotulo}{_hora(agora, '%H%M')}.tgz"
+    tgz, pasta = destino / nome, destino.resolve().as_posix()
+    if tgz.exists():
+        print(f"snapshot: {tgz} já existe e não se sobrescreve")
+        return None
+    if not ex.seco:
+        destino.mkdir(parents=True, exist_ok=True)
+    ch = ex.docker("run", "--rm", "--pull=never", "--user", "0:0", "--entrypoint", "tar",
+                   "-v", f"{VOLUME}:/d:ro", "-v", f"{pasta}:/out", img, "--numeric-owner",
+                   "-czf", f"/out/{nome}", "-C", "/d", *SNAPSHOT_ITENS, muda=True, timeout=1800)
+    if ch.seco:
+        return tgz
+    if not ch.ok or not tgz.is_file():
+        print(f"falhou: tar do snapshot ({ch.erro.strip() or ch.codigo}). Não siga sem snapshot")
+        return None
+    sha = sha256_de(tgz)
+    (destino / f"{nome}.sha256").write_text(f"{sha}  {nome}\n", encoding="utf-8")
+    lista = ex.docker("run", "--rm", "--pull=never", "--entrypoint", "tar", "-v", f"{pasta}:/in:ro",
+                      img, "-tzf", f"/in/{nome}", timeout=600)
+    (destino / f"{nome[:-len('.tgz')]}.lista.txt").write_text(lista.saida, encoding="utf-8")
+    contagens = [sum(1 for linha in lista.saida.splitlines() if linha.startswith(p))
+                 for p in SNAPSHOT_CONTAGENS]
+    print(f"snapshot {tgz} · sha256 {sha} · metamod/ {contagens[0]} · counterstrikesharp/ {contagens[1]}")
+    if not lista.ok or min(contagens) == 0:
+        print("snapshot sem metamod/ ou counterstrikesharp/: não prova o que entrou. Não siga")
+        return None
+    return tgz
+
+
+def cmd_recriar(args, ex: Executor, **_kw) -> int:
+    build = salvar_logs(ex, _pasta(ex, "recriar"))  # o recreate descarta o log
+    cr = contar_cr(ex.raiz)
+    if cr:
+        print(f"ABORTADO antes do recreate: docker/pre.sh tem {cr} '\\r'. Conserte com\n  {conserto_cr(ex.raiz)}")
+        return CRLF
+    return recriar(ex, build)
+
+
+def cmd_parar(args, ex: Executor, **_kw) -> int:
+    return parar_container(ex)
+
+
+def cmd_rcon(args, ex: Executor, **_kw) -> int:
+    ch = rcon(ex, args.texto)
+    if ch.seco:
+        return OK
+    print(ch.saida.rstrip())
+    if not ch.ok:
+        print(f"falhou: rcon {args.texto} ({(ch.erro.strip().splitlines() or [str(ch.codigo)])[-1]})")
+        return FALHA
+    return OK
+
+
+def cmd_soak(args, ex: Executor, **_kw) -> int:
+    for comando in SOAK_ENTRADA:
+        ch = rcon(ex, comando)
+        if not ch.seco:
+            print(f"== {comando}\n{ch.saida.rstrip()}")
+        if not ch.ok:
+            print(f"falhou: rcon {comando}; o smoke não entrou")
+            return FALHA
+    print("entrada do smoke só de bots feita: confira bots nos dois times no status acima. Fases, "
+          "troca de mapa e fechamento: docs/runbooks/smoke-partida-de-bots.md, pelo `jogavel.py rcon`")
+    return OK
+
+
+def cmd_snapshot(args, ex: Executor, agora: float, **_kw) -> int:
+    return OK if tirar_snapshot(ex, Path(args.destino), "", agora) else FALHA
+
+
+def cmd_restaurar(args, ex: Executor, agora: float, **_kw) -> int:
+    """Caminho 2 do rollback do B1.3r: confere o tgz, tira o snapshot do
+    estado que vai ser sobrescrito, para o container, extrai por cima (sem
+    gameinfo.gi e matchzy.db*) e recria."""
+    tgz = Path(args.de).absolute()
+    soma = tgz.with_name(tgz.name + ".sha256")
+    if not tgz.is_file() or not soma.is_file():
+        print(f"restaurar: precisa de {tgz} e do {soma.name} ao lado (saída do `snapshot`)")
+        return FALHA
+    if soma.read_text(encoding="utf-8").split()[:1] != [sha256_de(tgz)]:
+        print(f"restaurar: o sha256 de {tgz.name} não confere com o {soma.name}; nada foi feito")
+        return FALHA
+    build = salvar_logs(ex, _pasta(ex, "restaurar"))  # evidência antes de qualquer recreate
+    if not tirar_snapshot(ex, tgz.parent, "queda-", agora):
+        print("restaurar: sem o snapshot do estado atual nada se escreve no volume")
+        return FALHA
+    codigo = parar_container(ex)
+    if codigo != OK:
+        return codigo
+    img = imagem_do_container(ex)
+    ch = ex.docker("run", "--rm", "--pull=never", "--user", "0:0", "--entrypoint", "tar",
+                   "-v", f"{VOLUME}:/d", "-v", f"{tgz.parent.resolve().as_posix()}:/in:ro", img or IMAGEM,
+                   "--numeric-owner", *[f"--exclude={e}" for e in RESTAURAR_EXCLUI],
+                   "-xzpf", f"/in/{tgz.name}", "-C", "/d", muda=True, timeout=1800)
+    if not ch.ok:
+        print(f"falhou: tar da restauração ({ch.erro.strip() or ch.codigo}). O container ficou "
+              "parado: siga o rollback do runbook do passo")
+        return FALHA
+    return recriar(ex, build)
+
+
+def do_servidor(funcao: Callable) -> Callable:
+    """Comando do servidor: só passa pelo portão da janela, e cada uso vira
+    uma linha no registro dela."""
+    def comando(args, ex: Executor, agora: float, relogio: Callable = time.time, **_kw) -> int:
+        barrado = exigir_janela(ex, agora)
+        if barrado is not None:
+            return barrado
+        codigo = funcao(args, ex, agora=agora)
+        t = relogio()
+        detalhe = f" {args.texto!r}" if getattr(args, "texto", None) else ""
+        registrar(ex, ler_marca(ex.raiz), f"- {_hora(t)} jogavel.py {args.comando}{detalhe}: saída {codigo}", t)
+        return codigo
+    return comando
+
+
 def _perguntar(entrada: Callable, texto: str) -> str:
     try:
         return entrada(texto).strip()
@@ -1116,11 +1318,30 @@ def montar_parser() -> argparse.ArgumentParser:
     marcar.add_argument("commit", help="commit a marcar (o merge do candidato; o HEAD da coleta na jogável)")
     marcar.add_argument("-m", "--nota", required=True, help="card e evidência, na mensagem da tag")
     marcar.add_argument("--seco", action="store_true", help="só mostra o que faria")
+    servidor = {  # só com a janela aberta e do checkout principal
+        "recriar": (["up", "recreate"], "docker compose up -d --force-recreate, com os logs salvos antes"),
+        "parar": (["stop"], f"docker stop {CONTAINER}, e confere que parou"),
+        "rcon": ([], "um comando pela RCON local"),
+        "snapshot": ([], f"tar do volume {VOLUME} (só leitura) em --destino"),
+        "restaurar": ([], "extrai um snapshot no volume (sem gameinfo.gi e matchzy.db*) e recria"),
+        "soak": ([], "entrada do smoke só de bots pela RCON")}
+    for nome, (apelidos, ajuda) in servidor.items():
+        p = sub.add_parser(nome, aliases=apelidos, help=f"{ajuda} (janela)")
+        p.add_argument("--seco", action="store_true", help="só mostra o que faria")
+    sub.choices["rcon"].add_argument("texto", help='comando, entre aspas: "get5_status"')
+    sub.choices["snapshot"].add_argument("--destino", type=Path, required=True,
+                                         help="pasta fora do volume (o BK do passo)")
+    sub.choices["restaurar"].add_argument("--de", type=Path, required=True,
+                                          help="o .tgz do `snapshot`, com o .sha256 ao lado")
     return parser
 
 
 COMANDOS = {"status": cmd_status, "voltar": cmd_voltar, "atualizar": cmd_atualizar,
             "janela": cmd_janela, "marcar": cmd_marcar}
+for _nomes, _funcao in ((("recriar", "up", "recreate"), cmd_recriar), (("parar", "stop"), cmd_parar),
+                        (("rcon",), cmd_rcon), (("snapshot",), cmd_snapshot),
+                        (("restaurar",), cmd_restaurar), (("soak",), cmd_soak)):
+    COMANDOS.update(dict.fromkeys(_nomes, do_servidor(_funcao)))
 
 
 def main(argv: Optional[list] = None, fabrica: Callable = Executor,

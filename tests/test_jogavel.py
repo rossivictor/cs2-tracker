@@ -14,6 +14,7 @@ também são falsos: o `vigiar` não espera de verdade.
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -69,6 +70,9 @@ class Mundo:
         self.docker = []
         self.container = "Up 2 hours"
         self.ps_falha = False
+        self.rcon, self.volume = [], True
+        # O que o `tar -tzf` do snapshot lista.
+        self.lista_tar = "game/csgo/addons/metamod/metaplugins.ini\ngame/csgo/addons/counterstrikesharp/api.dll\n"
         # Relógio falso da janela e um `docker ps` que "espera aprovação":
         # avança o relógio uma vez (lição de 27/09).
         self.relogio, self.docker_lento = None, 0
@@ -95,6 +99,10 @@ class Mundo:
                                            for pid, n, _c in self.processos))
         if any(a.endswith("preflight.py") for a in argv):
             return _feito(argv, self.preflight, f"preflight {self.preflight}: falso")
+        if "-c" in argv and "rcon_run" in argv[argv.index("-c") + 1]:
+            self.rcon.append(argv[-1])
+            self.argv_rcon = argv
+            return _feito(argv, 0, f"resposta de {argv[-1]}\n")
         raise AssertionError(f"processo inesperado: {argv}")
 
     def _docker(self, args):
@@ -116,6 +124,22 @@ class Mundo:
         if args == ["stop", "cs2-spike"]:
             self.container = "Exited (0) 1 second ago"
             return _feito(args, 0, "cs2-spike\n")
+        if args[:2] == ["volume", "inspect"]:
+            return _feito(args, 0 if self.volume else 1, "cs2-tracker_cs2-data\n" if self.volume else "")
+        if args == ["inspect", "cs2-spike", "--format", "{{.Image}}"]:
+            return _feito(args, 0, "sha256:imagem\n")
+        if args[:1] == ["run"]:
+            # "-v C:/.../bk:/out" -> {"/out": "C:/.../bk"}
+            montagens = dict(reversed(re.match(r"^(.*):(/[a-z]+)(?::ro)?$", args[i + 1]).groups())
+                             for i, a in enumerate(args) if a == "-v")
+            if "-czf" in args:  # snapshot: o tar grava o .tgz na pasta montada em /out
+                nome = args[args.index("-czf") + 1].removeprefix("/out/")
+                (Path(montagens["/out"]) / nome).write_bytes(b"tgz falso")
+                return _feito(args, 0, "")
+            if "-tzf" in args:
+                return _feito(args, 0, self.lista_tar)
+            if "-xzpf" in args:
+                return _feito(args, 0, "")
         raise AssertionError(f"docker inesperado: {args}")
 
 
@@ -1013,3 +1037,143 @@ def test_vigiar_intervalo_acima_de_30_s_e_uso_errado(mundo):
 def test_janela_acao_desconhecida_e_uso_errado(mundo):
     with pytest.raises(SystemExit):
         _rodar(mundo, "janela", "outra")
+
+
+# ----------------------------------------- comandos do servidor (B0.7b)
+
+PS = "ps -a --filter name=^cs2-spike$ --format {{.Status}}"
+SERVIDOR = [("recriar",), ("up",), ("recreate",), ("parar",), ("stop",), ("rcon", "get5_status"),
+            ("snapshot", "--destino", "{bk}"), ("restaurar", "--de", "{bk}/volume-addons-0800.tgz"),
+            ("soak",)]
+
+
+@pytest.fixture
+def janela(mundo, monkeypatch):
+    """Janela aberta há 10 min, preflight 4 e o cwd no checkout principal."""
+    monkeypatch.chdir(mundo.raiz)
+    mundo.preflight = 4
+    _marca(mundo, 600)
+    return mundo
+
+
+@pytest.mark.parametrize("comando", SERVIDOR, ids=lambda c: c[0])
+def test_comando_do_servidor_exige_janela_e_checkout_principal(mundo, monkeypatch, tmp_path, capsys, comando):
+    argv = [a.format(bk=tmp_path / "bk") for a in comando]
+    monkeypatch.chdir(mundo.raiz)
+    mundo.preflight = 4
+    # sem logs/janelas/ABERTA
+    assert _rodar(mundo, *argv) == RECUSA
+    assert "sem janela aberta (logs/janelas/ABERTA)" in capsys.readouterr().out
+    # com a marca, mas o cwd fora do checkout principal
+    _marca(mundo, 600)
+    monkeypatch.chdir(tmp_path)
+    assert _rodar(mundo, *argv) == RECUSA
+    assert "rode do checkout principal" in capsys.readouterr().out
+    # cwd certo e --raiz numa worktree
+    monkeypatch.chdir(mundo.raiz)
+    wt = tmp_path / "wt"
+    _git(mundo.raiz, "worktree", "add", "-q", "--detach", str(wt), "main")
+    assert main(["--raiz", str(wt), *argv], fabrica=lambda r, seco=False: Executor(r, seco=seco, rodar=mundo.rodar),
+                entrada=pytest.fail, agora=AGORA) == RECUSA
+    # marca vencida (mais de 45 min)
+    _marca(mundo, 46 * 60)
+    assert _rodar(mundo, *argv) == VENCIDA
+    # janela válida, mas o Victor abriu o jogo: o 3 vence o 4
+    _marca(mundo, 600)
+    mundo.preflight = 3
+    assert _rodar(mundo, *argv) == PARTIDA
+    assert mundo.docker == [] and mundo.rcon == []
+    assert _registro(mundo) == ""
+
+
+def test_recriar_salva_os_logs_e_recria_com_force_recreate(janela):
+    assert _rodar(janela, "up") == OK
+    assert janela.docker == ["logs -t cs2-spike", "compose up -d --force-recreate", "logs cs2-spike"]
+    assert list((janela.raiz / "logs" / "jogavel").glob("*-recriar/docker-logs.txt"))
+    assert " jogavel.py up: saída 0\n" in _registro(janela)
+
+
+def test_recriar_com_pre_sh_crlf_nao_recria(janela):
+    (janela.raiz / "docker/pre.sh").write_bytes(b"echo pre\r\n")
+    assert _rodar(janela, "recriar") == CRLF
+    assert not any(c.startswith("compose up") for c in janela.docker)
+
+
+def test_parar_confere_que_parou(janela):
+    assert _rodar(janela, "stop") == OK
+    assert janela.docker == [PS, "stop cs2-spike", PS]
+
+
+def test_rcon_nao_passa_a_senha_pela_linha_de_comando(janela, capsys):
+    assert _rodar(janela, "rcon", "get5_status") == OK
+    assert janela.rcon == ["get5_status"]
+    assert "resposta de get5_status" in capsys.readouterr().out
+    codigo = janela.argv_rcon[janela.argv_rcon.index("-c") + 1]
+    assert "load_env()['CS2_RCONPW']" in codigo and "'127.0.0.1', 27015" in codigo
+    assert "jogavel.py rcon 'get5_status': saída 0" in _registro(janela)
+
+
+def test_soak_faz_a_entrada_do_smoke_na_ordem_do_runbook(janela):
+    assert _rodar(janela, "soak") == OK
+    assert janela.rcon == ["sv_hibernate_when_empty 0", "bot_join_after_player 0", "bot_quota_mode normal",
+                           "bot_quota 10", "mp_warmup_end", "status"]
+    assert janela.docker == []
+
+
+def test_seco_do_servidor_nao_roda_nada(janela, capsys):
+    assert _rodar(janela, "rcon", "bot_kick", "--seco") == OK
+    assert janela.rcon == [] and "[seco]" in capsys.readouterr().out
+
+
+def test_snapshot_so_le_o_volume_e_confere(janela, tmp_path):
+    bk = tmp_path / "bk"
+    assert _rodar(janela, "snapshot", "--destino", str(bk)) == OK
+    nome = f"volume-addons-{datetime.fromtimestamp(AGORA):%H%M}.tgz"
+    assert (bk / nome).read_bytes() == b"tgz falso"
+    assert (bk / f"{nome}.sha256").read_text() == f"{_sha(b'tgz falso')}  {nome}\n"
+    run = next(c for c in janela.docker if "-czf" in c)
+    assert run.startswith("run --rm --pull=never --user 0:0 --entrypoint tar -v cs2-tracker_cs2-data:/d:ro ")
+    assert run.endswith("-C /d cssharp_version.txt mmsource_version.txt matchzy_version.txt "
+                        "game/csgo/gameinfo.gi game/csgo/addons")
+    assert janela.docker[0] == "volume inspect cs2-tracker_cs2-data --format {{.Name}}"
+
+
+def test_snapshot_sem_o_volume_para_antes_do_tar(janela, tmp_path, capsys):
+    janela.volume = False
+    assert _rodar(janela, "snapshot", "--destino", str(tmp_path / "bk")) == FALHA
+    assert not any(c.startswith("run") for c in janela.docker)
+    assert "um -v com nome errado cria volume vazio" in capsys.readouterr().out
+
+
+def test_snapshot_sem_counterstrikesharp_nao_vale(janela, tmp_path):
+    janela.lista_tar = "game/csgo/addons/metamod/metaplugins.ini\n"
+    assert _rodar(janela, "snapshot", "--destino", str(tmp_path / "bk")) == FALHA
+
+
+def _snapshot_antigo(tmp_path, dados=b"tgz de antes"):
+    bk = tmp_path / "bk"
+    bk.mkdir()
+    (bk / "volume-addons-0800.tgz").write_bytes(dados)
+    (bk / "volume-addons-0800.tgz.sha256").write_text(f"{_sha(b'tgz de antes')}  volume-addons-0800.tgz\n")
+    return bk / "volume-addons-0800.tgz"
+
+
+def test_restaurar_tira_snapshot_para_extrai_sem_matchzy_db_e_recria(janela, tmp_path):
+    tgz = _snapshot_antigo(tmp_path)
+    assert _rodar(janela, "restaurar", "--de", str(tgz)) == OK
+    queda = f"volume-addons-queda-{datetime.fromtimestamp(AGORA):%H%M}.tgz"
+    assert (tgz.parent / queda).read_bytes() == b"tgz falso"
+    ordem = [next(i for i, c in enumerate(janela.docker) if c.startswith(p))
+             for p in ("logs -t", "run --rm --pull=never --user 0:0 --entrypoint tar -v cs2-tracker_cs2-data:/d:ro",
+                       "stop cs2-spike", "run --rm --pull=never --user 0:0 --entrypoint tar -v cs2-tracker_cs2-data:/d ",
+                       "compose up -d --force-recreate")]
+    assert ordem == sorted(ordem)
+    extrai = next(c for c in janela.docker if "-xzpf" in c)
+    assert ("--exclude=game/csgo/gameinfo.gi --exclude=game/csgo/addons/counterstrikesharp/plugins/"
+            "MatchZy/matchzy.db* -xzpf /in/volume-addons-0800.tgz -C /d") in extrai
+
+
+def test_restaurar_com_sha256_que_nao_confere_nao_mexe_em_nada(janela, tmp_path, capsys):
+    tgz = _snapshot_antigo(tmp_path, dados=b"tgz corrompido")
+    assert _rodar(janela, "restaurar", "--de", str(tgz)) == FALHA
+    assert janela.docker == [] and "não confere" in capsys.readouterr().out
