@@ -15,7 +15,7 @@ fontes:
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:452-703 (tipos de evento)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:641-670 (a volta à mão que o voltar substitui)"
   - "docs/runbooks/versoes-conhecidas.md:183-199 (manifesto do plugin de captura)"
-atualizado: 2026-09-30
+atualizado: 2026-10-01
 ---
 
 # Voltar ao jogável
@@ -130,9 +130,9 @@ Todos aceitam `--seco`.
   Confere sozinho o container (de pé, ou parado como já estava na abertura) e o `pre.sh` sem
   `\r`. Os outros três são à mão até o B0.7b, e cada um só passa com o `--feito` dele:
   - `matchzy`: `get5_status` com `"gamestate":"none"` (`css_endmatch` ou restart), pela RCON;
-  - `cvars`: os valores do "antes" da mesma janela, pela RCON (`mp_ignore_round_win_conditions 0`,
-    `sv_hibernate_when_empty`, `bot_quota`, `bot_join_after_player`; tabela em
-    [smoke-partida-de-bots](smoke-partida-de-bots.md#valores-do-boot));
+  - `cvars`: pela RCON, na [referência do fechamento](smoke-partida-de-bots.md#referência-do-fechamento)
+    (`mp_ignore_round_win_conditions`, `sv_hibernate_when_empty`, `bot_quota`,
+    `bot_join_after_player`);
   - `sha256`: sha256 dos arquivos montados, dentro do container, igual ao checkout.
 
   Item faltando: a marca fica e ele diz o que falta (saída 5). Tudo ok: linha de fechamento no

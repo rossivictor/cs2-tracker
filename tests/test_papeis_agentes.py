@@ -735,11 +735,16 @@ def test_aborto_por_processo_sai_do_candidato_antes_de_subir_o_container():
 
 def test_smoke_e_fechamento_cuidam_do_bot_join_after_player():
     # B-B4: sem `bot_join_after_player 0` os bots não entram sem humano, e o
-    # smoke de 27/09 deu INCONCLUSIVO; o fechamento devolve o valor de antes.
+    # smoke de 27/09 deu INCONCLUSIVO. B0.9d: o fechamento segue a regra única
+    # do smoke (cvars do boot do candidato, bot_join_after_player inclusive),
+    # não os valores de antes da janela.
     passos = _passos_do_servidor()
     assert "`bot_join_after_player`" in passos["1"]
     assert "`bot_join_after_player 0` antes do `bot_quota`" in passos["10"]
-    assert "`bot_join_after_player` nos valores de antes" in passos["11"]
+    assert "smoke-partida-de-bots.md#referência-do-fechamento" in passos["11"]
+    assert "antes" not in passos["11"]
+    smoke = (RAIZ / "docs" / "runbooks" / "smoke-partida-de-bots.md").read_text(encoding="utf-8")
+    assert 'rcon "bot_join_after_player 1"' in _secao(smoke, "## Fechamento", "\n## ")
 
 
 def test_coleta_com_preflight_3_nao_prende_a_sessao_do_pm():
