@@ -11,7 +11,7 @@ fontes:
   - "tools/jogavel.py:310-354 (runtime file e volta do merge falho)"
   - "tools/jogavel.py:385-415 (recreate só do checkout principal)"
   - "tools/jogavel.py:459-501 (voltar)"
-  - "tools/jogavel.py:541-753 (janela abrir, fechar e vigiar)"
+  - "tools/jogavel.py:900-1131 (janela abrir, fechar, vigiar e aborto; timeouts do ciclo no B0.7c)"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:452-703 (tipos de evento)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:641-670 (a volta à mão que o voltar substitui)"
   - "docs/runbooks/versoes-conhecidas.md:183-199 (manifesto do plugin de captura)"
@@ -121,6 +121,17 @@ Todos aceitam `--seco`.
     comando legível): aborta (saída 3), registra e, se o checkout mudou na janela, roda o
     `voltar --tag <HEAD da abertura>`, que recusa com partida em curso. VPK, volume e pasta do
     plugin voltam pelo rollback do runbook do passo. A marca fica até o `fechar`.
+  - **Depois de um aborto só cabe `janela fechar`**: nada de seguir o passo, de rodar o
+    `vigiar` de novo nem de abrir outra janela por cima. A janela acabou; outra só com nova
+    frase do Victor.
+  - Nenhuma chamada do ciclo espera mais que 20 s: a lista de processos (30 s fora do ciclo)
+    cai para 20 s, e o `docker ps` espera 10 s. Com o docker pendurado (27/09), a checagem
+    dos processos do Victor segue a cada ≤30 s. O `voltar` do aborto já está fora do ciclo e
+    usa os timeouts dele (o recreate espera até 15 min).
+  - `docker ps` que estoura os 10 s vira `estado do container desconhecido` no registro, uma
+    vez quando entra e uma quando volta a responder, e a vigilância segue. Desconhecido não
+    conta como de pé: passou de 5 min assim, avisa como o container parado. No `fechar`,
+    desconhecido não passa no item do container.
   - O tempo vem do relógio de parede contra o mtime da marca, não da soma dos ciclos. Ciclo
     acima de 30 s (um `docker` preso esperando aprovação, como em 27/09) vai para o registro
     com a chamada mais lenta, e o próximo ciclo começa sem esperar.
