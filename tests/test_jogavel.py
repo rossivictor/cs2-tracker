@@ -914,6 +914,15 @@ def test_fechar_recusa_com_checklist_pendente(mundo, capsys):
     assert "passe --feito matchzy --feito sha256" in saida and _registro(mundo) == ""
 
 
+def test_fechar_cita_a_regra_unica_das_cvars(mundo, capsys):
+    # B0.9d: as cvars voltam às do boot do candidato (regra única do smoke), não ao "antes"
+    _marca(mundo, 600)
+    _janela(mundo, "fechar", "--feito", "matchzy")
+    linha, = [l for l in capsys.readouterr().out.splitlines() if "cvars (à mão)" in l]
+    assert "docs/runbooks/smoke-partida-de-bots.md#referência-do-fechamento" in linha
+    assert "antes" not in linha
+
+
 @pytest.mark.parametrize("na_abertura,agora,codigo", [
     ("Up 2 hours", "Exited (137) 1 minute ago", RECUSA),   # parado pela janela
     ("Exited (255) 5 hours ago", "Exited (255) 6 hours ago", OK),  # deixado como estava

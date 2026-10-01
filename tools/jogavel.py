@@ -885,9 +885,10 @@ PARADO_MAX_S = 5 * 60   # container parado no máximo ~5 min por passo
 MANUAIS = {
     "matchzy": 'MatchZy sem partida carregada: get5_status com "gamestate":"none" '
                "(css_endmatch ou restart), pela RCON",
-    "cvars": 'cvars nos valores do "antes" da janela, pela RCON: mp_ignore_round_win_conditions 0, '
-             "sv_hibernate_when_empty, bot_quota e bot_join_after_player "
-             "(docs/runbooks/smoke-partida-de-bots.md)",
+    "cvars": "cvars pela RCON na regra única do fechamento "
+             "(docs/runbooks/smoke-partida-de-bots.md#referência-do-fechamento): "
+             "mp_ignore_round_win_conditions, sv_hibernate_when_empty, bot_quota e "
+             "bot_join_after_player",
     "sha256": "sha256 dos arquivos montados dentro do container = checkout (docker exec "
               "sha256sum; o `coletar` do B0.7b automatiza)",
 }
