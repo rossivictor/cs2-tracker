@@ -75,17 +75,20 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 | 27/09 | Passos da B1 por runbook à mão enquanto o `jogavel.py` não existe | PM | ver `docs/runbooks/trilha-de-bots.md` |
 | 26–28/09 | K1.1, K1.2 e K1.3 feitos antes da T1 | sem registro de decisão | ficam como estão; não abrem precedente |
 
-## Posição em 30/09
+## Posição em 30/09, 21h
 
-Tirada do board (`docs/board-cs2/`, fora do git): campos `Status` e `Depende de` dos cards. O board manda no status; esta seção diz só quem é a sprint da vez e a fila dela, e pode estar um passo atrás.
+Foto do board (`docs/board-cs2/`, fora do git) nessa hora. **O status de cada card é o do board**; esta seção diz a sprint da vez, a ordem da fila e as decisões que a mudaram, e não repete status que muda a cada rodada.
 
 - **Trilho:** B1 fechada pelo B1.10 (tag `jogavel-2026-09-28`). A **B0 é a sprint aberta** e vai primeiro.
 - **Pista paralela:** a **H1 é a sprint aberta** (H1.1b, H1.7, H1.8, H1.9; o H1.10 está adiado). O H1.8 depende do B0.7b, então a H1 só fecha depois do B0.7b. T1 espera a H1.
 - **Feito na B0:** B0.3, B0.6, B0.5b e B0.9b em 28/09 (PRs #25 a #28); B0.7 (PRs #31 e #32) e B0.9c (PR #33) em 30/09.
-- **Fila da B0**, na ordem aprovada pelo Victor em 30/09 (B0.5c → B0.7 → B0.7b → B0.5d → B0.9c):
-  1. B0.5c (guarda: leitura literal do banco e do `.env`, e `@(...)` no PowerShell): parado depois de 2 reprovações, com o critério 2 em pauta para o Victor. O B0.5d espera por ele.
-  2. B0.7b (`jogavel.py` parte 2): parado pelo conflito do critério 5 (bloquear docker cru travaria os runbooks do servidor), em pauta para o Victor.
-  3. B0.8 e B0.11 (compose), aplicados na Janela 0 (B0.9), que o Victor abre. A partida seguinte dele fecha a B0 com uma tag.
+- **Decisões do Victor em 30/09:** ordem B0.5c → B0.7 → B0.7b → B0.5d → B0.9c; critério 2 do B0.5c trocado por "`@(` que não seja lista literal nua falha fechado"; critério 5 do B0.7b (bloquear docker cru) retirado para o B0.7d; B0.7c e B0.9d criados como pré-requisitos da Janela 0.
+- **Fila da B0**, na ordem (status no board):
+  1. B0.5c, depois B0.5d (guarda).
+  2. B0.7b, depois B0.7c (`jogavel.py`; mexem nos mesmos arquivos).
+  3. B0.9d (regra única das cvars no fechamento).
+  4. Janela 0 (B0.9), que o Victor abre, com B0.8 e B0.11 (compose); depende do B0.7c e do B0.9d. A partida seguinte dele fecha a B0 com uma tag.
+  5. B0.7d (bloquear docker cru fora do `jogavel.py`): estacionado; entra depois da Janela 0 e não segura o fechamento da B0.
 - **Sobras da B1:** B1.10b, B1.7a e B1.8b sem servidor; B1.7 (BotAI) e B1.2 (depende do T1.1) no caminho de jogo, depois da B0.
 - **Validação pendente no jogo:** VPK Low e a build 2000919 do CS2, na próxima partida do Victor.
 
