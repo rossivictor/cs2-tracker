@@ -71,6 +71,8 @@ class Mundo:
         self.container = "Up 2 hours"
         self.ps_falha = False
         self.rcon, self.volume = [], True
+        self.hash_container = self.hash_compose = "3970b702" + "0" * 56
+        self.sha_no_container = {}
         # O que o `tar -tzf` do snapshot lista.
         self.lista_tar = "game/csgo/addons/metamod/metaplugins.ini\ngame/csgo/addons/counterstrikesharp/api.dll\n"
         # Relógio falso da janela e um `docker ps` que "espera aprovação":
@@ -106,11 +108,25 @@ class Mundo:
         raise AssertionError(f"processo inesperado: {argv}")
 
     def _docker(self, args):
+        if args == ["compose", "config", "--hash", "cs2-server"]:
+            return _feito(args, 0, f"cs2-server {self.hash_compose}\n")
         if args[:2] == ["compose", "config"]:
-            vols = [{"type": "bind", "source": str(self.raiz / b), "target": "/x"} for b in self.binds]
+            vols = [{"type": "bind", "source": str(self.raiz / b), "target": f"/srv/{b}"} for b in self.binds]
             vols.append({"type": "volume", "source": "cs2-data", "target": "/home/steam"})
-            return _feito(args, 0 if self.compose_ok else 1,
-                          json.dumps({"services": {"cs2-server": {"volumes": vols}}}))
+            return _feito(args, 0 if self.compose_ok else 1, json.dumps(
+                {"services": {"cs2-server": {"container_name": "cs2-spike", "volumes": vols}}}))
+        if args == ["inspect", "cs2-spike", "--format", "{{.State.StartedAt}}"]:
+            return _feito(args, 0, "2027-01-15T07:00:00.123456789Z\n")
+        if args[:3] == ["inspect", "cs2-spike", "--format"] and "config-hash" in args[3]:
+            return _feito(args, 0, f"{self.hash_container}\n")
+        if args[:3] == ["exec", "cs2-spike", "sha256sum"]:
+            # O container vê o arquivo do bind (/srv/<fonte>), salvo o que se sobrepõe.
+            linhas = []
+            for alvo in args[3:]:
+                local = self.raiz / alvo.removeprefix("/srv/")
+                sha = self.sha_no_container.get(alvo) or (_sha(local.read_bytes()) if local.is_file() else None)
+                linhas += [f"{sha}  {alvo}\n"] if sha else []
+            return _feito(args, 0 if len(linhas) == len(args) - 3 else 1, "".join(linhas))
         if args[:1] == ["logs"]:
             return _feito(args, 0, f"GC Connection established for server version {self.build}, instance idx 1\n")
         if args[:2] == ["compose", "up"]:
@@ -1177,3 +1193,75 @@ def test_restaurar_com_sha256_que_nao_confere_nao_mexe_em_nada(janela, tmp_path,
     tgz = _snapshot_antigo(tmp_path, dados=b"tgz corrompido")
     assert _rodar(janela, "restaurar", "--de", str(tgz)) == FALHA
     assert janela.docker == [] and "não confere" in capsys.readouterr().out
+
+
+# ------------------------------------------------------ coletar (B0.7b)
+
+@pytest.fixture
+def montado(mundo):
+    """Os binds do compose de verdade: três arquivos, a pasta do plugin de
+    captura, uma pasta vazia de máscara e a events-live (saída do jogo)."""
+    mundo.binds = [CFG, "docker/pre.sh", RUNTIME, PLUGIN, "docker/plugins/_empty", "docker/events-live"]
+    _pasta_plugin(mundo, BOM)
+    (mundo.raiz / "docker/plugins/_empty").mkdir()
+    (mundo.raiz / "docker/events-live").mkdir()
+    (mundo.raiz / RUNTIME).write_bytes(b'{"matchid": 99}\n')  # sem o CRLF do write_text
+    return mundo
+
+
+def test_coletar_com_preflight_0_salva_logs_config_hash_e_sha_dos_montados(montado, tmp_path, capsys):
+    montado.sha_no_container = {"/srv/docker/pre.sh": "f" * 64}  # o container viu outro pre.sh
+    g7 = tmp_path / "g7"
+    assert _rodar(montado, "coletar", "--destino", str(g7)) == OK
+    saida = capsys.readouterr().out
+    assert montado.docker[:2] == ["inspect cs2-spike --format {{.State.StartedAt}}",
+                                  "logs -t --since 2027-01-15T07:00:00.123456789Z cs2-spike"]
+    exec_ = next(c for c in montado.docker if c.startswith("exec"))
+    assert exec_ == ("exec cs2-spike sha256sum /srv/" + CFG + " /srv/docker/pre.sh /srv/" + RUNTIME +
+                     " /srv/docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.deps.json"
+                     " /srv/docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.dll"
+                     " /srv/docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.pdb")
+    assert (g7 / "docker-logs.txt").read_text() == \
+        "GC Connection established for server version 2000918, instance idx 1\n"
+    assert (g7 / "head.txt").read_text() == _head(montado) + "\n"
+    assert (g7 / "config-hash-janela.txt").read_text() == "3970b702" + "0" * 56 + "\n"
+    assert (g7 / "config-hash.txt").read_text() == "cs2-server 3970b702" + "0" * 56 + "\n"
+    # conteúdos escritos pela fixture `mundo` e pelo BOM
+    cfg, pre, runtime, deps = b"bot_quota 0\n", b"echo pre\n", b'{"matchid": 99}\n', b'{"deps": 1}'
+    assert (g7 / "sha-referencia.txt").read_text() == (
+        f"{_sha(cfg)}  {CFG}\n{_sha(pre)}  docker/pre.sh\n{_sha(runtime)}  {RUNTIME}\n"
+        f"{_sha(deps)}  {PLUGIN}/Cs2TrackerEvents.deps.json\n"
+        f"{_sha(b'dll boa')}  {PLUGIN}/Cs2TrackerEvents.dll\n"
+        f"{_sha(b'pdb bom')}  {PLUGIN}/Cs2TrackerEvents.pdb\n")
+    assert f"{'f' * 64}  /srv/docker/pre.sh\n" in (g7 / "sha-montados.txt").read_text()
+    assert "config-hash: container 3970b702" in saida and "· iguais" in saida
+    assert "sha256 dos montados: 5 de 6 iguais ao checkout" in saida
+    assert "DIFERENTE: docker/pre.sh (/srv/docker/pre.sh): sha256 diferente" in saida
+    assert "pastas montadas não conferidas (saída do jogo): docker/events-live" in saida
+
+
+def test_coletar_acusa_config_hash_diferente(montado, tmp_path, capsys):
+    montado.hash_compose = "a" * 64
+    assert _rodar(montado, "coletar", "--destino", str(tmp_path / "g7")) == OK
+    assert "· DIFERENTES" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("codigo,saida", [(3, PARTIDA), (4, RECUSA)])
+def test_coletar_exige_preflight_0(montado, tmp_path, codigo, saida):
+    montado.preflight = codigo
+    assert _rodar(montado, "coletar", "--destino", str(tmp_path / "g7")) == saida
+    assert montado.docker == [] and not (tmp_path / "g7").exists()
+
+
+def test_coletar_nao_precisa_de_janela_nem_de_cwd(montado, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # só o --raiz precisa ser o checkout principal
+    assert not (montado.raiz / MARCA).exists()
+    assert _rodar(montado, "coletar") == OK
+    assert list((montado.raiz / "logs" / "jogavel").glob("*-coletar/sha-montados.txt"))
+
+
+def test_coletar_fora_do_checkout_principal_recusa(montado, tmp_path):
+    wt = tmp_path / "wt"
+    _git(montado.raiz, "worktree", "add", "-q", "--detach", str(wt), "main")
+    montado.raiz = wt
+    assert _rodar(montado, "coletar") == RECUSA and montado.docker == []

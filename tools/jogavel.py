@@ -19,6 +19,10 @@ de 26/09). Runbook: docs/runbooks/voltar-ao-jogavel.md.
              anotada (com o sha256 da DLL de captura) e push, cópia da pasta
              do plugin com manifesto, linha em logs/jogavel/tags.md e
              data/candidato.json (a jogavel apaga o do candidato que contém).
+  coletar    [--destino D]: evidência pós-partida só lendo, com preflight 0 e
+             sem janela: docker logs desde o StartedAt, config-hash do
+             container e do compose, HEAD e sha256 dos arquivos montados
+             (docker exec sha256sum) contra o checkout (protocolo 6).
   recriar (up, recreate) | parar (stop) | rcon "cmd" | snapshot --destino D |
   restaurar --de TGZ | soak, todos com [--seco]: comandos do servidor, só
              com logs/janelas/ABERTA dentro dos 45 min, preflight 4 e cwd e
@@ -219,17 +223,22 @@ def conserto_cr(raiz: Path) -> str:
 
 # -------------------------------------------------------------- infra
 
-def fontes_de_bind(ex: Executor) -> Optional[list]:
-    """Fontes de bind dentro do checkout, tiradas de `docker compose config`
-    (protocolo 2). A saída traz o .env interpolado: nunca é impressa."""
+def servicos_do_compose(ex: Executor) -> Optional[dict]:
+    """Os `services` de `docker compose config`. A saída traz o .env
+    interpolado: nunca é impressa nem salva."""
     ch = ex.docker("compose", "config", "--format", "json")
     if not ch.ok:
         return None
     try:
-        servicos = json.loads(ch.saida).get("services") or {}
+        return json.loads(ch.saida).get("services") or {}
     except (ValueError, AttributeError):
         return None
-    fontes = set()
+
+
+def binds_no_checkout(ex: Executor, servicos: dict) -> list:
+    """(fonte relativa ao checkout, destino no container) de cada bind com a
+    fonte dentro do checkout (protocolo 2)."""
+    binds = []
     for servico in servicos.values():
         for vol in servico.get("volumes") or []:
             if not isinstance(vol, dict) or vol.get("type") != "bind" or not vol.get("source"):
@@ -237,10 +246,16 @@ def fontes_de_bind(ex: Executor) -> Optional[list]:
             fonte = Path(vol["source"])
             try:
                 rel = (fonte if fonte.is_absolute() else ex.raiz / fonte).resolve()
-                fontes.add(rel.relative_to(ex.raiz.resolve()).as_posix())
+                binds.append((rel.relative_to(ex.raiz.resolve()).as_posix(), str(vol.get("target") or "")))
             except ValueError:  # fora do checkout: não vem do git
                 continue
-    return sorted(fontes)
+    return binds
+
+
+def fontes_de_bind(ex: Executor) -> Optional[list]:
+    """Fontes de bind dentro do checkout, tiradas de `docker compose config`."""
+    servicos = servicos_do_compose(ex)
+    return None if servicos is None else sorted({f for f, _ in binds_no_checkout(ex, servicos)})
 
 
 def infra_no_delta(ex: Executor, mudados: list) -> list:
@@ -1073,6 +1088,90 @@ def _abortar(ex: Executor, dados: dict, sinais: list, relogio: Callable, entrada
     return PARTIDA
 
 
+# ------------------------------------------------------------ coletar
+
+def arquivos_montados(ex: Executor, servicos: dict) -> tuple:
+    """(pares, puladas). Par: (arquivo relativo ao checkout, caminho no
+    container) de cada bind de arquivo e de cada arquivo das pastas de
+    docker/plugins/. Pasta montada fora dela é saída do jogo (events-live,
+    demos, stats), não configuração: fica de fora, e nem se lista."""
+    pares, puladas = [], []
+    for fonte, alvo in binds_no_checkout(ex, servicos):
+        local = ex.raiz / fonte
+        if local.is_file():
+            pares.append((fonte, alvo))
+        elif (fonte + "/").startswith(PLUGINS) and local.is_dir():
+            for arquivo in sorted(p for p in local.rglob("*") if p.is_file()):
+                rel = arquivo.relative_to(local).as_posix()
+                pares.append((f"{fonte}/{rel}", f"{alvo.rstrip('/')}/{rel}"))
+        else:
+            puladas.append(fonte)
+    return pares, puladas
+
+
+def cmd_coletar(args, ex: Executor, **_kw) -> int:
+    """Evidência de carona (protocolo 6), só lendo e sem janela: docker logs
+    desde o StartedAt, os dois config-hash, o HEAD e o sha256 dos arquivos
+    montados dentro do container (docker exec sha256sum) e no checkout, com
+    os binds de `docker compose config`. Quem julga é o QA."""
+    if not eh_checkout_principal(ex.raiz):
+        print(f"coletar recusado: {ex.raiz} não é o checkout principal (o compose daqui seria outro projeto)")
+        return RECUSA
+    codigo, motivo = consultar_preflight(ex)
+    print(motivo)
+    if codigo != preflight.LIVRE:
+        print("coletar recusado: precisa de preflight 0 (partida acabada e sem janela; docker logs "
+              "com partida em curso é proibido)")
+        return PARTIDA if codigo == preflight.JOGANDO else RECUSA
+    inicio = ex.docker("inspect", CONTAINER, "--format", "{{.State.StartedAt}}")
+    if not inicio.ok or not inicio.saida.strip():
+        print(f"coletar: sem o StartedAt de {CONTAINER} ({inicio.erro.strip() or inicio.codigo})")
+        return FALHA
+    logs = ex.docker("logs", "-t", "--since", inicio.saida.strip(), CONTAINER, timeout=300)
+    servicos = servicos_do_compose(ex)
+    if not logs.ok or servicos is None:
+        print("coletar: falhou " + ("docker logs" if not logs.ok else "docker compose config"))
+        return FALHA
+    pasta = Path(args.destino) if args.destino else _pasta(ex, "coletar")
+    pasta.mkdir(parents=True, exist_ok=True)
+
+    def salvar(nome: str, texto: str) -> None:
+        (pasta / nome).write_text(texto, encoding="utf-8")
+    salvar("docker-logs.txt", logs.saida + logs.erro)
+    salvar("head.txt", ex.git("rev-parse", "HEAD").saida.strip() + "\n")
+    # O config-hash do último recreate (rótulo do container) e o do compose de agora.
+    rotulo = ex.docker("inspect", CONTAINER, "--format",
+                       '{{index .Config.Labels "com.docker.compose.config-hash"}}').saida.strip()
+    servico = next((n for n, s in servicos.items() if s.get("container_name") == CONTAINER), None)
+    agora_hash = ex.docker("compose", "config", "--hash", servico).saida.strip() if servico else ""
+    salvar("config-hash-janela.txt", rotulo + "\n")
+    salvar("config-hash.txt", agora_hash + "\n")
+    do_compose = (agora_hash.split() or [""])[-1]
+    print(f"config-hash: container {rotulo or '?'} · compose {do_compose or '?'} · "
+          f"{'iguais' if rotulo and rotulo == do_compose else 'DIFERENTES'}")
+    pares, puladas = arquivos_montados(ex, servicos)
+    montados, saida_exec = {}, ""
+    if pares:
+        ch = ex.docker("exec", CONTAINER, "sha256sum", *[alvo for _, alvo in pares])
+        saida_exec = ch.saida  # arquivo ausente vai para o stderr e fica sem linha
+        for linha in saida_exec.splitlines():
+            partes = linha.split(None, 1)
+            if len(partes) == 2 and RE_SHA.match(partes[0]):
+                montados[partes[1].strip().lstrip("*")] = partes[0]
+    referencia = {fonte: sha256_de(ex.raiz / fonte) for fonte, _ in pares}
+    salvar("sha-montados.txt", saida_exec)
+    salvar("sha-referencia.txt", "".join(f"{sha}  {fonte}\n" for fonte, sha in referencia.items()))
+    diferentes = [f"{fonte} ({alvo}): " + ("ausente no container" if alvo not in montados else "sha256 diferente")
+                  for fonte, alvo in pares if montados.get(alvo) != referencia[fonte]]
+    print(f"sha256 dos montados: {len(pares) - len(diferentes)} de {len(pares)} iguais ao checkout")
+    for texto in diferentes:
+        print(f"  DIFERENTE: {texto}")
+    if puladas:
+        print(f"pastas montadas não conferidas (saída do jogo): {', '.join(puladas)}")
+    print(f"coleta salva em {pasta}")
+    return OK
+
+
 # ------------------------------------------------ comandos do servidor
 
 VOLUME = "cs2-tracker_cs2-data"
@@ -1318,6 +1417,9 @@ def montar_parser() -> argparse.ArgumentParser:
     marcar.add_argument("commit", help="commit a marcar (o merge do candidato; o HEAD da coleta na jogável)")
     marcar.add_argument("-m", "--nota", required=True, help="card e evidência, na mensagem da tag")
     marcar.add_argument("--seco", action="store_true", help="só mostra o que faria")
+    coletar = sub.add_parser("coletar", help="evidência pós-partida, só lendo (preflight 0, sem janela)")
+    coletar.add_argument("--destino", type=Path, default=None,
+                         help="pasta da coleta; padrão: logs/jogavel/<data>_<hora>-coletar")
     servidor = {  # só com a janela aberta e do checkout principal
         "recriar": (["up", "recreate"], "docker compose up -d --force-recreate, com os logs salvos antes"),
         "parar": (["stop"], f"docker stop {CONTAINER}, e confere que parou"),
@@ -1337,7 +1439,7 @@ def montar_parser() -> argparse.ArgumentParser:
 
 
 COMANDOS = {"status": cmd_status, "voltar": cmd_voltar, "atualizar": cmd_atualizar,
-            "janela": cmd_janela, "marcar": cmd_marcar}
+            "janela": cmd_janela, "marcar": cmd_marcar, "coletar": cmd_coletar}
 for _nomes, _funcao in ((("recriar", "up", "recreate"), cmd_recriar), (("parar", "stop"), cmd_parar),
                         (("rcon",), cmd_rcon), (("snapshot",), cmd_snapshot),
                         (("restaurar",), cmd_restaurar), (("soak",), cmd_soak)):
