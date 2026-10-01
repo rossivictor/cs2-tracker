@@ -383,6 +383,19 @@ def _checar_caminho(alvo, ctx, modo, acao):
 
 # ----------------------------------------------------------- tokenização
 
+# Operadores do PowerShell que, no fim da linha, fazem o comando continuar na
+# linha de baixo (card B0.5c). Os de comparação têm as variantes -c e -i. No
+# modo argumento só a vírgula continua (o parser do 5.1 confirma); em expressão,
+# qualquer um deles. Fica de fora o `..`, que no fim é `cd ..`.
+_COMPARACAO_PS = ("eq", "ne", "gt", "ge", "lt", "le", "like", "notlike", "match", "notmatch",
+                  "contains", "notcontains", "in", "notin", "replace", "split")
+_OPERADORES_PS = (
+    {f"-{p}{op}" for op in _COMPARACAO_PS for p in ("", "c", "i")}
+    | {"-and", "-or", "-xor", "-not", "-band", "-bor", "-bxor", "-bnot", "-shl", "-shr",
+       "-join", "-is", "-isnot", "-as", "-f"}
+    | {"+", "-", "*", "/", "%", "!", "=", "+=", "-=", "*=", "/=", "%=", "??", "??="})
+
+
 class _Tok:
     __slots__ = ("tipo", "texto", "aninhados")
 
@@ -402,12 +415,18 @@ class _Leitor:
     listas de tokens aninhadas na palavra onde aparecem, pra serem analisadas
     também. Corpo de heredoc e de here-string é dado, não comando."""
 
-    def __init__(self, texto, dialeto):
+    def __init__(self, texto, dialeto, juntar=False):
         self.t = texto
         self.n = len(texto)
         self.i = 0
         self.d = dialeto
         self.heredocs = []
+        # PowerShell: linha que termina em vírgula ou operador continua na de
+        # baixo. `juntar` trata essa quebra como espaço; sem ele, ela separa
+        # como antes e só conta (card B0.5c).
+        self.juntar = juntar
+        self.continuacoes = 0
+        self.aberto_no_fim = ""
 
     def _prox(self, k=1):
         j = self.i + k
@@ -418,18 +437,26 @@ class _Leitor:
         tem = False
         prof = 0
         t, n, d = self.t, self.n, self.d
+        cont = ""  # PS: vírgula ou operador que é o último token da linha até aqui
 
         def fechar():
-            nonlocal pal, anin, tem
+            nonlocal pal, anin, tem, cont
             if tem:
-                toks.append(_Tok("p", "".join(pal), anin))
+                texto = "".join(pal)
+                toks.append(_Tok("p", texto, anin))
+                # Operador só se escrito cru: '-join' entre aspas é string.
+                cont = texto if (d == "ps" and texto.lower() in _OPERADORES_PS
+                                 and t.endswith(texto, 0, self.i)) else ""
             elif anin:
                 toks.append(_Tok("a", "", anin))
+                cont = ""
             pal, anin, tem = [], [], False
 
         def separar():
+            nonlocal cont
             fechar()
             toks.append(_SEP)
+            cont = ""
 
         while self.i < n:
             c = t[self.i]
@@ -438,6 +465,13 @@ class _Leitor:
                 fechar()
                 self.i += 1
             elif c == "\n":
+                if d == "ps":
+                    fechar()
+                    if cont:
+                        self.continuacoes += 1
+                        if self.juntar:  # a linha de baixo é o resto deste comando
+                            self.i += 1
+                            continue
                 separar()
                 self.i += 1
                 if self.heredocs:
@@ -504,6 +538,7 @@ class _Leitor:
                         j += 1
                     toks.append(_Tok("r", t[self.i:j]))
                     self.i = j
+                cont = ""
             elif c == "(" and d == "ps" and (tem or (toks and toks[-1].tipo != "s")):
                 # Expressão em posição de argumento: Remove-Item (Join-Path $PWD 'x').
                 # Vira uma palavra (o texto cru) com o conteúdo aninhado.
@@ -546,12 +581,15 @@ class _Leitor:
                 self.i += 2 if prox in "|&" else 1
             elif c == "," and d == "ps":
                 fechar()
+                cont = ","
                 self.i += 1
             else:
                 pal.append(c)
                 tem = True
                 self.i += 1
         fechar()
+        if cont and cont != "*":  # `ls *` é curinga; o resto pede a linha de baixo
+            self.aberto_no_fim = cont
         return toks
 
     def _aspas_simples(self, pal):
@@ -708,7 +746,27 @@ def analisar_comando(texto, dialeto, ctx):
     _registrar_funcoes(texto, dialeto, ctx)
     if dialeto == "ps" and "::" in texto:
         _chamadas_dotnet(texto, ctx)
-    _analisar_tokens(_Leitor(texto, dialeto).ler(), dialeto, ctx)
+    leitor = _Leitor(texto, dialeto)
+    toks = leitor.ler()
+    if leitor.continuacoes:
+        # Linha terminada em vírgula ou operador: o PowerShell junta a de baixo
+        # ao comando (Remove-Item 'x',<NL>@('...')[0] apaga os dois). Analisa
+        # juntas e separadas: a guarda não sabe se o operador era expressão ou
+        # argumento, e cada leitura só pode somar bloqueio (card B0.5c).
+        juntas = _Leitor(texto, dialeto, juntar=True)
+        toks_juntos = juntas.ler()
+        _fechar_se_aberto(juntas.aberto_no_fim)
+        _analisar_tokens(toks_juntos, dialeto, ctx.filho())
+    _fechar_se_aberto(leitor.aberto_no_fim)
+    _analisar_tokens(toks, dialeto, ctx)
+
+
+def _fechar_se_aberto(operador):
+    if operador:
+        raise Bloqueio(f"comando do PowerShell termina em {operador!r}, que pede continuação "
+                       "na linha de baixo, e não há linha de baixo (falha fechada)",
+                       "termine o comando sem vírgula nem operador solto no fim, ou ponha "
+                       "a continuação na mesma linha")
 
 
 # ------------------------------------------------ variáveis, alias e funções

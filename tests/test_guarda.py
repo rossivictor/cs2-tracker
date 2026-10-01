@@ -501,6 +501,82 @@ def test_arroba_entre_aspas_tambem_fecha(repo):
     assert _comando(repo, "PowerShell", "wt", "'a @(b) c' | Set-Content docs/nota.md")[0] == 0
 
 
+# Critério 2, retomada 3: no PowerShell a linha que termina em vírgula ou em
+# operador continua na de baixo. Antes, a guarda cortava o comando na quebra e
+# a linha de baixo virava outro comando: os 6 primeiros saíam 0, e o PowerShell
+# 5.1 lia, gravava ou apagava o arquivo da linha de baixo (QA, reprovação 3).
+CONTINUACAO_BLOQUEADA = [
+    "Get-Content 'docs/README.md',\n@('{P}/.env')[0]",
+    "Get-Content -Path 'docs/README.md',\n@('{P}/.env')",
+    "Get-Content 'docs/README.md', #c\n@('{P}/.env')[0]",
+    "Get-Content 'docs/README.md',\r\n@('{P}/.env')[0]",
+    "Set-Content 'docs/x.md',\n@('{P}/cs2_tracker.db').Trim() 'x'",
+    "Remove-Item 'docs/x.md',\n@('{P}/cs2_tracker.db')[0]",
+    # Várias continuações em cadeia, linha em branco e comentário entre elas, e
+    # a continuação no meio dos argumentos.
+    "Get-Content 'docs/a.md',\n'docs/b.md',\n\n# c\n<# d #>\n@('{P}/.env')[0] -Encoding utf8",
+    "Copy-Item -Path 'docs/a.md',\n'{P}/cs2_tracker.db' -Destination {F}/d",
+    "Get-Content -Encoding utf8 -Path 'docs/a.md',\r\n  '{P}/.env'",
+    "Get-Content 'docs/README.md', <# c\nc #> @('{P}/.env')[0]",
+]
+OPERADORES_NO_FIM = ["-join", "-and", "-or", "-f", "+", "-replace", "-split", "-eq", "-like",
+                     "-match", "-band", "-CNotMatch", "-ilike", "-xor", "=", "*", "%", "-"]
+DEPOIS_DO_OPERADOR = ["\n", "\r\n", " #c\n", " <# c #>\n", "\n\n", "\n# c\n\n", "\r\n\r\n"]
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("comando", CONTINUACAO_BLOQUEADA)
+def test_linha_que_termina_em_virgula_continua_no_powershell(repo, comando, preflight_do_jogo):
+    codigo, erro, _ = _comando(repo, "PowerShell", "wt", comando,
+                               preflight=lambda: preflight_do_jogo)
+    assert codigo == 2, (comando, erro)
+    assert "Em vez disso:" in erro
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+def test_linha_que_termina_em_operador_tambem_junta_a_de_baixo(repo, preflight_do_jogo):
+    for op in OPERADORES_NO_FIM:
+        for meio in DEPOIS_DO_OPERADOR:
+            for alvo in ("{P}/.env", "{P}/cs2_tracker.db"):
+                comando = f"Get-Content 'docs/README.md' {op}{meio}@('{alvo}')[0]"
+                codigo, erro, _ = _comando(repo, "PowerShell", "wt", comando,
+                                           preflight=lambda: preflight_do_jogo)
+                assert codigo == 2, (comando, erro)
+                assert "só passa como lista literal nua" in erro, (comando, erro)
+
+
+@pytest.mark.parametrize("comando,operador", [
+    ("Get-Content 'docs/README.md',", "','"),
+    ("Get-Content 'docs/README.md',\n", "','"),
+    ("Get-Content 'docs/README.md',\r\n\r\n# só comentário", "','"),
+    ("Get-Content 'docs/README.md', <# bloco que não fecha\n", "','"),
+    ("Get-Content 'docs/README.md' -join", "'-join'"),
+    ("$x = 'docs/README.md' +\n", "'+'")])
+def test_operador_sem_linha_de_baixo_falha_fechado(repo, comando, operador):
+    codigo, erro, _ = _comando(repo, "PowerShell", "wt", comando)
+    assert codigo == 2
+    assert f"termina em {operador}" in erro and "falha fechada" in erro
+
+
+@pytest.mark.parametrize("ferramenta,comando", [
+    # Vírgula ou operador dentro de aspas não continua a linha.
+    ("PowerShell", "Write-Output 'a,'\nGet-Content docs/README.md"),
+    ("PowerShell", 'Write-Output "-join"\nGet-Content docs/README.md'),
+    ("PowerShell", "Write-Output 'a,\nb'"),
+    # Continuação legítima, só com arquivos da worktree.
+    ("PowerShell", "Get-Content 'docs/README.md',\n  'docs/SPEC.md'\nGet-Content docs/x.md"),
+    ("PowerShell", "$texto = 'a' +\n'b'"),
+    # Curinga e `..` no fim não pedem linha de baixo.
+    ("PowerShell", "Get-ChildItem *"),
+    ("PowerShell", "Set-Location .."),
+    # Bash não muda: vírgula e operador no fim da linha não juntam nada.
+    ("Bash", "echo a,\ncat docs/README.md"),
+    ("Bash", "echo a -and\nls *"),
+    ("Bash", "echo a,")])
+def test_continuacao_so_vale_para_o_powershell_e_fora_de_aspas(repo, ferramenta, comando):
+    assert _comando(repo, ferramenta, "wt", comando) == (0, "", "")
+
+
 @pytest.mark.parametrize("preflight_do_jogo", [0, 3])
 @pytest.mark.parametrize("ferramenta,lugar,comando,tipo", LEITURA_LITERAL_BLOQUEADA)
 def test_leitura_pelo_nome_e_lista_do_powershell_sao_bloqueadas(
