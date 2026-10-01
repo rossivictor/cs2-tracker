@@ -14,7 +14,7 @@ fontes:
   - "tools/jogavel.py:541-753 (janela abrir, fechar e vigiar)"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:452-703 (tipos de evento)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:641-670 (a volta à mão que o voltar substitui)"
-  - "docs/runbooks/versoes-conhecidas.md:183-199 (manifesto do plugin de captura)"
+  - "docs/runbooks/versoes-conhecidas.md:200-216 (manifesto do plugin de captura)"
 atualizado: 2026-10-01
 ---
 

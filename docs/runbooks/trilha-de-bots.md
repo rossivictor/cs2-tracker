@@ -363,7 +363,7 @@ recreate ou da troca. Para as estatísticas (coluna `bot_suite`, S2.4), a fronte
 | 4 · B1.6 | 27/09 20:10 (candidato-5) | BotBuy (BotBuyPatch 1.0.12) | + BotBuy | Medium | 2000918 | 29 (`events_66_map0`) | jogavel-2026-09-27-4 |
 | 6 · B1.8 | 27/09 21:17 (candidato-6) | NadeSystem 1.2.1 | + NadeSystem | Medium | 2000918 | 30 (`events_67_map0`) | jogavel-2026-09-27-5 |
 | 7 · B1.9 | 27/09 22:30 (candidato-7) | BotRandomizer 1.3.2 | + BotRandomizer | Medium | 2000918 | 31 (`events_68_map0`) | jogavel-2026-09-28 |
-| VPK Low | 28/09 19:54:52 (VPK) e 19:59:26 (build) | VPK Medium → Low, a pedido do Victor; no mesmo boot, o steamcmd da imagem atualizou o CS2 sem OK prévio (G5) | os mesmos da 7 | Low | 2000919 | nenhuma ainda | não validada: duas variáveis juntas |
+| VPK Low | 28/09 19:54:52 (VPK) e 19:59:26 (build 2000919); build 2000922 em 30/09 23:10 | VPK Medium → Low, a pedido do Victor; no mesmo boot, o steamcmd da imagem atualizou o CS2 sem OK prévio (G5); o restart da janela de 30/09 levou à 2000922 | os mesmos da 7 | Low | 2000919 → 2000922 | 36 (matchid 71, `events_71_map0`, de_ancient 13x7, 01/10, G7 OK na 2000922). Ressalva: a `events_70` (MD3, 30/09, antes da janela) já jogou o Low na 2000919, sem G7 | **validada**: jogavel-2026-10-01 |
 
 - O B1.7 não abriu época: foi pulado, e o BotAI segue mascarado.
 - Na partida, a época do VPK se confere pelo chat: o RoundDamageRecap compara o sha256 do
@@ -405,11 +405,11 @@ upstream. O BotAI não chegou a ser testado, então as 43 assinaturas dele ficam
    desliga o que depende dele, e `Unknown command 'bv_reveal'` é ruído.
 3. **BotBuyPatch:** 3 `Error invoking callback` (`BotBuyPatch.cs:258`, `ArgumentNullException`
    em `get_PlayerPawn` no `OnRoundStart`) no warmup do changelevel. Foram iguais nas partidas
-   30 e 31, sem efeito visto no jogo.
+   30, 31 e 36 (esta no warmup do 1º mapa, build 2000922), sem efeito visto: ruído conhecido.
 4. **NadeSystem:** "Grenade has no weapon info" nas granadas replayed (141 avisos na partida
    30, 68 na 31). A contagem de utility do motor não credita o bot. É o card B1.8b.
-5. **Época VPK Low:** o Low e a build 2000919 entraram juntos em 28/09 e ainda não foram
-   jogados. A próxima partida valida os dois, sem separar o efeito de cada um (confundidor 3).
+5. **Época VPK Low:** validada em 01/10 (partida 36, `jogavel-2026-10-01`, build 2000922). O
+   Low e a build entraram juntos (confundidor 3); a `events_70` já jogou o Low na 2000919, sem G7.
 6. **Fora da trilha:** o GOTV não grava `.dem` desde 21/09
    (`CDemoFile::Open: couldn't open file ... for writing`). Já é a Q12, no S1.2.
 
