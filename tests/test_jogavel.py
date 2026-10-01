@@ -78,10 +78,25 @@ class Mundo:
         # Relógio falso da janela e um `docker ps` que "espera aprovação":
         # avança o relógio uma vez (lição de 27/09).
         self.relogio, self.docker_lento = None, 0
+        # B0.7c: (programa, timeout pedido ao subprocess, hora do relógio
+        # falso) de cada chamada; e o que fica pendurado até estourar o
+        # timeout ("ps" e/ou "listagem"), avançando o relógio por ele.
+        self.chamadas, self.pendurados = [], set()
+
+    def _pendurar(self, argv, timeout):
+        if self.relogio:
+            self.relogio.t += timeout
+        raise subprocess.TimeoutExpired(argv, timeout)
 
     def rodar(self, argv, cwd=None, capture_output=True, timeout=None, **_kw):
         assert Path(cwd).resolve().is_relative_to(self.raiz.parent.resolve()), cwd
         nome = Path(argv[0]).name.lower()
+        self.chamadas.append((nome, timeout, self.relogio() if self.relogio else None))
+        if nome in ("powershell.exe", "wmic.exe", "tasklist.exe") and "listagem" in self.pendurados:
+            self._pendurar(argv, timeout)
+        if nome == "docker" and argv[1:2] == ["ps"] and "ps" in self.pendurados:
+            self.docker.append(" ".join(argv[1:]))
+            self._pendurar(argv, timeout)
         if nome == "git":
             return subprocess.run(argv, cwd=cwd, capture_output=True, timeout=timeout)
         if nome == "docker":
@@ -1036,6 +1051,50 @@ def test_vigiar_com_docker_lento_avisa_antes_de_vencer(mundo):
     registro = _registro(mundo).splitlines()
     assert [i for i, l in enumerate(registro) if "ciclo de 1200 s" in l or "faltam 3 min" in l
             or "JANELA VENCIDA" in l] == [0, 1, 2]
+
+
+# ------------------------------------- vigiar sem cegueira (B0.7c)
+
+def test_vigiar_com_docker_pendurado_checa_processos_a_cada_30_s(mundo):
+    # O `docker ps` nunca responde e estoura o timeout em todo ciclo; a marca
+    # tem 40 min, faltam 5 para o teto. Antes do B0.7c: ciclos de 120 s.
+    _marca(mundo, 40 * 60)
+    mundo.pendurados = {"ps"}
+    rel = Relogio()
+    assert _janela(mundo, "vigiar", rel=rel) == VENCIDA
+    listas = [t - AGORA for nome, _lim, t in mundo.chamadas if nome == "powershell.exe"]
+    assert listas == [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300]
+    assert rel.sonos == [20] * 10
+    # Nenhuma chamada do ciclo passa de 20 s: lista 30 -> 20, docker ps 120 -> 10.
+    assert sorted({(nome, lim) for nome, lim, _t in mundo.chamadas}) == [
+        ("docker", 10), ("powershell.exe", 20)]
+
+
+def test_vigiar_registra_docker_ps_que_estoura_como_estado_desconhecido(mundo):
+    # O `docker ps` estoura o timeout por 6 min e volta: o registro diz uma
+    # vez ao entrar e uma ao sair, a vigilância segue até vencer, e o
+    # desconhecido não conta como de pé (o container estava Up na abertura).
+    _marca(mundo, 30 * 60)
+    mundo.pendurados = {"ps"}
+    rel = Relogio()
+    rel.no_sono[12] = lambda: mundo.pendurados.discard("ps")
+    assert _janela(mundo, "vigiar", rel=rel) == VENCIDA
+    registro = _registro(mundo)
+    assert registro.count("vigiar: estado do container desconhecido (`docker ps` sem resposta em "
+                          "10 s): a vigilância segue, e ele não conta como de pé") == 1
+    assert registro.count("container cs2-spike sem estado conhecido há 5 min (máximo ~5 min "
+                          "por passo)") == 1
+    assert registro.count("vigiar: `docker ps` voltou a responder: Up 2 hours") == 1
+    assert "JANELA VENCIDA (marca de 45 min" in registro
+
+
+def test_fechar_com_docker_ps_pendurado_nao_da_o_container_por_conferido(mundo, capsys):
+    # Parado na abertura e desconhecido agora: não é "deixado como estava".
+    marca = _marca(mundo, 600, container="Exited (255) 5 hours ago")
+    mundo.pendurados = {"ps"}
+    assert _janela(mundo, "fechar", *TODOS) == RECUSA
+    assert marca.exists()
+    assert "[FALTA] container cs2-spike: estado do container desconhecido" in capsys.readouterr().out
 
 
 def test_vigiar_avisa_container_parado_mais_de_5_min(mundo):
