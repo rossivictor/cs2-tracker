@@ -1097,6 +1097,64 @@ def test_fechar_com_docker_ps_pendurado_nao_da_o_container_por_conferido(mundo, 
     assert "[FALTA] container cs2-spike: estado do container desconhecido" in capsys.readouterr().out
 
 
+def test_lista_de_processos_fora_do_vigiar_espera_os_30_s_do_preflight(mundo):
+    # O para_preflight passa o timeout do preflight (30 s), não o de 120 s
+    # do executor; com tudo pendurado, os três métodos esperam 30 s cada.
+    ex = Executor(mundo.raiz, rodar=mundo.rodar)
+    assert jogavel.sinais_de_processo(ex) == ([], [])
+    mundo.pendurados = {"listagem"}
+    bloqueios, _avisos = jogavel.sinais_de_processo(ex)
+    assert bloqueios[0].startswith("sem certeza sobre o watcher: não deu pra listar os processos")
+    assert [(nome, lim) for nome, lim, _t in mundo.chamadas] == [
+        ("powershell.exe", 30), ("powershell.exe", 30), ("wmic.exe", 30), ("tasklist.exe", 30)]
+
+
+@pytest.mark.parametrize("como", ["falha", "pendurada"])
+def test_vigiar_sem_lista_de_processos_conta_como_victor_jogando(mundo, capsys, como):
+    # G0: sem saber quais processos rodam, é o Victor jogando. Aborta no 1º
+    # ciclo, sem dormir e sem docker; pendurada, cada método espera 20 s.
+    _marca(mundo, 600)
+    if como == "falha":
+        mundo.listagem = "nenhum"
+    else:
+        mundo.pendurados = {"listagem"}
+    rel, antes = Relogio(), _head(mundo)
+    assert _janela(mundo, "vigiar", rel=rel) == PARTIDA
+    assert rel.sonos == [] and mundo.docker == [] and _head(mundo) == antes
+    assert ("ABORTO, processo do Victor (sem certeza sobre o watcher: não deu pra listar "
+            "os processos") in _registro(mundo)
+    if como == "pendurada":
+        assert [(n, lim) for n, lim, _t in mundo.chamadas if n != "git"] == [
+            ("powershell.exe", 20), ("wmic.exe", 20), ("tasklist.exe", 20)]
+
+
+def test_vigiar_aborta_e_o_voltar_recusa_com_round_no_current_jsonl(mundo, capsys):
+    # O Victor abriu o CS2 e já há round no current.jsonl: o voltar do aborto
+    # recusa (partida em curso) e nada muda, nem checkout nem container.
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    antes = _head(mundo)
+    _marca(mundo, 600, head=_tag(mundo))  # o checkout mudou na janela
+    mundo.processos = [(10, "cs2.exe", None)]
+    _current(mundo, ["round_start", "player_hurt"], idade_s=5)
+    assert _janela(mundo, "vigiar") == PARTIDA
+    assert "voltar recusado. Espere a partida acabar" in capsys.readouterr().out
+    assert _head(mundo) == antes and mundo.docker == []
+    assert f"voltar --tag {_tag(mundo)[:9]} (checkout da abertura): saída 3" in _registro(mundo)
+
+
+def test_vigiar_aborta_e_volta_ao_head_da_abertura_nao_a_ultima_jogavel(mundo):
+    # A abertura foi num commit à frente da jogavel-*; na janela o servidor
+    # trouxe outro. O aborto volta à abertura, não à última jogavel-* (M16).
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    abertura = _head(mundo)
+    _marca(mundo, 600)
+    _commit(mundo.raiz, "trazido na janela", {"start_match.py": "v = 3\n"})
+    mundo.processos = [(10, "cs2.exe", None)]
+    assert _janela(mundo, "vigiar") == PARTIDA
+    assert _head(mundo) == abertura and abertura != _tag(mundo)
+    assert f"voltar --tag {abertura[:9]} (checkout da abertura): saída 0" in _registro(mundo)
+
+
 def test_vigiar_avisa_container_parado_mais_de_5_min(mundo):
     _marca(mundo, 0, teto_min=10)
     mundo.container = "Exited (137) 1 minute ago"
