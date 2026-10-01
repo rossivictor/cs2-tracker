@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
 Testes de tools/jogavel.py, card B0.7: núcleo, status, voltar e atualizar
-(fatia 1) e janela abrir, fechar e vigiar (fatia 2).
+(fatia 1) e janela abrir, fechar e vigiar (fatia 2); card B0.7b: pasta do
+plugin pelo manifesto no voltar, marcar, comandos do servidor e coletar.
 
 O checkout é um repo git de verdade em tmp_path (git init, com a origin num
-repo bare ao lado). Docker, lista de processos e preflight são falsos: o
-executor recebe um `rodar` que só deixa passar git, e só dentro de
-tmp_path. Nada do checkout principal é tocado. Na janela, relógio e sono
+repo bare ao lado). Docker, RCON, lista de processos e preflight são falsos:
+o executor recebe um `rodar` que só deixa passar git, e só dentro de
+tmp_path. As cópias da pasta do plugin também ficam em tmp_path. Nada do
+checkout principal nem dos backups é tocado. Na janela, relógio e sono
 também são falsos: o `vigiar` não espera de verdade.
 """
+import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -31,7 +35,8 @@ CFG = "server-configs/cfg/gamemode_competitive_server.cfg"
 
 
 def _git(raiz, *args):
-    return subprocess.run(["git", *args], cwd=raiz, capture_output=True, text=True, check=True).stdout.strip()
+    return subprocess.run(["git", *args], cwd=raiz, capture_output=True, encoding="utf-8",
+                          check=True).stdout.strip()
 
 
 def _commit(raiz, msg, arquivos=None, remover=(), tag=None):
@@ -64,6 +69,12 @@ class Mundo:
         self.build, self.build_depois = "2000918", "2000918"
         self.docker = []
         self.container = "Up 2 hours"
+        self.ps_falha = False
+        self.rcon, self.volume = [], True
+        self.hash_container = self.hash_compose = "3970b702" + "0" * 56
+        self.sha_no_container = {}
+        # O que o `tar -tzf` do snapshot lista.
+        self.lista_tar = "game/csgo/addons/metamod/metaplugins.ini\ngame/csgo/addons/counterstrikesharp/api.dll\n"
         # Relógio falso da janela e um `docker ps` que "espera aprovação":
         # avança o relógio uma vez (lição de 27/09).
         self.relogio, self.docker_lento = None, 0
@@ -90,14 +101,32 @@ class Mundo:
                                            for pid, n, _c in self.processos))
         if any(a.endswith("preflight.py") for a in argv):
             return _feito(argv, self.preflight, f"preflight {self.preflight}: falso")
+        if "-c" in argv and "rcon_run" in argv[argv.index("-c") + 1]:
+            self.rcon.append(argv[-1])
+            self.argv_rcon = argv
+            return _feito(argv, 0, f"resposta de {argv[-1]}\n")
         raise AssertionError(f"processo inesperado: {argv}")
 
     def _docker(self, args):
+        if args == ["compose", "config", "--hash", "cs2-server"]:
+            return _feito(args, 0, f"cs2-server {self.hash_compose}\n")
         if args[:2] == ["compose", "config"]:
-            vols = [{"type": "bind", "source": str(self.raiz / b), "target": "/x"} for b in self.binds]
+            vols = [{"type": "bind", "source": str(self.raiz / b), "target": f"/srv/{b}"} for b in self.binds]
             vols.append({"type": "volume", "source": "cs2-data", "target": "/home/steam"})
-            return _feito(args, 0 if self.compose_ok else 1,
-                          json.dumps({"services": {"cs2-server": {"volumes": vols}}}))
+            return _feito(args, 0 if self.compose_ok else 1, json.dumps(
+                {"services": {"cs2-server": {"container_name": "cs2-spike", "volumes": vols}}}))
+        if args == ["inspect", "cs2-spike", "--format", "{{.State.StartedAt}}"]:
+            return _feito(args, 0, "2027-01-15T07:00:00.123456789Z\n")
+        if args[:3] == ["inspect", "cs2-spike", "--format"] and "config-hash" in args[3]:
+            return _feito(args, 0, f"{self.hash_container}\n")
+        if args[:3] == ["exec", "cs2-spike", "sha256sum"]:
+            # O container vê o arquivo do bind (/srv/<fonte>), salvo o que se sobrepõe.
+            linhas = []
+            for alvo in args[3:]:
+                local = self.raiz / alvo.removeprefix("/srv/")
+                sha = self.sha_no_container.get(alvo) or (_sha(local.read_bytes()) if local.is_file() else None)
+                linhas += [f"{sha}  {alvo}\n"] if sha else []
+            return _feito(args, 0 if len(linhas) == len(args) - 3 else 1, "".join(linhas))
         if args[:1] == ["logs"]:
             return _feito(args, 0, f"GC Connection established for server version {self.build}, instance idx 1\n")
         if args[:2] == ["compose", "up"]:
@@ -107,7 +136,26 @@ class Mundo:
             if self.docker_lento:
                 self.relogio.t += self.docker_lento
                 self.docker_lento = 0
-            return _feito(args, 0, self.container + "\n")
+            return _feito(args, 1 if self.ps_falha else 0, "" if self.ps_falha else self.container + "\n")
+        if args == ["stop", "cs2-spike"]:
+            self.container = "Exited (0) 1 second ago"
+            return _feito(args, 0, "cs2-spike\n")
+        if args[:2] == ["volume", "inspect"]:
+            return _feito(args, 0 if self.volume else 1, "cs2-tracker_cs2-data\n" if self.volume else "")
+        if args == ["inspect", "cs2-spike", "--format", "{{.Image}}"]:
+            return _feito(args, 0, "sha256:imagem\n")
+        if args[:1] == ["run"]:
+            # "-v C:/.../bk:/out" -> {"/out": "C:/.../bk"}
+            montagens = dict(reversed(re.match(r"^(.*):(/[a-z]+)(?::ro)?$", args[i + 1]).groups())
+                             for i, a in enumerate(args) if a == "-v")
+            if "-czf" in args:  # snapshot: o tar grava o .tgz na pasta montada em /out
+                nome = args[args.index("-czf") + 1].removeprefix("/out/")
+                (Path(montagens["/out"]) / nome).write_bytes(b"tgz falso")
+                return _feito(args, 0, "")
+            if "-tzf" in args:
+                return _feito(args, 0, self.lista_tar)
+            if "-xzpf" in args:
+                return _feito(args, 0, "")
         raise AssertionError(f"docker inesperado: {args}")
 
 
@@ -123,6 +171,7 @@ def mundo(tmp_path, monkeypatch):
     raiz = tmp_path / "checkout"
     raiz.mkdir()
     monkeypatch.setattr(jogavel, "checkout_principal", lambda: raiz)
+    monkeypatch.setattr(jogavel, "COPIAS_PLUGIN", tmp_path / "copias")
     _git(raiz, "init", "-q", "-b", "main")
     for chave, valor in (("core.autocrlf", "false"), ("user.name", "Teste"),
                          ("user.email", "teste@example.invalid"), ("commit.gpgsign", "false")):
@@ -137,7 +186,9 @@ def mundo(tmp_path, monkeypatch):
     _git(raiz, "remote", "add", "origin", str(origem))
     _git(raiz, "push", "-q", "origin", "main", "--tags")
     _git(raiz, "fetch", "-q", "origin")
-    return Mundo(raiz)
+    mundo = Mundo(raiz)
+    mundo.copias = tmp_path / "copias"
+    return mundo
 
 
 def _rodar(mundo, *argv, entrada=None, agora=AGORA):
@@ -384,6 +435,263 @@ def test_recreate_recusa_clone_avulso(mundo, tmp_path, capsys):
     assert _rodar(mundo, "voltar", "--recriar") == RECUSA
     assert "não é o checkout principal" in capsys.readouterr().out
     assert not any(c.startswith("compose up") for c in mundo.docker)
+
+
+# ---------------------------------- pasta do plugin pelo manifesto (B0.7b)
+
+PLUGIN = "docker/plugins/Cs2TrackerEvents"
+BOM = {"Cs2TrackerEvents.dll": b"dll boa", "Cs2TrackerEvents.deps.json": b'{"deps": 1}',
+       "Cs2TrackerEvents.pdb": b"pdb bom"}
+# A pasta do checkout depois de um build ruim: DLL nova, .pdb sumido e um arquivo a mais.
+RUIM = {"Cs2TrackerEvents.dll": b"dll ruim", "Cs2TrackerEvents.deps.json": b'{"deps": 1}',
+        "extra.xml": b"<x/>"}
+
+
+def _sha(dados):
+    return hashlib.sha256(dados).hexdigest()
+
+
+def _copia(mundo, arquivos=BOM, formato="b0.3"):
+    """Cópia da pasta em copias/<sha256 da DLL>/, com o manifesto de um dos
+    dois formatos que existem nos backups."""
+    sha_dll = _sha(arquivos["Cs2TrackerEvents.dll"])
+    pasta = mundo.copias / sha_dll
+    pasta.mkdir(parents=True)
+    for nome, dados in arquivos.items():
+        (pasta / nome).write_bytes(dados)
+    if formato == "b0.3":
+        linhas = ["# Manifesto da pasta docker/plugins/Cs2TrackerEvents/ (card B0.3)",
+                  "# formato: sha256  bytes  mtime-da-origem  nome"]
+        linhas += [f"{_sha(d)}  {len(d)}  2026-09-23T19:10:55-03:00  {n}" for n, d in arquivos.items()]
+        (pasta / "MANIFEST.txt").write_text("\n".join(linhas) + "\n")
+    else:
+        (pasta / "MANIFESTO.sha256").write_text("".join(f"{_sha(d)} *{n}\n" for n, d in arquivos.items()))
+    return sha_dll
+
+
+def _pasta_plugin(mundo, arquivos):
+    pasta = mundo.raiz / PLUGIN
+    pasta.mkdir(parents=True, exist_ok=True)
+    for nome, dados in arquivos.items():
+        (pasta / nome).write_bytes(dados)
+    return pasta
+
+
+def _conteudo(pasta):
+    return {a.name: a.read_bytes() for a in pasta.iterdir()}
+
+
+def _tag_com_plugin(mundo, sha_dll, tag="jogavel-plugin", commit="jogavel-2026-09-26"):
+    _git(mundo.raiz, "tag", "-a", tag, commit, "-m", f"G7 ok\n\nplugin Cs2TrackerEvents: {sha_dll}")
+    return tag
+
+
+def test_voltar_restaura_a_pasta_inteira_do_plugin_com_o_container_parado(mundo, capsys):
+    sha_dll = _copia(mundo)
+    pasta = _pasta_plugin(mundo, RUIM)
+    assert _rodar(mundo, "voltar", "--tag", _tag_com_plugin(mundo, sha_dll)) == OK
+    saida = capsys.readouterr().out
+    assert _conteudo(pasta) == {"Cs2TrackerEvents.dll": b"dll boa", "Cs2TrackerEvents.deps.json": b'{"deps": 1}',
+                                "Cs2TrackerEvents.pdb": b"pdb bom"}
+    antes, = (mundo.raiz / "logs" / "jogavel").glob("*-voltar/plugin-antes")
+    assert _conteudo(antes) == RUIM  # nada se apaga: a pasta de antes fica como evidência
+    # para antes de trocar, e recria depois (a pasta do plugin é infra)
+    assert mundo.docker.index("stop cs2-spike") < mundo.docker.index("compose up -d --force-recreate")
+    assert f"pasta do plugin restaurada do manifesto {sha_dll[:12]} e conferida (3 arquivos)" in saida
+    assert "infra difere: docker/plugins/Cs2TrackerEvents/" in saida
+
+
+def test_voltar_com_a_pasta_igual_ao_manifesto_nao_para_nem_recria(mundo, capsys):
+    sha_dll = _copia(mundo)
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "voltar", "--tag", _tag_com_plugin(mundo, sha_dll)) == OK
+    assert f"pasta do plugin confere com o manifesto {sha_dll[:12]}" in capsys.readouterr().out
+    assert "stop cs2-spike" not in mundo.docker
+    assert not any(c.startswith("compose up") for c in mundo.docker)
+
+
+def test_voltar_com_container_ja_parado_restaura_sem_stop(mundo):
+    sha_dll = _copia(mundo)
+    pasta = _pasta_plugin(mundo, RUIM)
+    mundo.container = "Exited (137) 3 minutes ago"
+    assert _rodar(mundo, "voltar", "--tag", _tag_com_plugin(mundo, sha_dll)) == OK
+    assert _conteudo(pasta) == BOM and "stop cs2-spike" not in mundo.docker
+
+
+def test_voltar_com_copia_que_nao_confere_nao_troca_nada(mundo, capsys):
+    sha_dll = _copia(mundo)
+    (mundo.copias / sha_dll / "Cs2TrackerEvents.pdb").write_bytes(b"pdb corrompido")
+    pasta = _pasta_plugin(mundo, RUIM)
+    assert _rodar(mundo, "voltar", "--tag", _tag_com_plugin(mundo, sha_dll)) == FALHA
+    assert "não confere com o próprio manifesto (sha256 diferente: Cs2TrackerEvents.pdb)" in capsys.readouterr().out
+    assert _conteudo(pasta) == RUIM and "stop cs2-spike" not in mundo.docker
+
+
+def test_voltar_sem_saber_se_o_container_parou_nao_troca_a_dll(mundo, capsys):
+    sha_dll = _copia(mundo)
+    pasta = _pasta_plugin(mundo, RUIM)
+    mundo.ps_falha = True
+    assert _rodar(mundo, "voltar", "--tag", _tag_com_plugin(mundo, sha_dll)) == FALHA
+    assert "o container não está comprovadamente parado" in capsys.readouterr().out
+    assert _conteudo(pasta) == RUIM and "stop cs2-spike" not in mundo.docker
+
+
+def test_voltar_entende_o_manifesto_do_sha256sum_e_o_plugin_forcado(mundo):
+    # Tag antiga, sem a linha do `marcar`: o sha256 da DLL vem do --plugin.
+    sha_dll = _copia(mundo, formato="sha256sum")
+    pasta = _pasta_plugin(mundo, RUIM)
+    assert _rodar(mundo, "voltar", "--plugin", sha_dll) == OK
+    assert _conteudo(pasta) == BOM
+
+
+def test_voltar_de_tag_sem_registro_do_plugin_so_avisa(mundo, capsys):
+    pasta = _pasta_plugin(mundo, RUIM)
+    assert _rodar(mundo, "voltar") == OK
+    assert "jogavel-2026-09-26 não registra o manifesto" in capsys.readouterr().out
+    assert _conteudo(pasta) == RUIM and "stop cs2-spike" not in mundo.docker
+
+
+def test_voltar_seco_nao_troca_o_plugin(mundo, capsys):
+    sha_dll = _copia(mundo)
+    pasta = _pasta_plugin(mundo, RUIM)
+    assert _rodar(mundo, "voltar", "--seco", "--tag", _tag_com_plugin(mundo, sha_dll)) == OK
+    saida = capsys.readouterr().out
+    assert _conteudo(pasta) == RUIM and "stop cs2-spike" not in mundo.docker
+    assert "[seco] docker stop cs2-spike" in saida and "[seco] restauraria" in saida
+
+
+def test_pre_sh_crlf_aborta_antes_de_parar_pelo_plugin(mundo):
+    sha_dll = _copia(mundo)
+    pasta = _pasta_plugin(mundo, RUIM)
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    _git(mundo.raiz, "switch", "-q", "--detach", "jogavel-2026-09-26")
+    _commit(mundo.raiz, "crlf", {"docker/pre.sh": b"echo pre\r\n"})
+    _tag_com_plugin(mundo, sha_dll, commit="HEAD")
+    _git(mundo.raiz, "switch", "-q", "main")
+    assert _rodar(mundo, "voltar", "--tag", "jogavel-plugin") == CRLF
+    assert _conteudo(pasta) == RUIM and "stop cs2-spike" not in mundo.docker
+
+
+def test_ler_manifesto_dos_dois_formatos(tmp_path):
+    b03 = tmp_path / "MANIFEST.txt"
+    b03.write_text("# comentário\n" + "a" * 64 + "  49152  2026-09-23T19:10:55-03:00  X.dll\n\n")
+    sha256sum = tmp_path / "MANIFESTO.sha256"
+    sha256sum.write_text("B" * 64 + " *Y.deps.json\n" + "c" * 64 + "  Z.pdb\n")
+    assert jogavel.ler_manifesto(b03) == {"X.dll": "a" * 64}
+    assert jogavel.ler_manifesto(sha256sum) == {"Y.deps.json": "b" * 64, "Z.pdb": "c" * 64}
+
+
+@pytest.mark.parametrize("linha", ["abc  X.dll", "a" * 64, "a" * 64 + "  ../X.dll", ""])
+def test_ler_manifesto_recusa_linha_fora_do_formato(tmp_path, linha):
+    arquivo = tmp_path / "MANIFEST.txt"
+    arquivo.write_text(linha + "\n")
+    with pytest.raises(ValueError):
+        jogavel.ler_manifesto(arquivo)
+
+
+# ------------------------------------------------------ marcar (B0.7b)
+
+NOTA = "B1.10 · PR #40"
+QUANDO = datetime.fromtimestamp(AGORA).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def _tags(mundo, padrao):
+    return _git(mundo.raiz, "tag", "-l", padrao).split()
+
+
+def test_marcar_candidato_cria_tag_registro_copia_e_candidato_json(mundo):
+    _pasta_plugin(mundo, BOM)
+    _git(mundo.raiz, "tag", "candidato-7", "jogavel-2026-09-26")  # o N segue o maior
+    sha, sha_dll = _head(mundo), _sha(b"dll boa")
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == OK
+    # tag anotada no commit, com o sha256 da DLL na mensagem, e na origin
+    assert _git(mundo.raiz, "rev-parse", "candidato-8^{commit}") == sha
+    assert _git(mundo.raiz, "cat-file", "-t", "candidato-8") == "tag"
+    mensagem = _git(mundo.raiz, "tag", "-l", "--format=%(contents)", "candidato-8")
+    assert mensagem.startswith(f"{NOTA}\n\nplugin Cs2TrackerEvents: {sha_dll}\n")
+    assert "refs/tags/candidato-8" in _git(mundo.raiz, "ls-remote", "--tags", "origin")
+    # cópia da pasta inteira, com o manifesto do B0.3
+    copia = mundo.copias / sha_dll
+    assert {n: d for n, d in _conteudo(copia).items() if n != "MANIFEST.txt"} == BOM
+    linhas = (copia / "MANIFEST.txt").read_text(encoding="utf-8").splitlines()
+    # sha256, bytes, mtime e nome, como o MANIFEST.txt do B0.3
+    assert [(l.split()[0], l.split()[1], l.split()[3]) for l in linhas if not l.startswith("#")] == [
+        (_sha(b'{"deps": 1}'), "11", "Cs2TrackerEvents.deps.json"),
+        (_sha(b"dll boa"), "7", "Cs2TrackerEvents.dll"),
+        (_sha(b"pdb bom"), "7", "Cs2TrackerEvents.pdb")]
+    registro = (mundo.raiz / "logs" / "jogavel" / "tags.md").read_text(encoding="utf-8")
+    assert registro == f"- {QUANDO} candidato-8 -> {sha[:9]} · plugin {sha_dll[:12]} · {NOTA}\n"
+    assert json.loads((mundo.raiz / "data" / "candidato.json").read_text(encoding="utf-8")) == {
+        "tag": "candidato-8", "commit": sha, "nota": NOTA, "plugin_captura": sha_dll, "marcado_em": QUANDO}
+
+
+def test_voltar_para_a_tag_do_marcar_restaura_o_plugin_dela(mundo):
+    pasta = _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "jogavel-2026-09-26", "-m", NOTA) == OK
+    for nome, dados in RUIM.items():
+        (pasta / nome).write_bytes(dados)
+    (pasta / "Cs2TrackerEvents.pdb").unlink()
+    assert _rodar(mundo, "voltar", "--tag", "candidato-1") == OK
+    assert _conteudo(pasta) == BOM
+
+
+def test_marcar_jogavel_com_nome_ocupado_e_fecha_o_candidato(mundo, capsys):
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "jogavel-2026-09-26", "-m", "B1.3r") == OK
+    _git(mundo.raiz, "tag", "jogavel-2027-01-15", "jogavel-2026-09-26")  # o dia de AGORA, noutro commit
+    assert _rodar(mundo, "marcar", "jogavel", "main", "-m", "G7 ok, partida 32") == OK
+    assert _git(mundo.raiz, "rev-parse", "jogavel-2027-01-15-2^{commit}") == _head(mundo)
+    assert not (mundo.raiz / "data" / "candidato.json").exists()
+    assert "data/candidato.json apagado: candidato-1 validado por jogavel-2027-01-15-2" in capsys.readouterr().out
+    # de novo no mesmo commit: já feita, sem tag nova
+    assert _rodar(mundo, "marcar", "jogavel", "main", "-m", "G7 ok, partida 32") == OK
+    assert _tags(mundo, "jogavel-2027-*") == ["jogavel-2027-01-15", "jogavel-2027-01-15-2"]
+
+
+def test_marcar_jogavel_mantem_o_candidato_que_nao_esta_nela(mundo):
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == OK
+    assert _rodar(mundo, "marcar", "jogavel", "jogavel-2026-09-26", "-m", "reteste") == OK
+    assert json.loads((mundo.raiz / "data" / "candidato.json").read_text(encoding="utf-8"))["tag"] == "candidato-1"
+
+
+def test_marcar_candidato_no_mesmo_commit_ja_esta_feito(mundo):
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == OK
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == OK
+    assert _tags(mundo, "candidato-*") == ["candidato-1"]
+
+
+def test_marcar_sem_a_pasta_do_plugin_nao_marca_nada(mundo, capsys):
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == FALHA
+    assert "a pasta só existe no checkout principal" in capsys.readouterr().out
+    assert _tags(mundo, "candidato-*") == [] and not (mundo.raiz / "data").exists()
+    assert not (mundo.raiz / "logs").exists() and not mundo.copias.exists()
+
+
+def test_marcar_nao_sobrescreve_copia_diferente(mundo, capsys):
+    _copia(mundo, {**BOM, "Cs2TrackerEvents.pdb": b"outro pdb"})  # mesma DLL, outra pasta
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == FALHA
+    assert "já existe e não é esta pasta" in capsys.readouterr().out
+    assert (mundo.copias / _sha(b"dll boa") / "Cs2TrackerEvents.pdb").read_bytes() == b"outro pdb"
+    assert _tags(mundo, "candidato-*") == []
+
+
+def test_marcar_reaproveita_copia_que_confere(mundo):
+    _copia(mundo)
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == OK
+    assert _tags(mundo, "candidato-*") == ["candidato-1"]
+
+
+def test_marcar_seco_nao_cria_nada(mundo, capsys):
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA, "--seco") == OK
+    saida = capsys.readouterr().out
+    assert _tags(mundo, "candidato-*") == [] and not mundo.copias.exists()
+    assert not (mundo.raiz / "logs").exists() and not (mundo.raiz / "data").exists()
+    assert "[seco] git tag -a candidato-1" in saida and "[seco] escreveria data/candidato.json" in saida
 
 
 # ---------------------------------------------------------- --seco
@@ -745,3 +1053,215 @@ def test_vigiar_intervalo_acima_de_30_s_e_uso_errado(mundo):
 def test_janela_acao_desconhecida_e_uso_errado(mundo):
     with pytest.raises(SystemExit):
         _rodar(mundo, "janela", "outra")
+
+
+# ----------------------------------------- comandos do servidor (B0.7b)
+
+PS = "ps -a --filter name=^cs2-spike$ --format {{.Status}}"
+SERVIDOR = [("recriar",), ("up",), ("recreate",), ("parar",), ("stop",), ("rcon", "get5_status"),
+            ("snapshot", "--destino", "{bk}"), ("restaurar", "--de", "{bk}/volume-addons-0800.tgz"),
+            ("soak",)]
+
+
+@pytest.fixture
+def janela(mundo, monkeypatch):
+    """Janela aberta há 10 min, preflight 4 e o cwd no checkout principal."""
+    monkeypatch.chdir(mundo.raiz)
+    mundo.preflight = 4
+    _marca(mundo, 600)
+    return mundo
+
+
+@pytest.mark.parametrize("comando", SERVIDOR, ids=lambda c: c[0])
+def test_comando_do_servidor_exige_janela_e_checkout_principal(mundo, monkeypatch, tmp_path, capsys, comando):
+    argv = [a.format(bk=tmp_path / "bk") for a in comando]
+    monkeypatch.chdir(mundo.raiz)
+    mundo.preflight = 4
+    # sem logs/janelas/ABERTA
+    assert _rodar(mundo, *argv) == RECUSA
+    assert "sem janela aberta (logs/janelas/ABERTA)" in capsys.readouterr().out
+    # com a marca, mas o cwd fora do checkout principal
+    _marca(mundo, 600)
+    monkeypatch.chdir(tmp_path)
+    assert _rodar(mundo, *argv) == RECUSA
+    assert "rode do checkout principal" in capsys.readouterr().out
+    # cwd certo e --raiz numa worktree
+    monkeypatch.chdir(mundo.raiz)
+    wt = tmp_path / "wt"
+    _git(mundo.raiz, "worktree", "add", "-q", "--detach", str(wt), "main")
+    assert main(["--raiz", str(wt), *argv], fabrica=lambda r, seco=False: Executor(r, seco=seco, rodar=mundo.rodar),
+                entrada=pytest.fail, agora=AGORA) == RECUSA
+    # marca vencida (mais de 45 min)
+    _marca(mundo, 46 * 60)
+    assert _rodar(mundo, *argv) == VENCIDA
+    # janela válida, mas o Victor abriu o jogo: o 3 vence o 4
+    _marca(mundo, 600)
+    mundo.preflight = 3
+    assert _rodar(mundo, *argv) == PARTIDA
+    assert mundo.docker == [] and mundo.rcon == []
+    assert _registro(mundo) == ""
+
+
+def test_recriar_salva_os_logs_e_recria_com_force_recreate(janela):
+    assert _rodar(janela, "up") == OK
+    assert janela.docker == ["logs -t cs2-spike", "compose up -d --force-recreate", "logs cs2-spike"]
+    assert list((janela.raiz / "logs" / "jogavel").glob("*-recriar/docker-logs.txt"))
+    assert " jogavel.py up: saída 0\n" in _registro(janela)
+
+
+def test_recriar_com_pre_sh_crlf_nao_recria(janela):
+    (janela.raiz / "docker/pre.sh").write_bytes(b"echo pre\r\n")
+    assert _rodar(janela, "recriar") == CRLF
+    assert not any(c.startswith("compose up") for c in janela.docker)
+
+
+def test_parar_confere_que_parou(janela):
+    assert _rodar(janela, "stop") == OK
+    assert janela.docker == [PS, "stop cs2-spike", PS]
+
+
+def test_rcon_nao_passa_a_senha_pela_linha_de_comando(janela, capsys):
+    assert _rodar(janela, "rcon", "get5_status") == OK
+    assert janela.rcon == ["get5_status"]
+    assert "resposta de get5_status" in capsys.readouterr().out
+    codigo = janela.argv_rcon[janela.argv_rcon.index("-c") + 1]
+    assert "load_env()['CS2_RCONPW']" in codigo and "'127.0.0.1', 27015" in codigo
+    assert "jogavel.py rcon 'get5_status': saída 0" in _registro(janela)
+
+
+def test_soak_faz_a_entrada_do_smoke_na_ordem_do_runbook(janela):
+    assert _rodar(janela, "soak") == OK
+    assert janela.rcon == ["sv_hibernate_when_empty 0", "bot_join_after_player 0", "bot_quota_mode normal",
+                           "bot_quota 10", "mp_warmup_end", "status"]
+    assert janela.docker == []
+
+
+def test_seco_do_servidor_nao_roda_nada(janela, capsys):
+    assert _rodar(janela, "rcon", "bot_kick", "--seco") == OK
+    assert janela.rcon == [] and "[seco]" in capsys.readouterr().out
+
+
+def test_snapshot_so_le_o_volume_e_confere(janela, tmp_path):
+    bk = tmp_path / "bk"
+    assert _rodar(janela, "snapshot", "--destino", str(bk)) == OK
+    nome = f"volume-addons-{datetime.fromtimestamp(AGORA):%H%M}.tgz"
+    assert (bk / nome).read_bytes() == b"tgz falso"
+    assert (bk / f"{nome}.sha256").read_text() == f"{_sha(b'tgz falso')}  {nome}\n"
+    run = next(c for c in janela.docker if "-czf" in c)
+    assert run.startswith("run --rm --pull=never --user 0:0 --entrypoint tar -v cs2-tracker_cs2-data:/d:ro ")
+    assert run.endswith("-C /d cssharp_version.txt mmsource_version.txt matchzy_version.txt "
+                        "game/csgo/gameinfo.gi game/csgo/addons")
+    assert janela.docker[0] == "volume inspect cs2-tracker_cs2-data --format {{.Name}}"
+
+
+def test_snapshot_sem_o_volume_para_antes_do_tar(janela, tmp_path, capsys):
+    janela.volume = False
+    assert _rodar(janela, "snapshot", "--destino", str(tmp_path / "bk")) == FALHA
+    assert not any(c.startswith("run") for c in janela.docker)
+    assert "um -v com nome errado cria volume vazio" in capsys.readouterr().out
+
+
+def test_snapshot_sem_counterstrikesharp_nao_vale(janela, tmp_path):
+    janela.lista_tar = "game/csgo/addons/metamod/metaplugins.ini\n"
+    assert _rodar(janela, "snapshot", "--destino", str(tmp_path / "bk")) == FALHA
+
+
+def _snapshot_antigo(tmp_path, dados=b"tgz de antes"):
+    bk = tmp_path / "bk"
+    bk.mkdir()
+    (bk / "volume-addons-0800.tgz").write_bytes(dados)
+    (bk / "volume-addons-0800.tgz.sha256").write_text(f"{_sha(b'tgz de antes')}  volume-addons-0800.tgz\n")
+    return bk / "volume-addons-0800.tgz"
+
+
+def test_restaurar_tira_snapshot_para_extrai_sem_matchzy_db_e_recria(janela, tmp_path):
+    tgz = _snapshot_antigo(tmp_path)
+    assert _rodar(janela, "restaurar", "--de", str(tgz)) == OK
+    queda = f"volume-addons-queda-{datetime.fromtimestamp(AGORA):%H%M}.tgz"
+    assert (tgz.parent / queda).read_bytes() == b"tgz falso"
+    ordem = [next(i for i, c in enumerate(janela.docker) if c.startswith(p))
+             for p in ("logs -t", "run --rm --pull=never --user 0:0 --entrypoint tar -v cs2-tracker_cs2-data:/d:ro",
+                       "stop cs2-spike", "run --rm --pull=never --user 0:0 --entrypoint tar -v cs2-tracker_cs2-data:/d ",
+                       "compose up -d --force-recreate")]
+    assert ordem == sorted(ordem)
+    extrai = next(c for c in janela.docker if "-xzpf" in c)
+    assert ("--exclude=game/csgo/gameinfo.gi --exclude=game/csgo/addons/counterstrikesharp/plugins/"
+            "MatchZy/matchzy.db* -xzpf /in/volume-addons-0800.tgz -C /d") in extrai
+
+
+def test_restaurar_com_sha256_que_nao_confere_nao_mexe_em_nada(janela, tmp_path, capsys):
+    tgz = _snapshot_antigo(tmp_path, dados=b"tgz corrompido")
+    assert _rodar(janela, "restaurar", "--de", str(tgz)) == FALHA
+    assert janela.docker == [] and "não confere" in capsys.readouterr().out
+
+
+# ------------------------------------------------------ coletar (B0.7b)
+
+@pytest.fixture
+def montado(mundo):
+    """Os binds do compose de verdade: três arquivos, a pasta do plugin de
+    captura, uma pasta vazia de máscara e a events-live (saída do jogo)."""
+    mundo.binds = [CFG, "docker/pre.sh", RUNTIME, PLUGIN, "docker/plugins/_empty", "docker/events-live"]
+    _pasta_plugin(mundo, BOM)
+    (mundo.raiz / "docker/plugins/_empty").mkdir()
+    (mundo.raiz / "docker/events-live").mkdir()
+    (mundo.raiz / RUNTIME).write_bytes(b'{"matchid": 99}\n')  # sem o CRLF do write_text
+    return mundo
+
+
+def test_coletar_com_preflight_0_salva_logs_config_hash_e_sha_dos_montados(montado, tmp_path, capsys):
+    montado.sha_no_container = {"/srv/docker/pre.sh": "f" * 64}  # o container viu outro pre.sh
+    g7 = tmp_path / "g7"
+    assert _rodar(montado, "coletar", "--destino", str(g7)) == OK
+    saida = capsys.readouterr().out
+    assert montado.docker[:2] == ["inspect cs2-spike --format {{.State.StartedAt}}",
+                                  "logs -t --since 2027-01-15T07:00:00.123456789Z cs2-spike"]
+    exec_ = next(c for c in montado.docker if c.startswith("exec"))
+    assert exec_ == ("exec cs2-spike sha256sum /srv/" + CFG + " /srv/docker/pre.sh /srv/" + RUNTIME +
+                     " /srv/docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.deps.json"
+                     " /srv/docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.dll"
+                     " /srv/docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.pdb")
+    assert (g7 / "docker-logs.txt").read_text() == \
+        "GC Connection established for server version 2000918, instance idx 1\n"
+    assert (g7 / "head.txt").read_text() == _head(montado) + "\n"
+    assert (g7 / "config-hash-janela.txt").read_text() == "3970b702" + "0" * 56 + "\n"
+    assert (g7 / "config-hash.txt").read_text() == "cs2-server 3970b702" + "0" * 56 + "\n"
+    # conteúdos escritos pela fixture `mundo` e pelo BOM
+    cfg, pre, runtime, deps = b"bot_quota 0\n", b"echo pre\n", b'{"matchid": 99}\n', b'{"deps": 1}'
+    assert (g7 / "sha-referencia.txt").read_text() == (
+        f"{_sha(cfg)}  {CFG}\n{_sha(pre)}  docker/pre.sh\n{_sha(runtime)}  {RUNTIME}\n"
+        f"{_sha(deps)}  {PLUGIN}/Cs2TrackerEvents.deps.json\n"
+        f"{_sha(b'dll boa')}  {PLUGIN}/Cs2TrackerEvents.dll\n"
+        f"{_sha(b'pdb bom')}  {PLUGIN}/Cs2TrackerEvents.pdb\n")
+    assert f"{'f' * 64}  /srv/docker/pre.sh\n" in (g7 / "sha-montados.txt").read_text()
+    assert "config-hash: container 3970b702" in saida and "· iguais" in saida
+    assert "sha256 dos montados: 5 de 6 iguais ao checkout" in saida
+    assert "DIFERENTE: docker/pre.sh (/srv/docker/pre.sh): sha256 diferente" in saida
+    assert "pastas montadas não conferidas (saída do jogo): docker/events-live" in saida
+
+
+def test_coletar_acusa_config_hash_diferente(montado, tmp_path, capsys):
+    montado.hash_compose = "a" * 64
+    assert _rodar(montado, "coletar", "--destino", str(tmp_path / "g7")) == OK
+    assert "· DIFERENTES" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("codigo,saida", [(3, PARTIDA), (4, RECUSA)])
+def test_coletar_exige_preflight_0(montado, tmp_path, codigo, saida):
+    montado.preflight = codigo
+    assert _rodar(montado, "coletar", "--destino", str(tmp_path / "g7")) == saida
+    assert montado.docker == [] and not (tmp_path / "g7").exists()
+
+
+def test_coletar_nao_precisa_de_janela_nem_de_cwd(montado, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # só o --raiz precisa ser o checkout principal
+    assert not (montado.raiz / MARCA).exists()
+    assert _rodar(montado, "coletar") == OK
+    assert list((montado.raiz / "logs" / "jogavel").glob("*-coletar/sha-montados.txt"))
+
+
+def test_coletar_fora_do_checkout_principal_recusa(montado, tmp_path):
+    wt = tmp_path / "wt"
+    _git(montado.raiz, "worktree", "add", "-q", "--detach", str(wt), "main")
+    montado.raiz = wt
+    assert _rodar(montado, "coletar") == RECUSA and montado.docker == []
