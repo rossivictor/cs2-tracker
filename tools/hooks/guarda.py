@@ -46,16 +46,20 @@ Bloqueia:
     comentário # e de here-string, como no PowerShell 5.1;
   - formas indiretas (card B0.5d): chaves, for ... in (também depois de
     then, do, { e !), quem alimenta | xargs ou cmdlet de arquivo pelo pipe,
-    tar/zip, nome 8.3, FileSystem::, Select-String -Path a,b <padrão>; cópia
+    tar/zip, nome 8.3, FileSystem::, Select-String -Path a,b <padrão> (item
+    entre parênteses também: a,('<R>/.env'), a,(Join-Path <R> .env)); cópia
     ou pacote da raiz do checkout principal sem filtro, com as opções lidas
-    pelo nome (robocopy /E <R>, /XD, -Path:<R>, cp -rt, tar -C<R>); splatting
-    (@a) falha fechado. Substituição de comando ($(...) e crase) num
-    argumento de leitura vale pelas palavras de dentro e pela palavra montada
-    como se fosse um echo, e colada a curinga ($(...)?) vale como *; soma de
-    strings (('a'+'b')) junta as partes. No PowerShell, # e <# colados são
-    lidos como comentário, como literal e pela regra do modo argumento do
-    5.1, e aspas tipográficas, NBSP, VT, FF e NEL valem como no 5.1. cmd /c
-    (e //c do Git Bash) é lido com e sem as aspas de cada argumento;
+    pelo nome (robocopy /E <R>, /XD, Copy-Item -Path:<R>, cp -rt, tar -C<R>;
+    no robocopy e no xcopy, /c/... do Git Bash é caminho e /E, //E opção);
+    splatting (@a) falha fechado. Substituição de comando ($(...) e crase)
+    num argumento de leitura vale pelas palavras de dentro, pela palavra
+    montada como se fosse um echo e pelo nome da palavra crua (pasta que não
+    se resolve falha fechado: $(cd <R>; pwd)/cs2_tracker.db), e colada a
+    curinga ($(...)?) vale como *; soma de strings (('a'+'b')) junta as
+    partes. No PowerShell, # e <# colados são lidos como comentário, como
+    literal e pela regra do modo argumento do 5.1, e aspas tipográficas,
+    NBSP, VT, FF e NEL valem como no 5.1. cmd /c (e //c do Git Bash) é lido
+    com e sem as aspas de cada argumento;
   - docker logs / compose logs quando tools/preflight.py não devolve 0 ou 4;
   - no Write/Edit, dado pessoal e segredo (tools/hooks/pii.py): segredo do
     .env em qualquer arquivo do repositório; SteamID em docs/**, tests/**,
@@ -85,6 +89,16 @@ sandbox: quem quer contornar contorna (card B0.5d).
   - pasta que contém o banco e o .env chegando pelo pipe: Get-ChildItem <R> |
     Remove-Item -Recurse (apaga os dois) e Get-Item <R> | Copy-Item -Recurse;
     nome curto 8.3 com curinga dentro do cmd (cmd /c type <R>\\CS2_TR~?.DB);
+  - select f in <R>/cs2_*.db (só o for ... in abre a lista);
+  - cópia ou pacote da raiz com a pasta em forma que a guarda não lê:
+    Compress-Archive -Path:<R> (o -Path: colado só é lido no Copy-Item),
+    abreviação de parâmetro (Copy-Item -Recurse -Pat:<R>, -Li:<R>), origem
+    entre parênteses (Copy-Item -Recurse ("<R>"), -Path:('<R>'));
+  - escrita por cima do banco e do .env com a raiz como destino: robocopy
+    <pasta> <R> e cp -r <pasta>/. <R>;
+  - item $(...) depois de vírgula na lista do -Path (Select-String -Path
+    a,$('<R>/.env') x): o item expandido perde a marca de vírgula e vira o
+    padrão;
   - # colado em modo expressão misturado com <# literal na mesma linha de
     comando (Write-Output a<#b<LF>$x=1#'<LF>Get-Content <R>/.env<LF>#'#>):
     nenhuma das três leituras acerta as duas marcas;
@@ -393,7 +407,11 @@ def _motivo_leitura(bruto, ctx):
             return (f"{bruto}: substituição de comando colada a curinga pode dar o banco ou o "
                     ".env (falha fechada)", ALT_LEITURA)
         if montada != bruto:
-            return _motivo_leitura(montada, ctx)
+            achado = _motivo_leitura(montada, ctx)
+            if achado:
+                return achado
+        # E a palavra crua também, pelo nome: $(cd <R>; pwd)/cs2_tracker.db não
+        # se resolve e falha fechado, como antes do card (card B0.5d).
     bruto = _expandir(bruto, ctx.env, ctx, "caminho", sistema=True)
     if bruto.lower().startswith("file:"):  # sqlite3 -readonly file:<banco>?mode=ro
         bruto = bruto[5:].split("?", 1)[0]
@@ -604,6 +622,17 @@ class _Leitor:
         return fim if cr < 0 else cr
 
     def ler(self, fecha=False):
+        if fecha:
+            # Leitura aninhada ((...), $(...), @(...)): a marca de vírgula de
+            # a,(b) é do grupo de fora, não do 1º token de dentro (card B0.5d).
+            fora, self.virgula = self.virgula, False
+            try:
+                return self._ler(fecha)
+            finally:
+                self.virgula = fora
+        return self._ler(fecha)
+
+    def _ler(self, fecha):
         toks, pal, anin = [], [], []
         tem = False
         prof = 0
@@ -1459,7 +1488,8 @@ def _checar_raiz(prog, args, ctx):
     if prog in ("robocopy", "xcopy"):
         soltos, excluir = [], False
         for a in args:
-            if a.startswith("/"):
+            # /c/Users/... do Git Bash é caminho (vira c:/Users/...); /E e //E são opção.
+            if a.startswith("/") and not re.match(r"^/(?:mnt/)?[a-zA-Z]/", a):
                 excluir = a.lower() in ("/xd", "/xf")
             elif not excluir:
                 soltos.append(a)

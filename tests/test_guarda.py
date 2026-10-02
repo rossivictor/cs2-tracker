@@ -67,8 +67,10 @@ def repo(tmp_path):
 
 
 def _formatar(texto, repo):
-    return (texto.replace("{P}", repo.principal.as_posix())
+    posix = repo.principal.as_posix()
+    return (texto.replace("{P}", posix)
                  .replace("{PW}", str(repo.principal))
+                 .replace("{M}", "/" + posix[0].lower() + posix[2:])  # /c/... do Git Bash
                  .replace("{F}", repo.fora.as_posix()))
 
 
@@ -798,7 +800,28 @@ FORMAS_INDIRETAS_BLOQUEADAS = [
           for sls in ("Select-String -Path ", "Select-String -LiteralPath ", "sls -Path ",
                       "Select-String -Path:")] + [
     ("PowerShell", "wt", "Select-String -Path 'docs/a.md','{P}/.env' x", ENV),
-    ("PowerShell", "wt", "Select-String -Path docs/a.md, {P}/.env x", ENV)]
+    ("PowerShell", "wt", "Select-String -Path docs/a.md, {P}/.env x", ENV)] + [
+    # QA 2 do B0.5d. Item entre parênteses na lista do -Path: a vírgula marca o
+    # grupo de fora, e (...) vale pelas palavras de dentro (regressão N1).
+    ("PowerShell", "wt", f"{sls}docs/a.md,{item} x", tipo)
+    for sls in ("Select-String -Path ", "Select-String -LiteralPath ", "Select-String -Path:",
+                "sls -Path ")
+    for item, tipo in (('("{P}/.env")', ENV), ("('{P}/.env')", ENV), ("(Join-Path {P} .env)", ENV),
+                       ('("{P}/cs2_tracker.db")', BANCO),
+                       ("(Join-Path {P} cs2_tracker.db)", BANCO))] + [
+    # Substituição colada ao nome ou ao curinga do banco: vale a palavra montada
+    # E o nome, que falha fechado com a pasta sem resolver (regressão C2).
+    ("Bash", "wt", f"{leitor} {sub}", BANCO)
+    for leitor in ("cat", "head", "xxd", "sqlite3 -readonly")
+    for sub in ("$(cd {P}; pwd)/cs2_tracker.db", "$(cd {P}; pwd)/cs2_*.db",
+                "$(echo {P}; true)/cs2_tracker.db", "$(echo {P} | tr a a)/cs2_tracker.db",
+                "`cd {P}; pwd`/cs2_*.db")] + [
+    ("PowerShell", "wt", 'Get-Content "$(cd {P}; pwd)/cs2_tracker.db"', BANCO),
+    # robocopy e xcopy com a raiz no formato do Git Bash (/c/...), com e sem //E.
+    ("Bash", "wt", "robocopy {M} {F}/x //E", BANCO),
+    ("Bash", "wt", "robocopy {M} {F}/x", BANCO),
+    ("Bash", "wt", "xcopy {M} {F}/x //E //I", BANCO),
+    ("Bash", "wt", "xcopy {M} {F}/x", BANCO)]
 
 
 @pytest.mark.parametrize("preflight_do_jogo", [0, 3])
@@ -843,6 +866,15 @@ def test_forma_indireta_de_ler_o_banco_ou_o_env_e_bloqueada(repo, ferramenta, lu
     ("Bash", "wt", "if true; then for f in docs/*.md; do cat $f; done; fi"),
     ("PowerShell", "wt", "Select-String -Path docs/a.md, docs/b.md x"),
     ("PowerShell", "wt", "cmd /c \"echo .env & dir docs\""),
+    # QA 2 do B0.5d: as correções não barram item comum, substituição comum nem subpasta.
+    ("PowerShell", "wt", "Select-String -Path docs/a.md,('docs/b.md') x"),
+    ("PowerShell", "wt", "Select-String -Path docs/a.md,(Join-Path docs b.md) x"),
+    ("Bash", "wt", "cat $(pwd)/docs/a.md"),
+    ("Bash", "wt", "cat $(git rev-parse --show-toplevel)/docs/a.md"),
+    ("Bash", "wt", "head `pwd`/docs/a.md"),
+    ("Bash", "wt", "robocopy docs {F}/x //E"),
+    ("Bash", "wt", "robocopy {M}/docs {F}/x //E"),
+    ("Bash", "wt", "xcopy docs {F}/x //E //I"),
 ])
 def test_forma_indireta_que_nao_alcanca_o_banco_nem_o_env_passa(repo, ferramenta, lugar, comando,
                                                                 preflight_do_jogo):
