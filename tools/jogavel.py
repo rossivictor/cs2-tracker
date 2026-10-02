@@ -52,6 +52,7 @@ import shutil
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -84,6 +85,7 @@ RE_SHA = re.compile(r"^[0-9a-f]{64}$")
 # Linha que o `marcar` grava na mensagem da tag anotada.
 RE_PLUGIN_NA_TAG = re.compile(r"^plugin Cs2TrackerEvents: ([0-9a-f]{64})\s*$", re.M)
 PARADO = ("Exited", "Created", "não existe")
+DESCONHECIDO = "estado do container desconhecido"  # `docker ps` estourou o timeout
 
 # Partida em curso (protocolo 7): evento de round há menos de 2 min. São
 # todos os tipos que o plugin grava fora o snapshot (Cs2TrackerEventsPlugin.cs
@@ -115,6 +117,7 @@ class Chamada:
     erro: str = ""
     segundos: float = 0.0
     seco: bool = False
+    estourou: bool = False  # passou do timeout e o processo foi morto
 
     @property
     def ok(self) -> bool:
@@ -124,13 +127,24 @@ class Chamada:
 class Executor:
     """Único ponto que roda processo. `muda=True` marca o que altera algo:
     no --seco só é impresso. Cada chamada tem timeout e guarda o tempo gasto
-    (lição de 27/09: um docker preso num ask venceu a janela duas vezes)."""
+    (lição de 27/09: um docker preso num ask venceu a janela duas vezes).
+    Dentro de `no_maximo(s)` nenhuma chamada espera mais que s segundos,
+    nem a que pede timeout maior (card B0.7c: o ciclo do `vigiar`)."""
 
     def __init__(self, raiz: Path, seco: bool = False, rodar=subprocess.run,
                  relogio=time.monotonic, dormir=time.sleep, timeout: float = 120):
         self.raiz, self.seco, self.timeout = Path(raiz), seco, timeout
         self._rodar, self.relogio, self.dormir = rodar, relogio, dormir
         self.historico: list = []
+        self.teto: Optional[float] = None
+
+    @contextmanager
+    def no_maximo(self, segundos: float):
+        antes, self.teto = self.teto, segundos
+        try:
+            yield self
+        finally:
+            self.teto = antes
 
     def __call__(self, *argv, muda: bool = False, timeout: Optional[float] = None) -> Chamada:
         argv = [str(a) for a in argv]
@@ -139,12 +153,14 @@ class Executor:
             ch = Chamada(argv, 0, seco=True)
         else:
             limite = timeout or self.timeout
+            if self.teto is not None:
+                limite = min(limite, self.teto)
             inicio = self.relogio()
             try:
                 p = self._rodar(argv, cwd=str(self.raiz), capture_output=True, timeout=limite)
                 ch = Chamada(argv, p.returncode, _texto(p.stdout), _texto(p.stderr))
             except subprocess.TimeoutExpired:
-                ch = Chamada(argv, None, erro=f"sem resposta em {limite:.0f} s")
+                ch = Chamada(argv, None, erro=f"sem resposta em {limite:.0f} s", estourou=True)
             except OSError as exc:
                 ch = Chamada(argv, None, erro=f"{exc.__class__.__name__}: {exc}")
             ch.segundos = self.relogio() - inicio
@@ -460,7 +476,7 @@ def parar_container(ex: Executor) -> int:
     há certeza de que o servidor está parado: falha (DLL não se troca com
     o servidor vivo)."""
     estado = estado_container(ex)
-    if estado.startswith("docker indisponível"):
+    if estado_incerto(estado):
         print(f"container {CONTAINER}: {estado}; sem certeza de que está parado")
         return FALHA
     if estado.startswith(PARADO):
@@ -622,12 +638,20 @@ def cmd_status(args, ex: Executor, agora: float, **_kw) -> int:
     return OK
 
 
-def estado_container(ex: Executor) -> str:
-    """Status do `docker ps` ("Up 2 hours", "Exited (255) ..."), só leitura."""
-    ch = ex.docker("ps", "-a", "--filter", f"name=^{CONTAINER}$", "--format", "{{.Status}}")
+def estado_container(ex: Executor, timeout: Optional[float] = None) -> str:
+    """Status do `docker ps` ("Up 2 hours", "Exited (255) ..."), só leitura.
+    Estourou o timeout: DESCONHECIDO, que não conta como de pé nem parado."""
+    ch = ex.docker("ps", "-a", "--filter", f"name=^{CONTAINER}$", "--format", "{{.Status}}",
+                   timeout=timeout)
+    if ch.estourou:
+        return f"{DESCONHECIDO} (`docker ps` {ch.erro})"
     if not ch.ok:
         return f"docker indisponível ({ch.erro.strip() or ch.codigo})"
     return ch.saida.strip() or "não existe"
+
+
+def estado_incerto(estado: str) -> bool:
+    return estado.startswith(("docker indisponível", DESCONHECIDO))
 
 
 def cmd_voltar(args, ex: Executor, agora: float, entrada: Callable = input, **_kw) -> int:
@@ -878,6 +902,12 @@ def registrar_linha(ex: Executor, rel: Path, linha: str) -> None:
 MARCA = preflight.MARCA_JANELA
 TETO_MAX_MIN = preflight.DURACAO_MAX_JANELA_S // 60
 INTERVALO_VIGIA_S = 30  # protocolo 8: vigiar a cada ≤30 s
+# Nenhuma chamada do ciclo espera mais que isso (a lista de processos pede
+# 30 s, o executor 120). O `docker ps` espera menos: preso, ele mais a lista
+# cabem nos 30 s, e a checagem dos processos do Victor não fica cega
+# (card B0.7c; sonda do QA do B0.7: ciclos de 120 s com o docker pendurado).
+TETO_CICLO_S = 20
+ESPERA_PS_VIGIA_S = 10
 AVISO_FIM_S = 5 * 60    # avisa quando faltam 5 min para o teto
 PARADO_MAX_S = 5 * 60   # container parado no máximo ~5 min por passo
 # Checklist de fechamento (G6) que pede RCON ou docker exec: à mão até o
@@ -885,9 +915,10 @@ PARADO_MAX_S = 5 * 60   # container parado no máximo ~5 min por passo
 MANUAIS = {
     "matchzy": 'MatchZy sem partida carregada: get5_status com "gamestate":"none" '
                "(css_endmatch ou restart), pela RCON",
-    "cvars": 'cvars nos valores do "antes" da janela, pela RCON: mp_ignore_round_win_conditions 0, '
-             "sv_hibernate_when_empty, bot_quota e bot_join_after_player "
-             "(docs/runbooks/smoke-partida-de-bots.md)",
+    "cvars": "cvars pela RCON na regra única do fechamento "
+             "(docs/runbooks/smoke-partida-de-bots.md#referência-do-fechamento): "
+             "mp_ignore_round_win_conditions, sv_hibernate_when_empty, bot_quota e "
+             "bot_join_after_player",
     "sha256": "sha256 dos arquivos montados dentro do container = checkout (docker exec "
               "sha256sum; o `coletar` do B0.7b automatiza)",
 }
@@ -987,7 +1018,7 @@ def janela_fechar(args, ex: Executor, relogio: Callable, _entrada) -> int:
     print(f"janela {estado_janela(ex.raiz, t)}\nchecklist de fechamento (G6):")
     estado, antes = estado_container(ex), str(dados.get("container") or "")
     # De pé, ou deixado como estava: parado já na abertura (janela VPK de 28/09).
-    como_estava = antes and not antes.startswith("Up") and not estado.startswith("docker indisponível")
+    como_estava = antes and not antes.startswith("Up") and not estado_incerto(estado)
     feitos = set(args.feito or [])
     itens = [(estado.startswith("Up") or bool(como_estava),
               f"container {CONTAINER}: {estado} (na abertura: {antes or 'não registrado'})"),
@@ -1016,7 +1047,9 @@ def janela_vigiar(args, ex: Executor, relogio: Callable, entrada: Callable) -> i
     """Laço a cada ≤30 s. O tempo vem do relógio de parede e do mtime da
     marca, nunca da soma dos ciclos: um comando preso (o docker que esperou
     aprovação por horas em 27/09) aparece como ciclo lento no registro e não
-    esconde o vencimento."""
+    esconde o vencimento. Cada chamada do ciclo espera no máximo
+    TETO_CICLO_S, e o `docker ps` só ESPERA_PS_VIGIA_S: pendurado, ele
+    vira DESCONHECIDO e não cega a checagem dos processos (B0.7c)."""
     if not 0 < args.intervalo <= INTERVALO_VIGIA_S:
         print(f"vigiar: --intervalo vai até {INTERVALO_VIGIA_S} s")
         return USO
@@ -1025,21 +1058,29 @@ def janela_vigiar(args, ex: Executor, relogio: Callable, entrada: Callable) -> i
     teto = min(teto_min * 60 if isinstance(teto_min, int) and teto_min > 0 else TETO_MAX_MIN * 60,
                TETO_MAX_MIN * 60)
     vigiar_container = str(dados.get("container") or "").startswith("Up")
-    avisou_fim = avisou_parado = False
+    avisou_fim = avisou_parado = estava_desconhecido = False
     parado_desde = None
     print(f"vigiando a janela a cada {args.intervalo:g} s (teto {teto // 60} min)")
     while True:
         ex.historico.clear()  # só o ciclo atual: a listagem de processos é grande
         inicio = relogio()
-        bloqueios, avisos = sinais_de_processo(ex)
+        with ex.no_maximo(TETO_CICLO_S):
+            bloqueios, avisos = sinais_de_processo(ex)
+            if not (bloqueios or avisos):
+                estado = estado_container(ex, timeout=ESPERA_PS_VIGIA_S)
         if bloqueios or avisos:
+            # Fora do teto: o `voltar` do aborto recria com o timeout dele.
             return _abortar(ex, dados, bloqueios + avisos, relogio, entrada)
-        estado = estado_container(ex)
         t = relogio()
         if t - inicio > INTERVALO_VIGIA_S:
             lenta = max(ex.historico, key=lambda c: c.segundos)
             _avisar(ex, dados, t, f"ciclo de {t - inicio:.0f} s (limite {INTERVALO_VIGIA_S} s): "
                                   f"`{' '.join(lenta.argv)}` levou {lenta.segundos:.0f} s")
+        desconhecido = estado.startswith(DESCONHECIDO)
+        if desconhecido != estava_desconhecido:  # registra a entrada e a saída, não cada ciclo
+            estava_desconhecido = desconhecido
+            _avisar(ex, dados, t, f"{estado}: a vigilância segue, e ele não conta como de pé"
+                    if desconhecido else f"`docker ps` voltou a responder: {estado}")
         try:
             idade = preflight.idade_da_marca(ex.raiz, t)
         except preflight.DeteccaoFalhou as exc:
@@ -1061,7 +1102,8 @@ def janela_vigiar(args, ex: Executor, relogio: Callable, entrada: Callable) -> i
             parado_desde = t if parado_desde is None else parado_desde
             if t - parado_desde > PARADO_MAX_S and not avisou_parado:
                 avisou_parado = True
-                _avisar(ex, dados, t, f"container {CONTAINER} parado há {int((t - parado_desde) // 60)} "
+                como = "sem estado conhecido" if desconhecido else "parado"
+                _avisar(ex, dados, t, f"container {CONTAINER} {como} há {int((t - parado_desde) // 60)} "
                                       f"min (máximo ~5 min por passo): {estado}")
         else:
             parado_desde, avisou_parado = None, False

@@ -5,7 +5,7 @@ fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.kb_structure; card K1.1)"
   - "backup:temp-artifacts/eb5adec0/audit/comments.json (proposed_kb_structure)"
   - "AGENTS.md:91-96"
-atualizado: 2026-09-27
+atualizado: 2026-10-01
 ---
 
 # Base de conhecimento do cs2-tracker
@@ -68,7 +68,7 @@ atualizado: 2026-09-26
 - `fontes` diz de onde saiu cada afirmação. Cada entrada tem uma forma só, e o `tools/checar_fontes.py` (K1.4) segue esta gramática:
   - `caminho:N` ou `caminho:N-M`, sem espaço: arquivo deste repo, relativo à raiz;
   - `repo:<nome> caminho:N` ou `repo:<nome> caminho:N-M`: outro repositório, em `C:/Users/Victor/Projetos/<nome>` (ex.: `repo:kalendas docs/agents/licoes.md:220-226`);
-  - `backup:<caminho>`: relativo a `C:/Users/Victor/cs2-tracker-backups/2026-09-26/`, onde estão a auditoria e o plano (B0.2);
+  - `backup:<caminho>`: relativo a `C:/Users/Victor/cs2-tracker-backups/2026-09-26/`, onde estão a auditoria e o plano (B0.2). Um `backup:../<data>/...` sai dessa pasta para o backup de outra data, como o `backup:../2026-09-27/b1.5/` do frontmatter do [smoke só de bots](runbooks/smoke-partida-de-bots.md), a única fonte assim no repo;
   - `transcript <8 primeiros caracteres do id> @ AAAA-MM-DDTHH:MM:SSZ`: sessão local do Claude Code, que não é versionada;
   - `commit <sha>` ou `PR #<n>`.
   - Qualquer entrada pode terminar com ` (detalhe)`, só para quem lê (ex.: as chaves de um JSON). O checador ignora esse sufixo, e fora dele não há texto livre.

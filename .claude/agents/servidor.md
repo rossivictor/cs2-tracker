@@ -61,7 +61,7 @@ A cópia `$BK/preflight.py` sai do passo 2 e vale também num detach numa tag se
 8. **Acompanhar o boot** até 15 min, o limite de aborto (fora download do jogo), pelo Monitor, até as linhas de load da MatchZy e da captura. Grave no registro o tempo medido do recreate até o `Pronto`: é o boot medido do relógio.
 9. **G6:** linhas de load e assinaturas esperadas, nenhuma proibida, zero segfault, build antes e depois, sha256 DENTRO do container (cfg, `pre.sh`, match_config, DLL, `.deps.json`) = checkout, `pre.sh` sem CR, hashes de `core.json` e configs de plugin em upgrade. Grave no registro o **config-hash da janela** (o label da coleta, acima) e o `docker compose config --hash cs2-server`; os dois precisam bater.
 10. **Smoke só de bots**, quando o card pede (Q7=A): `bot_join_after_player 0` antes do `bot_quota` e do `mp_warmup_end` (sem ele os bots não entram sem humano: 27/09), e bots nos dois times no `status` antes de contar o tempo. Sem bots, o smoke é INCONCLUSIVO; se o card exige o smoke, o RESULTADO não é `candidato no ar`: volte, ou deixe no ar só com OK explícito do Victor via PM, gravado no registro e com `historico --papel=PM`.
-11. **Fechamento (checklist G6):** MatchZy sem partida carregada (`get5_status` none, senão `css_endmatch` ou restart), `mp_ignore_round_win_conditions 0`, `sv_hibernate_when_empty`, `bot_quota` e `bot_join_after_player` nos valores de antes, `changelevel` final com `Pronto` novo, sha montados = checkout. Remova a marca, feche o registro e dê ao PM o aviso do que a próxima partida valida.
+11. **Fechamento (checklist G6):** MatchZy sem partida carregada (`get5_status` none, senão `css_endmatch` ou restart), cvars pela regra única de `docs/runbooks/smoke-partida-de-bots.md`, seção [Referência do fechamento](../../docs/runbooks/smoke-partida-de-bots.md#referência-do-fechamento), com ou sem smoke, `changelevel` final com `Pronto` novo, sha montados = checkout. Remova a marca, feche o registro e dê ao PM o aviso do que a próxima partida valida.
 
 **Aborto por processo** (o Victor abriu o jogo ou a TUI):
 - antes do passo 3: nada a desfazer; registre e apague a marca;
@@ -99,7 +99,7 @@ PREFLIGHT: <código e motivo na abertura; cada 3 visto e o que você fez; comand
 BACKUP E SNAPSHOT: <arquivos e sha256 | banco sem cópia (guarda; B0.6) | n/a>
 MUDANÇA: <candidato-N · merge <sha> | ff até <sha> | nenhuma>
 G6: <OK/FALTA por linha · avisos · sha montados = checkout: sim/não · pre.sh sem CR: sim/não · config-hash da janela <h> = config --hash: sim/não · smoke: OK | INCONCLUSIVO | n/a>
-FECHAMENTO: <get5_status · cvars = antes: sim/não · ABERTA removida: sim/não · duração>
+FECHAMENTO: <get5_status · cvars = Referência do fechamento (smoke): sim/não · ABERTA removida: sim/não · duração>
 RESULTADO: <candidato no ar | fechada sem mudança: motivo | vencida no passo <n>: o que voltou, G6 FALTA ou OK | voltou pelo caminho 1|2: motivo | abortada: motivo | coleta: pasta, HEAD <sha>, data da partida | coleta adiada: preflight 3 (motivo)>
 REGISTRO: C:/Users/Victor/Projetos/cs2-tracker/logs/janelas/<data>.md
 AVISO AO VICTOR: <o que a próxima partida valida, para o PM repassar | n/a>
