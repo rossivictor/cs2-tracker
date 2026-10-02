@@ -372,6 +372,340 @@ def test_curinga_que_nao_le_o_banco_do_principal_passa(repo, ferramenta, lugar, 
     assert _comando(repo, ferramenta, lugar, comando) == (0, "", "")
 
 
+# ------------- leitura pelo nome literal e @(...) do PowerShell (card B0.5c)
+# Só guarda.decidir com evento sintético: nenhum destes comandos roda de
+# verdade, e {P} é um checkout principal falso em tmp_path. Antes do B0.5c
+# só o curinga era conferido: o nome literal em cat/head/xxd/type/Get-Content
+# e sqlite3 -readonly passava, e o PowerShell não olhava dentro de @(...),
+# nem quando o cmdlet escrevia ou apagava.
+
+BANCO, ENV, LISTA = "banco", "env", "lista"
+ALTERNATIVA = {BANCO: ("mode=ro pedida ao PM", "tools/backup.py"), ENV: (".env.example",),
+               LISTA: ("Em vez disso: escreva o caminho literal",)}
+
+LEITURA_LITERAL_BLOQUEADA = [
+    # Os 7 do Problema, em Bash.
+    ("Bash", "wt", "cat {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "cat {P}/cs2_tracker.db > {F}/destino/c.db", BANCO),
+    ("Bash", "wt", "head -c 100 {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "xxd {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "sqlite3 -readonly {P}/cs2_tracker.db 'select count(*) from matches'", BANCO),
+    ("Bash", "wt", "sqlite3 {F}/x.db < {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "cat {P}/.env", ENV),
+    # Os 3 do Problema, em PowerShell.
+    ("PowerShell", "wt", "Get-Content {P}/cs2_tracker.db", BANCO),
+    ("PowerShell", "wt", "type {P}/cs2_tracker.db", BANCO),
+    ("PowerShell", "wt", "Get-Content {P}/.env", ENV),
+    # Os 5 do Problema com @(...): cópia, leitura, escrita e remoção.
+    ("PowerShell", "wt", "Copy-Item @('{P}/cs2_tracker.db') {F}/destino", BANCO),
+    ("PowerShell", "wt", "Copy-Item @('{P}/.env') {F}/destino", ENV),
+    ("PowerShell", "wt", "Get-Content @('{P}/.env')", ENV),
+    ("PowerShell", "wt", "Set-Content @('{P}/cs2_tracker.db') 'x'", BANCO),
+    ("PowerShell", "wt", "Move-Item @('{P}/cs2_tracker.db') {F}/destino", BANCO),
+    # -wal, -shm e -journal do banco.
+    ("Bash", "wt", "cat {P}/cs2_tracker.db-wal", BANCO),
+    ("Bash", "wt", "xxd {P}/cs2_tracker.db-shm", BANCO),
+    ("Bash", "wt", "head -c 10 {P}/cs2_tracker.db-journal", BANCO),
+    ("Bash", "wt", "sqlite3 -readonly {P}/cs2_tracker.db-wal .tables", BANCO),
+    ("PowerShell", "wt", "Get-Content {PW}\\cs2_tracker.db-shm", BANCO),
+    ("PowerShell", "wt", "Get-Content @('{P}/cs2_tracker.db-wal')", BANCO),
+    ("PowerShell", "wt", "Copy-Item @('{P}/cs2_tracker.db-journal') {F}/destino", BANCO),
+    # Outras formas de ler o mesmo arquivo: pasta relativa, $RAIZ sem valor,
+    # outros leitores, URI do sqlite, cmd /c, -LiteralPath, lista nua com mais
+    # de um item, nome que o Windows lê como o mesmo arquivo.
+    ("Bash", "principal", "cat cs2_tracker.db", BANCO),
+    ("Bash", "principal", "cat .env", ENV),
+    ("Bash", "wt", "cat ../../../cs2_tracker.db", BANCO),
+    ("Bash", "wt", 'cat "$RAIZ/cs2_tracker.db"', BANCO),
+    ("Bash", "wt", 'cat "$RAIZ"/.env', ENV),
+    ("Bash", "wt", "cat {P}/.ENV", ENV),
+    ("Bash", "wt", "cat {P}/cs2_tracker.db.", BANCO),
+    ("Bash", "wt", "cat '{P}/cs2_tracker.db::$DATA'", BANCO),
+    ("Bash", "wt", "grep SRCDS {P}/.env", ENV),
+    ("Bash", "wt", "grep -rn -e SRCDS {P}/.env", ENV),
+    ("Bash", "wt", "sed -n p {P}/.env", ENV),
+    ("Bash", "wt", "awk '{print}' {P}/.env", ENV),
+    ("Bash", "wt", "tail -n 3 {P}/.env", ENV),
+    ("Bash", "wt", "strings {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "sqlite3 -readonly 'file:{P}/cs2_tracker.db?mode=ro' .tables", BANCO),
+    ("Bash", "wt", "sqlite3 {F}/x.db .dump < {P}/.env", ENV),
+    ("PowerShell", "wt", "cmd /c type {PW}\\cs2_tracker.db", BANCO),
+    ("PowerShell", "wt", "Get-Content -LiteralPath {PW}\\.env", ENV),
+    ("PowerShell", "wt", "gc -Path:{P}/cs2_tracker.db", BANCO),
+    ("PowerShell", "wt", "Select-String -Pattern SRCDS -Path {P}/.env", ENV),
+    # Lista nua: cada string é argumento do cmdlet, inclusive a que começa com -.
+    ("PowerShell", "wt", "Copy-Item -Path @('docs/README.md', '{P}/.env') -Destination {F}/d", ENV),
+    ("PowerShell", "wt", 'Get-Content @( "docs/README.md" , "{P}/.env" )', ENV),
+    ("PowerShell", "wt", "Remove-Item @('-Filter', '{P}/cs2_tracker.db')", BANCO),
+    ("PowerShell", "wt", "$lista = @('{P}/.env'); Get-Content $lista", ENV),
+    # Opção sem valor não esconde o arquivo; --file=<arquivo> lê o arquivo.
+    ("Bash", "wt", "grep -e x {P}/.env", ENV),
+    ("Bash", "wt", "grep -n -e '\\.env' -f {P}/.env x", ENV),
+    ("Bash", "wt", "grep -T X {P}/.env", ENV),
+    ("Bash", "wt", "grep --file={P}/.env x", ENV),
+    ("Bash", "wt", "jq -C . {P}/.env", ENV),
+    ("Bash", "wt", "jq '.a' {P}/.env", ENV),
+    ("Bash", "wt", "jq -r .env {P}/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "rg -g '*.py' X {P}/.env", ENV),
+    ("PowerShell", "wt", "Select-String -Path {P}/.env -Pattern '\\.env'", ENV),
+    ("PowerShell", "wt", "Select-String -Pattern '.env' -Path {P}/.env", ENV),
+]
+
+# Critério 2 (trocado em 30/09): ao lado de cmdlet de arquivo, @( que não é
+# lista literal nua falha fechado, qualquer que seja o caminho de dentro,
+# inclusive um da worktree. {A} é o caminho; \n é quebra de linha de verdade.
+CMDLETS_DE_ARQUIVO = [
+    "Get-Content", "gc", "type", "cat", "Import-Csv", "Format-Hex", "Select-String", "sls",
+    "Copy-Item", "cpi", "copy", "cp", "Move-Item", "mi", "move", "mv", "Rename-Item", "ren",
+    "Remove-Item", "ri", "rm", "del", "erase", "rd", "rmdir",
+    "Set-Content", "sc", "Add-Content", "ac", "Out-File", "Clear-Content", "clc", "New-Item",
+    "ni", "tee", "Tee-Object"]
+ENVOLTORIOS_DE_LISTA = [
+    '@("{A}")[0]', '(@("{A}"))', '$(@("{A}"))', '@("{A}").FullName', '(@("{A}"))[0]',
+    '@(@("{A}"))', '-Path:(@("{A}"))', '-Path:@("{A}")', '( @("{A}") )', '$( @("{A}") )',
+    '([string[]] @("{A}"))', '[string[]]@("{A}")', '(<# c #>@("{A}"))', '(\n@("{A}"))',
+    '@("{A}").Trim()', '@("{A}"<# c #>)', '@(\n"{A}")', '@("{A}", \n"x")', '@("{A}" + "")',
+    '@("{A}")+@("x")', '@("{A}$x")', "@('{A}', $x)", '@("{A}`t")', "@('x', (\"{A}\"))",
+    '@(Get-Item "{A}")', '@($sem_valor)', "@('{A}’,’x')"]
+ALVOS_DA_LISTA = ["docs/README.md", "{P}/cs2_tracker.db", "{P}/.env"]
+
+
+@pytest.mark.parametrize("envoltorio", ENVOLTORIOS_DE_LISTA)
+@pytest.mark.parametrize("cmdlet", CMDLETS_DE_ARQUIVO)
+def test_arroba_que_nao_e_lista_nua_fecha_nos_cmdlets_de_arquivo(repo, cmdlet, envoltorio):
+    for alvo in ALVOS_DA_LISTA:
+        comando = f"{cmdlet} {envoltorio.replace('{A}', alvo)} {{F}}/d"
+        for preflight_do_jogo in (0, 3):
+            codigo, erro, _ = _comando(repo, "PowerShell", "wt", comando,
+                                       preflight=lambda: preflight_do_jogo)
+            assert codigo == 2, (comando, erro)
+            assert "só passa como lista literal nua" in erro, (comando, erro)
+            assert "Em vez disso: escreva o caminho literal" in erro
+
+
+@pytest.mark.parametrize("comando", [
+    "Copy-Item @('docs/README.md') {F}\\destino",
+    "Copy-Item @('docs/README.md', \"docs/SPEC.md\") {F}\\destino",
+    "Get-Content @( 'docs/README.md' )",
+    "Copy-Item -Path @('docs/README.md') -Destination {F}\\destino",
+    "Remove-Item @('cs2_tracker.db')",
+    "Set-Content docs/nota.md -Value @('a', 'b')"])
+def test_lista_literal_nua_passa_e_cada_string_vira_argumento(repo, comando):
+    assert _comando(repo, "PowerShell", "wt", comando) == (0, "", "")
+
+
+def test_arroba_entre_aspas_tambem_fecha(repo):
+    """A guarda não sabe se o @( veio de dentro de aspas: sobra bloqueio. Para
+    gravar esse texto, mande-o pelo pipe ('texto @(x)' | Set-Content arq)."""
+    assert _comando(repo, "PowerShell", "wt", "Set-Content docs/nota.md 'a @(b) c'")[0] == 2
+    assert _comando(repo, "PowerShell", "wt", "'a @(b) c' | Set-Content docs/nota.md")[0] == 0
+
+
+# Critério 2, retomada 3: no PowerShell a linha que termina em vírgula ou em
+# operador continua na de baixo. Antes, a guarda cortava o comando na quebra e
+# a linha de baixo virava outro comando: os 6 primeiros saíam 0, e o PowerShell
+# 5.1 lia, gravava ou apagava o arquivo da linha de baixo (QA, reprovação 3).
+CONTINUACAO_BLOQUEADA = [
+    "Get-Content 'docs/README.md',\n@('{P}/.env')[0]",
+    "Get-Content -Path 'docs/README.md',\n@('{P}/.env')",
+    "Get-Content 'docs/README.md', #c\n@('{P}/.env')[0]",
+    "Get-Content 'docs/README.md',\r\n@('{P}/.env')[0]",
+    "Set-Content 'docs/x.md',\n@('{P}/cs2_tracker.db').Trim() 'x'",
+    "Remove-Item 'docs/x.md',\n@('{P}/cs2_tracker.db')[0]",
+    # Várias continuações em cadeia, linha em branco e comentário entre elas, e
+    # a continuação no meio dos argumentos.
+    "Get-Content 'docs/a.md',\n'docs/b.md',\n\n# c\n<# d #>\n@('{P}/.env')[0] -Encoding utf8",
+    "Copy-Item -Path 'docs/a.md',\n'{P}/cs2_tracker.db' -Destination {F}/d",
+    "Get-Content -Encoding utf8 -Path 'docs/a.md',\r\n  '{P}/.env'",
+    "Get-Content 'docs/README.md', <# c\nc #> @('{P}/.env')[0]",
+]
+OPERADORES_NO_FIM = ["-join", "-and", "-or", "-f", "+", "-replace", "-split", "-eq", "-like",
+                     "-match", "-band", "-CNotMatch", "-ilike", "-xor", "=", "*", "%", "-"]
+DEPOIS_DO_OPERADOR = ["\n", "\r\n", " #c\n", " <# c #>\n", "\n\n", "\n# c\n\n", "\r\n\r\n"]
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("comando", CONTINUACAO_BLOQUEADA)
+def test_linha_que_termina_em_virgula_continua_no_powershell(repo, comando, preflight_do_jogo):
+    codigo, erro, _ = _comando(repo, "PowerShell", "wt", comando,
+                               preflight=lambda: preflight_do_jogo)
+    assert codigo == 2, (comando, erro)
+    assert "Em vez disso:" in erro
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+def test_linha_que_termina_em_operador_tambem_junta_a_de_baixo(repo, preflight_do_jogo):
+    for op in OPERADORES_NO_FIM:
+        for meio in DEPOIS_DO_OPERADOR:
+            for alvo in ("{P}/.env", "{P}/cs2_tracker.db"):
+                comando = f"Get-Content 'docs/README.md' {op}{meio}@('{alvo}')[0]"
+                codigo, erro, _ = _comando(repo, "PowerShell", "wt", comando,
+                                           preflight=lambda: preflight_do_jogo)
+                assert codigo == 2, (comando, erro)
+                assert "só passa como lista literal nua" in erro, (comando, erro)
+
+
+@pytest.mark.parametrize("comando,operador", [
+    ("Get-Content 'docs/README.md',", "','"),
+    ("Get-Content 'docs/README.md',\n", "','"),
+    ("Get-Content 'docs/README.md',\r\n\r\n# só comentário", "','"),
+    ("Get-Content 'docs/README.md', <# bloco que não fecha\n", "','"),
+    ("Get-Content 'docs/README.md' -join", "'-join'"),
+    ("$x = 'docs/README.md' +\n", "'+'")])
+def test_operador_sem_linha_de_baixo_falha_fechado(repo, comando, operador):
+    codigo, erro, _ = _comando(repo, "PowerShell", "wt", comando)
+    assert codigo == 2
+    assert f"termina em {operador}" in erro and "falha fechada" in erro
+
+
+@pytest.mark.parametrize("ferramenta,comando", [
+    # Vírgula ou operador dentro de aspas não continua a linha.
+    ("PowerShell", "Write-Output 'a,'\nGet-Content docs/README.md"),
+    ("PowerShell", 'Write-Output "-join"\nGet-Content docs/README.md'),
+    ("PowerShell", "Write-Output 'a,\nb'"),
+    # Continuação legítima, só com arquivos da worktree.
+    ("PowerShell", "Get-Content 'docs/README.md',\n  'docs/SPEC.md'\nGet-Content docs/x.md"),
+    ("PowerShell", "$texto = 'a' +\n'b'"),
+    # Curinga e `..` no fim não pedem linha de baixo.
+    ("PowerShell", "Get-ChildItem *"),
+    ("PowerShell", "Set-Location .."),
+    # Bash não muda: vírgula e operador no fim da linha não juntam nada.
+    ("Bash", "echo a,\ncat docs/README.md"),
+    ("Bash", "echo a -and\nls *"),
+    ("Bash", "echo a,")])
+def test_continuacao_so_vale_para_o_powershell_e_fora_de_aspas(repo, ferramenta, comando):
+    assert _comando(repo, ferramenta, "wt", comando) == (0, "", "")
+
+
+# Critério 2, 2ª extensão (01/10): no PowerShell 5.1 o CR sozinho também é fim
+# de linha e encerra o comentário #. A guarda lia o CR como espaço e só fechava
+# o comentário no LF: o comentário engolia a linha de baixo, e o comando depois
+# do CR colava no de cima. Todas estas formas saíam 0 (QA, reprovação 4).
+CMDLETS_DO_CR = ["Set-Content", "Copy-Item", "Move-Item", "Remove-Item", "Get-Content", "gc",
+                 "ri", "type"]
+ALVOS_DO_CR = ["@('{P}/.env')[0]", "@('{P}/cs2_tracker.db')[0]", "'{P}/.env'",
+               "{P}/cs2_tracker.db"]
+FORMAS_DO_CR = [
+    "{c} 'docs/README.md', #c\r{a}\nWrite-Output ok",
+    "{c} 'docs/README.md', #c\r{a}\r\nWrite-Output ok",
+    "{c} 'docs/README.md', #c\r{a}\rWrite-Output ok",
+    "{c} 'docs/README.md',\r{a}",
+    "Write-Output x\r{c} {a}",
+    "Write-Output x #c\r{c} {a}\r\n",
+    "{c} `\r{a}",
+    "& {c} 'docs/README.md', #c\r{a}\nWrite-Output ok",
+    "Invoke-Command {{ {c} 'docs/README.md', #c\r{a} }}\r\nWrite-Output ok",
+    # Here-string com CR sozinho: o corpo acaba no CR'@ e a linha de baixo é comando.
+    "Write-Output @'\rit's\r'@\r{c} {a}"]
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("forma", FORMAS_DO_CR)
+def test_cr_sozinho_e_fim_de_linha_e_de_comentario_no_powershell(repo, forma, preflight_do_jogo):
+    for cmdlet in CMDLETS_DO_CR:
+        for alvo in ALVOS_DO_CR:
+            comando = forma.format(c=cmdlet, a=alvo)
+            codigo, erro, _ = _comando(repo, "PowerShell", "wt", comando,
+                                       preflight=lambda: preflight_do_jogo)
+            assert codigo == 2, (comando, erro)
+            assert "Em vez disso:" in erro
+
+
+@pytest.mark.parametrize("comando", [
+    "Get-Content 'docs/README.md',\r  'docs/SPEC.md'\rGet-Content docs/x.md",
+    "Get-Content 'docs/README.md', #c\r'docs/SPEC.md'\r\nWrite-Output ok",
+    "Write-Output x\rGet-Content docs/README.md\rRemove-Item cs2_tracker.db",
+    "# comentário\rCopy-Item @('docs/README.md') {F}\\destino",
+    "$texto = 'a' +\r'b'",
+    "Get-Content docs/README.md `\r -Encoding utf8",
+    "git commit -m @'\r\nGuarda: CR, vírgula,\r\n# e Remove-Item @('x')[0] no corpo\r\n'@",
+    "Write-Output @'\rit's, #c\r'@\rGet-Content docs/README.md"])
+def test_cr_sozinho_nao_vira_falso_positivo(repo, comando):
+    assert _comando(repo, "PowerShell", "wt", comando) == (0, "", "")
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("ferramenta,lugar,comando,tipo", LEITURA_LITERAL_BLOQUEADA)
+def test_leitura_pelo_nome_e_lista_do_powershell_sao_bloqueadas(
+        repo, monkeypatch, ferramenta, lugar, comando, tipo, preflight_do_jogo):
+    for nome in ("RAIZ", "DATA", "VARIAVEL_QUE_NAO_EXISTE_B05C"):
+        monkeypatch.delenv(nome, raising=False)
+    codigo, erro, _ = _comando(repo, ferramenta, lugar, comando,
+                               preflight=lambda: preflight_do_jogo)
+    assert codigo == 2, erro
+    assert erro.startswith("guarda (B0.5) bloqueou:")
+    assert "Em vez disso:" in erro
+    for trecho in ALTERNATIVA[tipo]:
+        assert trecho in erro, erro
+
+
+LEITURA_LITERAL_LIBERADA = [
+    # O que o card manda continuar passando.
+    ("Bash", "wt", f"{PYTHON_DO_JOGO} tools/backup.py --destino \"{{F}}/bk\""),
+    ("Bash", "principal", f"{PYTHON_DO_JOGO} tools/backup.py --destino \"{{F}}/bk\""),
+    ("Bash", "wt", "rm -f cs2_tracker.db"),
+    ("PowerShell", "wt", "Remove-Item cs2_tracker.db"),
+    ("Bash", "wt", "cat docs/README.md"),
+    ("PowerShell", "wt", "Get-Content .env.example"),
+    ("PowerShell", "wt", "Copy-Item @('docs/README.md') {F}\\destino"),
+    ("Bash", "wt", "git status"),
+    # Vizinhos que não podem virar falso positivo.
+    ("Bash", "wt", "cat cs2_tracker.db"),  # o banco da PRÓPRIA worktree
+    ("Bash", "wt", "cat .env.example"),
+    ("Bash", "wt", "head -n 5 docs/README.md"),
+    ("Bash", "wt", "grep -rn '.env' docs"),
+    ("Bash", "wt", "grep -rn 'cs2_tracker.db' docs AGENTS.md"),
+    ("Bash", "wt", "sed -n p docs/README.md"),
+    ("Bash", "wt", "cat \"{F}\"/bk/cs2_tracker.backup.db"),
+    ("Bash", "wt", "sqlite3 -readonly \"{F}/bk/cs2_tracker.backup.db\" '.tables'"),
+    ("Bash", "wt", "ls {P}/.env {P}/cs2_tracker.db"),  # só metadados: não lê o conteúdo
+    ("PowerShell", "wt", "Get-Content -Path .env.example"),
+    # @(...) ao lado de comando que não lê nem escreve arquivo segue livre.
+    ("PowerShell", "wt", "Get-ChildItem @($sem_valor)"),
+    ("PowerShell", "wt", "Get-ChildItem (@($sem_valor))[0]"),
+    ("PowerShell", "wt", "$linhas = @(Get-Content docs/README.md); $linhas.Count"),
+    ("PowerShell", "wt", "git add @('docs/README.md')"),
+    # O valor de -e, --regexp e -Pattern é padrão, e o de --exclude é glob: não é
+    # arquivo. O jq lê o arquivo, não o filtro.
+    ("Bash", "wt", "grep -n -e '\\.env' AGENTS.md"),
+    ("Bash", "wt", "rg -n -e '\\.env' AGENTS.md"),
+    ("Bash", "wt", "grep -n --regexp '\\.env' AGENTS.md"),
+    ("Bash", "wt", "grep -rn X --exclude .env ."),
+    ("Bash", "wt", "grep -rn X --exclude=.env ."),
+    ("Bash", "wt", "rg -g '.env' X docs"),
+    ("Bash", "wt", "sed -n -e '/.env/p' docs/README.md"),
+    ("Bash", "wt", "jq '.env' x.json"),
+    ("Bash", "wt", "jq -e '.env' x.json"),
+    ("PowerShell", "wt", "Select-String -Path AGENTS.md -Pattern '\\.env'"),
+    ("PowerShell", "wt", "Select-String -Pattern '.env' -Path AGENTS.md"),
+    ("PowerShell", "wt", "Select-String -Pattern:'.env' -Path:AGENTS.md"),
+    ("PowerShell", "wt", 'Select-String -Path AGENTS.md -Pattern "\\.env"'),
+    ("Bash", "wt", 'grep -n -e "\\.env" AGENTS.md'),
+    ("Bash", "wt", "rg -T py X docs"),
+]
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("ferramenta,lugar,comando", LEITURA_LITERAL_LIBERADA)
+def test_leitura_que_nao_toca_o_banco_nem_o_env_do_principal_passa(
+        repo, ferramenta, lugar, comando, preflight_do_jogo):
+    assert _comando(repo, ferramenta, lugar, comando,
+                    preflight=lambda: preflight_do_jogo) == (0, "", "")
+
+
+def test_lista_do_powershell_abre_cada_item_como_argumento_do_cmdlet(repo):
+    """Gabarito à mão: com o banco no meio da lista e a lista no meio dos
+    argumentos, o motivo cita o item (o banco), não a lista inteira."""
+    _, erro, _ = _comando(repo, "PowerShell", "wt",
+                          "Copy-Item @('docs/README.md', '{P}/cs2_tracker.db') {F}\\d")
+    assert "cs2_tracker.db" in erro and "@(" not in erro.split("Em vez disso:")[0]
+
+
+def test_leitura_do_env_explica_a_alternativa(repo):
+    _, erro, _ = _comando(repo, "Bash", "wt", "cat {P}/.env")
+    assert ".env.example" in erro and "não se lê, copia nem imprime" in erro
+
+
 def test_compose_na_worktree_fala_do_volume_e_do_checkout_principal(repo):
     _, erro, _ = _comando(repo, "Bash", "wt", "docker compose up -d")
     assert "fora do checkout principal" in erro

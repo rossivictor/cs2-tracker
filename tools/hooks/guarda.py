@@ -36,6 +36,14 @@ Bloqueia:
   - leitura com curinga que casa o cs2_tracker.db (e -wal, -shm, -journal)
     do checkout principal: origem de cp/Copy-Item/copy, cat/type/Get-Content
     e sqlite3 (card B0.5b); pasta que não se resolve falha fechado;
+  - leitura pelo nome literal do cs2_tracker.db (e -wal, -shm, -journal) do
+    checkout principal e do .env: cat, head, xxd, grep, type, Get-Content,
+    sqlite3 (inclusive -readonly), cópia e `< arquivo` (card B0.5c); no
+    PowerShell, ao lado de cmdlet que lê, copia, grava ou apaga, @(...) só
+    passa como lista literal nua (@('a', "b"), cada string vira argumento do
+    cmdlet); qualquer outro @( falha fechado. Linha que termina em vírgula ou
+    operador continua na de baixo, e o CR sozinho é fim de linha, de
+    comentário # e de here-string, como no PowerShell 5.1;
   - docker logs / compose logs quando tools/preflight.py não devolve 0 ou 4;
   - no Write/Edit, dado pessoal e segredo (tools/hooks/pii.py): segredo do
     .env em qualquer arquivo do repositório; SteamID em docs/**, tests/**,
@@ -53,6 +61,30 @@ Falha fechada com escopo: exceção ao analisar um comando que menciona
 docker, git ou pip (palavra inteira) sai com 2. Qualquer outro erro interno
 sai com 0 e um aviso (systemMessage): bug no hook não pode travar o trabalho
 normal.
+
+Limites conhecidos, que passam com 0 e ficam para o card B0.5d:
+  - formas indiretas: chaves, crase, xargs, for, tar, cp -r da raiz, nome 8.3;
+  - aliases fhx (Format-Hex) e ipcsv (Import-Csv);
+  - NBSP e outros brancos do PowerShell (VT, FF, U+0085) no lugar do espaço;
+  - cmd /c powershell -c "..." e o prefixo FileSystem:: no caminho;
+  - Get-Content $('<R>/.env'), -Path:$(...) e Get-Content ('<R>' + '/.env');
+  - caminho pelo pipe: '<R>/.env' | Get-Content;
+  - operador colado a <#c#> no fim da linha, em modo expressão;
+  - outras opções sem valor que _VALOR_NA_PROXIMA trata como com valor, da
+    família de grep -T, jq -C e grep --file=;
+  - Select-String/sls com -Path ou -LiteralPath nomeado, com espaço, e padrão
+    posicional depois (Select-String -Path <R>/.env SRCDS sai 0):
+    _alvos_sem_padrao toma o 1º posicional como padrão e o arquivo nomeado
+    escapa; vale com lista nua e com o banco;
+  - splatting de array: $a = @('<R>/.env'); Get-Content @a;
+  - # colado ao token anterior (depois de aspas, = ou )): o PowerShell abre
+    comentário e a guarda não, e uma aspa dentro desse comentário engole as
+    linhas seguintes na guarda (Write-Output 'a'#'<LF>Remove-Item
+    '<R>/cs2_tracker.db'<LF>#' sai 0, também com CR);
+  - aspas tipográficas fechando string ou here-string;
+  - <# no meio de palavra (a<#b é literal no PowerShell; a guarda abre bloco
+    de comentário);
+  - falso positivo: Select-String -SimpleMatch "@(" arquivo sai 2.
 
 Só biblioteca padrão. Sem `docker logs` no comando, fica abaixo de 150 ms.
 """
@@ -185,7 +217,8 @@ class Contexto:
 
 
 ALT_BANCO = ("banco em tmp_path ou fixture; dado real só numa cópia mode=ro pedida ao PM "
-             "(apagar o cs2_tracker.db que a suíte cria na SUA worktree pode, pelo nome)")
+             "(tools/backup.py); apagar o cs2_tracker.db que a suíte cria na SUA worktree "
+             "pode, pelo nome")
 ALT_ENV = "use o .env.example; o .env é do Victor, e só ele edita"
 ALT_PERFIL = "perfil em tmp_path nos testes"
 ALT_EVENTS = "fixture anonimizada em tests/fixtures/"
@@ -284,17 +317,29 @@ def _nome_casa_banco(nome):
 
 
 ALT_LEITURA = ("banco em tmp_path ou fixture; dado real só numa cópia mode=ro pedida ao PM "
-               "(tools/backup.py, card B0.6); curinga só numa pasta que não seja o checkout "
-               "principal (o cs2_tracker.db da SUA worktree pode)")
+               "(tools/backup.py, card B0.6); nome ou curinga só numa pasta que não seja o "
+               "checkout principal (o cs2_tracker.db da SUA worktree pode)")
+ALT_ENV_LEITURA = ("use o .env.example; o .env é do Victor: não se lê, copia nem imprime "
+                   "(o SRCDS_TOKEN e a senha do RCON iriam para a conversa)")
+
+
+def _nome_do_arquivo(forma):
+    """Último segmento em minúsculas, como o Windows o enxerga: sem ponto ou
+    espaço no fim e sem fluxo alternativo (cs2_tracker.db::$DATA)."""
+    nome = forma.lower().rsplit("/", 1)[-1]
+    return nome.split(":", 1)[0].rstrip(". ")
 
 
 def _motivo_leitura(bruto, ctx):
-    """(motivo, alternativa) se o curinga de um argumento de leitura (origem
-    de cp/Copy-Item/copy, cat/type/Get-Content, sqlite3) casa o banco do
-    checkout principal, senão None (card B0.5b). Com a pasta conhecida, casa
-    segmento a segmento com <principal>/cs2_tracker.db e os lados: *.db e *
-    barram no checkout principal e passam na worktree. Pasta que não se
-    resolve ("$RAIZ"/..., /tmp do Git Bash) falha fechado: vale o nome."""
+    """(motivo, alternativa) se um argumento de leitura (origem de
+    cp/Copy-Item/copy, cat/type/Get-Content, sqlite3, head, xxd...) ou o alvo
+    de um `<` lê o banco do checkout principal ou o .env, senão None.
+    Curinga (card B0.5b): com a pasta conhecida, casa segmento a segmento com
+    <principal>/cs2_tracker.db e os lados: *.db e * barram no checkout
+    principal e passam na worktree. Nome literal (card B0.5c): o banco barra
+    no checkout principal e passa na worktree; o .env barra em qualquer
+    pasta, como na escrita. Pasta que não se resolve ("$RAIZ"/..., /tmp do
+    Git Bash) falha fechado: vale o nome."""
     if bruto.startswith("(") and bruto.endswith(")"):  # (Join-Path $PWD 'x') do PowerShell
         for caminho in _caminhos_de_expressao(bruto[1:-1], ctx):
             achado = _motivo_leitura(caminho, ctx)
@@ -302,20 +347,43 @@ def _motivo_leitura(bruto, ctx):
                 return achado
         return None
     bruto = _expandir(bruto, ctx.env, ctx, "caminho", sistema=True)
+    if bruto.lower().startswith("file:"):  # sqlite3 -readonly file:<banco>?mode=ro
+        bruto = bruto[5:].split("?", 1)[0]
+        if _DRIVE.match(bruto.lstrip("/")):
+            bruto = bruto.lstrip("/")
     forma = _barras(bruto).rstrip("/")
-    if not _CURINGA.search(forma):
-        return None
     absoluto = _absoluto(bruto, ctx.cwd)
+    if not _CURINGA.search(forma):
+        return _motivo_leitura_literal(forma, absoluto, ctx)
     if absoluto is None:
-        if _nome_casa_banco(forma.lower().rsplit("/", 1)[-1]):
+        nome = forma.lower().rsplit("/", 1)[-1]
+        if _nome_casa_banco(nome):
             return (f"o curinga {forma} casa o nome do banco cs2_tracker.db e a pasta não se "
                     "resolve: pode ser o checkout principal (falha fechada)", ALT_LEITURA)
+        if nome.startswith(".") and fnmatch.fnmatchcase(".env", nome):
+            return (f"o curinga {forma} casa o .env e a pasta não se resolve (falha fechada)",
+                    ALT_ENV_LEITURA)
         return None
     padrao = absoluto.lower().split("/")
     for banco in _NOMES_DO_BANCO:
         alvo = f"{ctx.principal}/{banco}"
         if _segmentos_casam(padrao, alvo.lower().split("/")):
             return f"o curinga {forma} lê {alvo}, o banco do checkout principal", ALT_LEITURA
+    if _segmentos_casam(padrao, f"{ctx.principal}/.env".lower().split("/")):
+        return f"o curinga {forma} lê {ctx.principal}/.env", ALT_ENV_LEITURA
+    return None
+
+
+def _motivo_leitura_literal(forma, absoluto, ctx):
+    nome = _nome_do_arquivo(forma)
+    if nome == ".env":
+        return f"{forma} é o .env (segredos do servidor)", ALT_ENV_LEITURA
+    if nome in _NOMES_DO_BANCO:
+        if absoluto is None:
+            return (f"{forma} tem o nome do banco cs2_tracker.db e a pasta não se resolve: "
+                    "pode ser o checkout principal (falha fechada)", ALT_LEITURA)
+        if ctx.no_principal(posixpath.dirname(absoluto)):
+            return f"{forma} é o banco cs2_tracker.db do checkout principal", ALT_LEITURA
     return None
 
 
@@ -341,6 +409,19 @@ def _checar_caminho(alvo, ctx, modo, acao):
 
 # ----------------------------------------------------------- tokenização
 
+# Operadores do PowerShell que, no fim da linha, fazem o comando continuar na
+# linha de baixo (card B0.5c). Os de comparação têm as variantes -c e -i. No
+# modo argumento só a vírgula continua (o parser do 5.1 confirma); em expressão,
+# qualquer um deles. Fica de fora o `..`, que no fim é `cd ..`.
+_COMPARACAO_PS = ("eq", "ne", "gt", "ge", "lt", "le", "like", "notlike", "match", "notmatch",
+                  "contains", "notcontains", "in", "notin", "replace", "split")
+_OPERADORES_PS = (
+    {f"-{p}{op}" for op in _COMPARACAO_PS for p in ("", "c", "i")}
+    | {"-and", "-or", "-xor", "-not", "-band", "-bor", "-bxor", "-bnot", "-shl", "-shr",
+       "-join", "-is", "-isnot", "-as", "-f"}
+    | {"+", "-", "*", "/", "%", "!", "=", "+=", "-=", "*=", "/=", "%=", "??", "??="})
+
+
 class _Tok:
     __slots__ = ("tipo", "texto", "aninhados")
 
@@ -360,53 +441,81 @@ class _Leitor:
     listas de tokens aninhadas na palavra onde aparecem, pra serem analisadas
     também. Corpo de heredoc e de here-string é dado, não comando."""
 
-    def __init__(self, texto, dialeto):
+    def __init__(self, texto, dialeto, juntar=False):
         self.t = texto
         self.n = len(texto)
         self.i = 0
         self.d = dialeto
         self.heredocs = []
+        # PowerShell: linha que termina em vírgula ou operador continua na de
+        # baixo. `juntar` trata essa quebra como espaço; sem ele, ela separa
+        # como antes e só conta (card B0.5c).
+        self.juntar = juntar
+        self.continuacoes = 0
+        self.aberto_no_fim = ""
 
     def _prox(self, k=1):
         j = self.i + k
         return self.t[j] if j < self.n else "\0"
+
+    def _fim_da_linha(self, i):
+        """Onde acaba a linha que contém i: no LF ou, no PowerShell, também no
+        CR sozinho, que o 5.1 lê como fim de linha e de comentário (card B0.5c)."""
+        fim = self.t.find("\n", i)
+        fim = self.n if fim < 0 else fim
+        cr = self.t.find("\r", i, fim) if self.d == "ps" else -1
+        return fim if cr < 0 else cr
 
     def ler(self, fecha=False):
         toks, pal, anin = [], [], []
         tem = False
         prof = 0
         t, n, d = self.t, self.n, self.d
+        cont = ""  # PS: vírgula ou operador que é o último token da linha até aqui
 
         def fechar():
-            nonlocal pal, anin, tem
+            nonlocal pal, anin, tem, cont
             if tem:
-                toks.append(_Tok("p", "".join(pal), anin))
+                texto = "".join(pal)
+                toks.append(_Tok("p", texto, anin))
+                # Operador só se escrito cru: '-join' entre aspas é string.
+                cont = texto if (d == "ps" and texto.lower() in _OPERADORES_PS
+                                 and t.endswith(texto, 0, self.i)) else ""
             elif anin:
                 toks.append(_Tok("a", "", anin))
+                cont = ""
             pal, anin, tem = [], [], False
 
         def separar():
+            nonlocal cont
             fechar()
             toks.append(_SEP)
+            cont = ""
 
         while self.i < n:
             c = t[self.i]
             prox = self._prox()
-            if c in " \t\r":
+            if c in " \t" or (c == "\r" and (d != "ps" or prox == "\n")):
                 fechar()
                 self.i += 1
-            elif c == "\n":
+            elif c in "\r\n":  # no PowerShell, CR sozinho também é fim de linha (5.1)
+                if d == "ps":
+                    fechar()
+                    if cont:
+                        self.continuacoes += 1
+                        if self.juntar:  # a linha de baixo é o resto deste comando
+                            self.i += 1
+                            continue
                 separar()
                 self.i += 1
                 if self.heredocs:
                     self._corpos(toks)
             elif c == "#" and not tem and d != "cmd":
-                fim = t.find("\n", self.i)
-                self.i = n if fim < 0 else fim
+                self.i = self._fim_da_linha(self.i)
             elif (d == "bash" and c == "\\") or (d == "ps" and c == "`") or (d == "cmd" and c == "^"):
                 if prox == "\r" and self._prox(2) == "\n":
                     self.i += 3
-                elif prox == "\n":
+                elif prox == "\n" or (prox == "\r" and d == "ps"):
                     self.i += 2
                 else:
                     if prox != "\0":
@@ -462,6 +571,7 @@ class _Leitor:
                         j += 1
                     toks.append(_Tok("r", t[self.i:j]))
                     self.i = j
+                cont = ""
             elif c == "(" and d == "ps" and (tem or (toks and toks[-1].tipo != "s")):
                 # Expressão em posição de argumento: Remove-Item (Join-Path $PWD 'x').
                 # Vira uma palavra (o texto cru) com o conteúdo aninhado.
@@ -504,12 +614,15 @@ class _Leitor:
                 self.i += 2 if prox in "|&" else 1
             elif c == "," and d == "ps":
                 fechar()
+                cont = ","
                 self.i += 1
             else:
                 pal.append(c)
                 tem = True
                 self.i += 1
         fechar()
+        if cont and cont != "*":  # `ls *` é curinga; o resto pede a linha de baixo
+            self.aberto_no_fim = cont
         return toks
 
     def _aspas_simples(self, pal):
@@ -627,12 +740,13 @@ class _Leitor:
     def _here_string(self, pal, anin):
         t, n = self.t, self.n
         aspas = t[self.i + 1]
-        fim_linha = t.find("\n", self.i)
-        if fim_linha < 0 or t[self.i + 2:fim_linha].strip():
+        fim_linha = self._fim_da_linha(self.i)  # CR sozinho também fecha a linha
+        if fim_linha >= n or t[self.i + 2:fim_linha].strip():
             return False
-        fim = t.find("\n" + aspas + "@", fim_linha)
-        corpo = t[fim_linha + 1:] if fim < 0 else t[fim_linha + 1:fim]
-        self.i = n if fim < 0 else fim + 3
+        ini = fim_linha + (2 if t.startswith("\r\n", fim_linha) else 1)
+        fim = re.compile("[\r\n]" + aspas + "@").search(t, ini - 1)
+        corpo = t[ini:] if fim is None else t[ini:fim.start()]
+        self.i = n if fim is None else fim.end()
         pal.append(corpo)
         if aspas == '"':
             anin.extend(_substituicoes(corpo, "ps"))
@@ -666,7 +780,27 @@ def analisar_comando(texto, dialeto, ctx):
     _registrar_funcoes(texto, dialeto, ctx)
     if dialeto == "ps" and "::" in texto:
         _chamadas_dotnet(texto, ctx)
-    _analisar_tokens(_Leitor(texto, dialeto).ler(), dialeto, ctx)
+    leitor = _Leitor(texto, dialeto)
+    toks = leitor.ler()
+    if leitor.continuacoes:
+        # Linha terminada em vírgula ou operador: o PowerShell junta a de baixo
+        # ao comando (Remove-Item 'x',<NL>@('...')[0] apaga os dois). Analisa
+        # juntas e separadas: a guarda não sabe se o operador era expressão ou
+        # argumento, e cada leitura só pode somar bloqueio (card B0.5c).
+        juntas = _Leitor(texto, dialeto, juntar=True)
+        toks_juntos = juntas.ler()
+        _fechar_se_aberto(juntas.aberto_no_fim)
+        _analisar_tokens(toks_juntos, dialeto, ctx.filho())
+    _fechar_se_aberto(leitor.aberto_no_fim)
+    _analisar_tokens(toks, dialeto, ctx)
+
+
+def _fechar_se_aberto(operador):
+    if operador:
+        raise Bloqueio(f"comando do PowerShell termina em {operador!r}, que pede continuação "
+                       "na linha de baixo, e não há linha de baixo (falha fechada)",
+                       "termine o comando sem vírgula nem operador solto no fim, ou ponha "
+                       "a continuação na mesma linha")
 
 
 # ------------------------------------------------ variáveis, alias e funções
@@ -819,6 +953,10 @@ def _analisar_segmento(segmento, dialeto, ctx):
             if alvo.lower() not in _NULOS:
                 alvo = _expandir(alvo, ctx.env, ctx, dialeto, sistema=True)
                 _checar_caminho(alvo, ctx, "escrita", f"redirecionamento {op}")
+        elif op == "<":  # sqlite3 x.db < cs2_tracker.db: lê o arquivo (card B0.5c)
+            achado = _motivo_leitura(alvo, ctx)
+            if achado:
+                raise Bloqueio(f"redirecionamento < (leitura) em {alvo}: {achado[0]}", achado[1])
     if palavras:
         _analisar_palavras(palavras, dialeto, ctx)
 
@@ -913,6 +1051,7 @@ def _analisar_palavras(palavras, dialeto, ctx, env_local=None, expandido=False):
         filho.expandindo = ctx.expandindo | {chave}
         analisar_comando(_corpo_com_args(ctx.funcoes[chave], args, dialeto), dialeto, filho)
         return
+    brutos = args
     args = [_expandir(a, env, ctx, dialeto) for a in args]
     if "$" in bruto:
         valor = _expandir(bruto, env, ctx, dialeto, sistema=True)
@@ -929,6 +1068,8 @@ def _analisar_palavras(palavras, dialeto, ctx, env_local=None, expandido=False):
     tratador = _TRATADORES.get(prog)
     if tratador:
         tratador(prog, args, dialeto, ctx, env)
+    if dialeto == "ps" and (prog in _LEITORES or prog in _TODOS_ESCRITORES):
+        args = _abrir_listas_ps(prog, brutos, args)
     if prog in _TODOS_ESCRITORES:  # perl tem os dois: -e e -i
         for alvo, modo in _alvos_de_escrita(prog, args):
             _checar_caminho(alvo, ctx, modo, prog)
@@ -1074,20 +1215,118 @@ def _alvos_de_escrita(prog, args):
     return [(a, "escrita") for a in caminhos + pos]
 
 
-# Leitores cujo curinga não pode casar o banco do checkout principal (B0.5b):
-# origem de cópia, cat/type/Get-Content (gc) e sqlite3, inclusive -readonly.
-_LEITORES = _COPIAR | {"cat", "type", "get-content", "gc", "sqlite3"}
+# Comandos que leem o arquivo e o mostram, copiam ou entregam a outro programa:
+# nem o curinga (B0.5b) nem o nome literal (B0.5c) podem alcançar o banco do
+# checkout principal ou o .env. Origem de cópia, cat/type/Get-Content (gc),
+# sqlite3 (inclusive -readonly), head, xxd e afins.
+_LEITORES_SIMPLES = {
+    "cat", "tac", "nl", "head", "tail", "less", "more", "bat", "type", "get-content", "gc",
+    "sqlite3", "xxd", "od", "hexdump", "strings", "format-hex", "base64", "base32", "md5sum",
+    "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha512sum", "b2sum", "cksum", "sort",
+    "uniq", "cut", "paste", "fold", "fmt", "column", "diff", "cmp", "comm", "import-csv"}
+# Cujo 1º argumento (fora das opções) é o padrão, o filtro ou o script, não um
+# arquivo. jq e yq entram aqui: `jq '.env' x.json` lê x.json, não '.env'.
+_LEITORES_COM_PADRAO = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "sed", "awk", "gawk",
+                        "select-string", "sls", "jq", "yq"}
+_LEITORES = _COPIAR | _LEITORES_SIMPLES | _LEITORES_COM_PADRAO
+# Opções que dão o padrão ou o script: sobrando isso, todo argumento é arquivo.
+_DA_PADRAO = ("-e", "-f", "--regexp", "--file", "-pattern", "-regexp", "-file")
+# Destas o valor, na palavra seguinte, é o padrão e não um arquivo:
+# grep -e '\.env' x. No jq o -e é só o código de saída.
+_PADRAO_NA_PROXIMA = ("-e", "--regexp", "-pattern", "-regexp")
+# Opções cujo valor, na palavra seguinte, é glob, número ou tipo: não se lê
+# (grep -rn X --exclude .env .). Só as que nunca apontam um arquivo de entrada.
+_VALOR_NA_PROXIMA = {"--exclude", "--include", "--exclude-dir", "--include-dir", "--glob",
+                     "--iglob", "--type", "--type-not", "--max-count", "--after-context",
+                     "--before-context", "--context", "--directories", "--devices", "--color",
+                     "--colour", "--label", "-m", "-A", "-B", "-C", "-d", "-D",
+                     "-exclude", "-include", "-encoding", "-context"}
+# No grep, -T não leva valor; no jq, nenhuma opção curta leva (jq -C . x.json).
+_VALOR_NA_PROXIMA_DE = {"rg": _VALOR_NA_PROXIMA | {"-g", "-t", "-T"},
+                        "ag": _VALOR_NA_PROXIMA | {"-g"}, "jq": set(), "yq": set()}
+
+
+def _alvos_sem_padrao(args, prog=""):
+    """Palavras de um grep, rg, sed, awk, jq ou Select-String que podem ser
+    arquivo: tudo, menos o padrão (a 1ª palavra que não é opção, se nenhuma
+    opção o deu) e o valor de opção de glob ou número. Errar pra mais só barra
+    um padrão que seja o nome do banco."""
+    da_padrao = ("-f", "--file") if prog in ("jq", "yq") else _DA_PADRAO
+    na_proxima = () if prog in ("jq", "yq") else _PADRAO_NA_PROXIMA
+    com_valor = _VALOR_NA_PROXIMA_DE.get(prog, _VALOR_NA_PROXIMA)
+    palavras, padrao_dado, so_palavras, pular = [], False, False, False
+    for a in args:
+        if pular:
+            pular = False
+        elif so_palavras or not (len(a) > 1 and a[0] == "-"):
+            palavras.append(a)
+        elif a == "--":
+            so_palavras = True
+        else:
+            nome, _sep, valor = a.partition("=") if "=" in a else a.partition(":")
+            if nome.startswith(da_padrao) or nome.lower().startswith(da_padrao[2:]):
+                padrao_dado = True
+                pular = not valor and nome.lower() in na_proxima
+                if valor and nome.lower() in ("-f", "--file", "-file"):  # --file=<arquivo>
+                    palavras.append(valor)
+            elif valor and nome.lower() in ("-path", "-literalpath", "-lp", "--file"):
+                palavras.append(valor)
+            elif not valor and (nome in com_valor or nome.lower() in com_valor):
+                pular = True
+    return palavras if padrao_dado else palavras[1:]
+
+
+def _alvos_de_leitura(prog, args):
+    """Argumentos que `prog` pode ler: nomeados (-Path, -LiteralPath, o
+    -readonly <banco> do sqlite3...), posicionais e o destino também. Só
+    barra o que alcança o banco ou o .env, então conferir a mais não bloqueia
+    `cp docs/*.md destino/`."""
+    if prog in _LEITORES_COM_PADRAO:
+        return _alvos_sem_padrao(args, prog)
+    nomeados, pos = _args_ps(args)
+    return [v for _nome, v in nomeados] + pos
 
 
 def _checar_leitura(prog, args, ctx):
-    """Confere todo argumento, nomeado ou posicional: -Path, -LiteralPath,
-    -readonly <banco> e o destino também. Só barra curinga que casa o banco,
-    então conferir a mais não bloqueia `cp docs/*.md destino/`."""
-    nomeados, pos = _args_ps(args)
-    for alvo in [v for _nome, v in nomeados] + pos:
+    for alvo in _alvos_de_leitura(prog, args):
         achado = _motivo_leitura(alvo, ctx)
         if achado:
             raise Bloqueio(f"{prog} (leitura) em {alvo}: {achado[0]}", achado[1])
+
+
+# Lista literal nua do PowerShell (card B0.5c): @('a', "b") e nada em volta ou
+# dentro, só strings literais separadas por vírgula, na mesma linha. Nenhuma
+# aspa, nem as tipográficas que o PowerShell também aceita, dentro da string;
+# "$x", "`t" e 'it''s' não são literais simples e ficam de fora.
+_STRING_NUA_PS = r"""'[^'"\u2018-\u201e`$\r\n]*'|"[^'"\u2018-\u201e`$\r\n]*\""""
+_LISTA_NUA_PS = re.compile(
+    rf"^@\([ \t]*(?:{_STRING_NUA_PS})(?:[ \t]*,[ \t]*(?:{_STRING_NUA_PS}))*[ \t]*\)$")
+
+
+def _abrir_listas_ps(prog, brutos, args):
+    """Copy-Item @('a','b') d vira Copy-Item a b d: cada string da lista nua
+    passa a ser argumento do cmdlet, e os outros checadores a veem. Qualquer
+    outro @( num argumento (índice, membro, método, cast, parênteses, $(...),
+    -Path:@(...), variável, comando, comentário ou quebra de linha, em volta ou
+    dentro) falha fechado: a guarda não tenta seguir a expressão. `brutos` são
+    os argumentos antes de trocar as variáveis; `$x = @('a')` só aparece
+    expandido. Item que começa com - é caminho, não opção: ganha ./ na frente."""
+    saida = []
+    for bruto, expandido in zip(brutos, args):
+        a = bruto if "@(" in bruto else expandido
+        if "@(" not in a:
+            saida.append(expandido)
+            continue
+        if not _LISTA_NUA_PS.match(a):
+            raise Bloqueio(f"{prog} com {a} no PowerShell: @(...) ao lado de cmdlet que lê, "
+                           "copia, grava ou apaga arquivo só passa como lista literal nua, "
+                           "e isto não é uma (falha fechada)",
+                           "escreva o caminho literal (Copy-Item 'docs/x.md' destino) ou a "
+                           "lista nua @('docs/x.md', 'docs/y.md'), sem índice, membro, método, "
+                           "cast, parênteses, $(...), variável, comentário nem quebra de linha")
+        for item in re.findall(_STRING_NUA_PS, a[2:-1]):
+            saida.append(("./" if item[1:2] == "-" else "") + item[1:-1])
+    return saida
 
 
 # ----------------------------------------------------------- tratadores
