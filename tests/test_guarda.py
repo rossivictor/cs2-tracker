@@ -114,6 +114,8 @@ BLOQUEADOS = [
     ("Bash", "wt", f'"{PYTHON_DO_JOGO}" -m pip install ruff'),
     ("Bash", "wt", "uv pip install ruff"),
     ("Bash", "wt", "python -c \"import os; os.system('pip install ruff')\""),
+    # B0.5d: o docker-compose.yml deixou de casar a rede, e o .exe não pode escapar.
+    ("Bash", "wt", "python -c \"import os; os.system('docker-compose.exe down')\""),
     ("Bash", "wt", "python -m uvicorn web.app:app --reload"),
     ("Bash", "wt", "uvicorn web.app:app --host 127.0.0.1 --port=8000"),
     ("Bash", "wt", "python -m http.server"),
@@ -763,8 +765,40 @@ FORMAS_INDIRETAS_BLOQUEADAS = [
     ("PowerShell", "wt", "Get-Content -Path:$('{P}/cs2_tracker.db')", BANCO),
     ("PowerShell", "wt", "Get-Content ('{P}/cs2' + '_tracker.db')", BANCO),
     ("Bash", "wt", "grep --color X {P}/.env", ENV),
+    # QA 1 do B0.5d. Cópia da raiz com as opções lidas pelo nome (C3).
+    ("PowerShell", "wt", "robocopy {PW} {F}\\x /E /XD .git", BANCO),
+    ("PowerShell", "wt", "robocopy /E {PW} {F}\\x", BANCO),
+    ("PowerShell", "wt", "xcopy /E /I {PW} {F}\\x", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Recurse -Path:{P} {F}/x", BANCO),
+    ("Bash", "wt", "cp -rt {F}/x {P}", BANCO),
+    ("Bash", "wt", "cp -r --target-directory {F}/x {P}", BANCO),
+    ("Bash", "wt", "tar -C{P} -cf x.tar .", BANCO),
+    ("Bash", "wt", "tar cf x.tar --directory={P} .", BANCO),
+    # Crase igual ao $(...), e substituição colada a curinga (C2).
+    ("Bash", "wt", "cat $(echo {P}/cs2_tracker.d)?", BANCO),
+    ("Bash", "wt", "cat `echo {P}/cs2_tracker.d?`", BANCO),
+    ("Bash", "wt", "cat `ls {P}/cs2_*.db`", BANCO),
+    ("Bash", "wt", "cp `echo {P}/cs2_tracker.db` {F}/", BANCO),
+    ("Bash", "wt", "sqlite3 `echo {P}/cs2_tracker.db`", BANCO),
+    # for depois de palavra-chave.
+    ("Bash", "wt", "if true; then for f in {P}/cs2_*.db; do cat $f; done; fi", BANCO),
+    ("Bash", "wt", "{ for f in {P}/cs2_*.db; do cat $f; done; }", BANCO),
+    ("Bash", "wt", "! for f in {P}/cs2_*.db; do cat $f; done", BANCO),
+    ("Bash", "wt", "for x in 1; do for f in {P}/cs2_*.db; do cat $f; done; done", BANCO),
+    ("Bash", "wt", "while true; do for f in {P}/.env; do cat $f; done; done", ENV),
+    # <# literal e # comentário na mesma linha (5.1), soma sem espaço, cmd /c com aspas.
+    ("PowerShell", "wt", "Write-Output a<#b 'c'#'\nGet-Content {P}/.env\n#'#>", ENV),
+    ("PowerShell", "wt", "Write-Output a<#b(1)#'\nGet-Content {P}/.env\n#'#>", ENV),
+    ("PowerShell", "wt", "Get-Content ('{P}/.e'+'nv')", ENV),
+    ("PowerShell", "wt", 'cmd /c powershell -c "& {Get-Content {P}/.env}"', ENV),
+    ("Bash", "wt", 'cmd //c powershell -c "Get-Content {P}/.env"', ENV),
 ] + [("PowerShell", "wt", f"Get-Content{chr(c)}{{P}}/.env", ENV)
-     for c in (0x0B, 0x0C, 0x85, 0xA0, 0x2003)]  # VT, FF, NEL, NBSP, EM SPACE
+     for c in (0x0B, 0x0C, 0x85, 0xA0, 0x2003)  # VT, FF, NEL, NBSP, EM SPACE
+     ] + [("PowerShell", "wt", f"{sls}docs/a.md,{{P}}/.env x", ENV)  # a lista toda vai ao -Path
+          for sls in ("Select-String -Path ", "Select-String -LiteralPath ", "sls -Path ",
+                      "Select-String -Path:")] + [
+    ("PowerShell", "wt", "Select-String -Path 'docs/a.md','{P}/.env' x", ENV),
+    ("PowerShell", "wt", "Select-String -Path docs/a.md, {P}/.env x", ENV)]
 
 
 @pytest.mark.parametrize("preflight_do_jogo", [0, 3])
@@ -801,6 +835,14 @@ def test_forma_indireta_de_ler_o_banco_ou_o_env_e_bloqueada(repo, ferramenta, lu
     ("PowerShell", "wt", f"Write-Output {_Q}a{_Q}; $x = 1 ..\n5"),
     ("Bash", "wt", "grep --color=auto X docs/README.md"),
     ("Bash", "wt", "python -c \"import subprocess; subprocess.run(['ls', 'docker-compose.yml'])\""),
+    # QA 1 do B0.5d: as correções não barram subpasta, filtro nem substituição comum.
+    ("PowerShell", "wt", "robocopy /MIR docs {F}\\x /XD node_modules .git"),
+    ("Bash", "wt", "cp -rt {F}/x docs"),
+    ("Bash", "wt", "tar -czf {F}/x.tgz -C docs ."),
+    ("Bash", "wt", "cat $(git ls-files docs) `echo docs/README.md`"),
+    ("Bash", "wt", "if true; then for f in docs/*.md; do cat $f; done; fi"),
+    ("PowerShell", "wt", "Select-String -Path docs/a.md, docs/b.md x"),
+    ("PowerShell", "wt", "cmd /c \"echo .env & dir docs\""),
 ])
 def test_forma_indireta_que_nao_alcanca_o_banco_nem_o_env_passa(repo, ferramenta, lugar, comando,
                                                                 preflight_do_jogo):
