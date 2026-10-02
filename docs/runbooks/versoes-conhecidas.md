@@ -12,7 +12,12 @@ fontes:
   - "backup:MANIFESTO.sha256 (repo-local/plugin-dll)"
   - "backup:2026-10-01/g7-2000922-partida/sha-montados.txt (coleta G7 da partida 36)"
   - "commit 0472994"
-atualizado: 2026-10-01
+  - "backup:../2026-10-02/janela0/sha-comparacao-boot1.txt (Janela 0: 14 montados = checkout)"
+  - "backup:../2026-10-02/janela0/fechamento-sha-container.txt"
+  - "backup:../2026-10-02/janela0/depois-medicoes.txt (compose 46b77848 e config-hash)"
+  - "backup:../2026-10-02/janela0/final-medicoes.txt"
+  - "commit 214b25b"
+atualizado: 2026-10-02
 ---
 
 # Versões conhecidas
@@ -31,11 +36,11 @@ Convenções:
   [Hashes completos](#hashes-completos).
 - **não registrado** quer dizer que nenhuma fonte guardou o valor. A nota diz de onde ele viria.
   Nenhum valor daqui é estimado.
-- Fontes fora do git: os registros de janela em `logs/janelas/2026-09-27.md`, `2026-09-28.md` e
-  `2026-09-30.md` (checkout principal) e as coletas em
-  `C:/Users/Victor/cs2-tracker-backups/2026-09-27/`, `2026-09-28/` e `2026-10-01/`. Nas
-  tabelas, `b1.x/...` é relativo a `2026-09-27/`, e a coleta da partida 36 aparece como
-  `2026-10-01/g7-2000922-partida/`.
+- Fontes fora do git: os registros de janela em `logs/janelas/2026-09-27.md`, `2026-09-28.md`,
+  `2026-09-30.md` e `2026-10-02.md` (checkout principal) e as coletas em
+  `C:/Users/Victor/cs2-tracker-backups/2026-09-27/`, `2026-09-28/`, `2026-10-01/` e
+  `2026-10-02/`. Nas tabelas, `b1.x/...` é relativo a `2026-09-27/`, a coleta da partida 36
+  aparece como `2026-10-01/g7-2000922-partida/`, e a da Janela 0 como `2026-10-02/janela0/`.
 
 ## O que não mudou em nenhuma tag
 
@@ -62,7 +67,10 @@ Convenções:
 | `jogavel-2026-09-28` | `ee583fc` | 2000918 | 2.0.0.1469 | v1.0.375 | + BotRandomizer 1.3.2 (upstream `276f1ce`, bind) | Medium | partida 31, `events_68_map0`, de_dust2 3x13 |
 | `jogavel-2026-10-01` | `0472994` | 2000922 (SteamCMD, janela de 30/09 23:05–23:16) | 2.0.0.1469 | v1.0.375 | os mesmos da `jogavel-2026-09-28` (8 plugins carregados) | Low | partida 36 (matchid 71), `events_71_map0`, de_ancient 13x7 (MD1, 01/10) |
 
-**Estado no ar:** a `jogavel-2026-10-01`, sem pendência. O compose de `origin/main` é o mesmo
+**Estado no ar:** desde a Janela 0 (02/10), o `candidato-8` (`214b25b`, B0.8), que fecha com a
+partida do Victor (G7). Ele só muda o compose (volume `cs2-data` external, com nome fixo): o
+volume, os mounts e o config-hash são os da `jogavel-2026-10-01`, a última tag
+([inventário do volume](inventario-volume.md)). Na `jogavel-2026-10-01`, o compose é o mesmo
 da `jogavel-2026-09-28`. As duas variáveis que entraram depois dela, sem commit, foram
 validadas juntas na partida 36 (época "VPK Low" da [trilha](trilha-de-bots.md#épocas)): o VPK
 Low desde 28/09 19:54 e a build 2000922, que veio do SteamCMD no restart da janela de 30/09
@@ -90,6 +98,7 @@ o ativo foi lido só na troca de 27/09 15:34, antes do `cp`: `b08bf74e…`, o Hi
 | `candidato-5` | `e838839` | B1.6 | `jogavel-2026-09-27-4` (mesmo commit) |
 | `candidato-6` | `200e43f` | B1.8 | `jogavel-2026-09-27-5` (mesmo commit) |
 | `candidato-7` | `6889930` | B1.9 | `jogavel-2026-09-28` (mesmo compose) |
+| `candidato-8` | `214b25b` | B0.8 (volume external), aplicado na Janela 0 | aberto: espera a partida do Victor |
 
 ## Compose e config-hash
 
@@ -108,6 +117,7 @@ do blob LF do git fica em [Hashes completos](#hashes-completos). O config-hash �
 | `jogavel-2026-09-27-5` | `6d573f35…` | `a6bbdcef…` | `b1.8/config-hash.txt` |
 | `jogavel-2026-09-28` | `86d9abd6…` | `3970b702…` | `b1.9/config-hash.txt`; igual na coleta G7 e nas janelas VPK de 28/09 |
 | `jogavel-2026-10-01` | `86d9abd6…` (conferido com `sha256sum` no checkout principal em 01/10) | `3970b702…` | `2026-10-01/g7-2000922-partida/config-hash.txt`; igual ao do label do container (`config-hash-janela.txt`) e ao da janela de 30/09 |
+| **Janela 0** (`candidato-8`, `214b25b`; não é tag) | `46b77848…` (era `86d9abd6…` antes do B0.8) | `3970b702…`, inalterado: o hash do serviço não cobre o bloco `volumes:` de topo, que é o que o B0.8 mudou | `2026-10-02/janela0/depois-medicoes.txt` e `final-medicoes.txt` (label do container = `--hash`) |
 
 O `candidato-2` teve config-hash `c8a2a535…` (`b1.4/config-hash.txt`), e o compose dele foi
 `36ff2fe2…`.
@@ -136,7 +146,7 @@ Máscara é o bind de `./docker/plugins/_empty` sobre a pasta do plugin, em
 São exatamente as linhas do critério 3 do B0.3 (101, 108, 141-146, 149 e 155): o `git grep`
 no `efcaa42` devolve essas 10 linhas no compose e nenhuma outra `_empty` em arquivo montado.
 
-### Época atual: `origin/main` (compose igual ao da `jogavel-2026-09-28`)
+### Época atual: `jogavel-2026-10-01` (compose igual ao da `jogavel-2026-09-28`)
 
 | Alvo | Estado | Linha |
 |---|---|---|
@@ -150,6 +160,11 @@ no `efcaa42` devolve essas 10 linhas no compose e nenhuma outra `_empty` em arqu
 | NadeSystem | religado: máscara comentada | 171 |
 | BotAimImprover | religado: a máscara deu lugar ao bind de `./docker/plugins/BotAimImprover` | 147 |
 | BotRandomizer | religado: a máscara deu lugar ao bind de `./docker/plugins/BotRandomizer` | 155 |
+
+No `candidato-8` (`214b25b`, B0.8) as máscaras são as mesmas, e as linhas descem 2 por causa do
+comentário novo no mount do `cs2-data`: 102, 109, 144, 153 e 164 (mascarados), 152, 161 e 173
+(máscaras comentadas), 149 e 157 (binds). Conferido em 02/10 com
+`git grep -n -E '_empty|plugins/(BotAimImprover|BotRandomizer)' 214b25b -- docker-compose.yml`.
 
 Nas tags do meio, a máscara sai uma por vez, na ordem da tabela de tags: BotAimImprover
 (`-27-2`), BotState (`-27-3`), BotBuy (`-27-4`), NadeSystem (`-27-5`) e BotRandomizer (`-28`).
@@ -170,7 +185,7 @@ pelo servidor. Em toda coleta, o valor dentro do container foi igual ao do check
 | `jogavel-2026-09-27-5` | G7, `b1.8/g7-2221/` | `aebb5df5…` | `233e5aa0…` | `a6f69606…` | `697760a7…` | `137a42f2…` |
 | `jogavel-2026-09-28` | G7, `2026-09-28/g7-candidato-7/` | `aebb5df5…` | `233e5aa0…` | `a6f69606…` | `697760a7…` | `137a42f2…` |
 | `jogavel-2026-10-01` | G7, `2026-10-01/g7-2000922-partida/` | `aebb5df5…` | `233e5aa0…` | `0816da11…` | `697760a7…` | `137a42f2…` |
-| **Janela 0** | **pendente: Janela 0 (B0.9)** | pendente | pendente | pendente | pendente | pendente |
+| **Janela 0** (`candidato-8`) | B0.9, 02/10, janela 00:12–00:39: `2026-10-02/janela0/` (`sha-montados-boot1.txt` no boot do B0.8, `fechamento-sha-container.txt` no fechamento) | `aebb5df5…` | `233e5aa0…` | `2000bf4e…` | `697760a7…` | `137a42f2…` |
 
 - O `match_config.spike.json` é estado de runtime: o `start_match` o reescreve a cada partida, e
   o sha muda com ela. Ele não identifica a combinação e fica aqui só como registro.
@@ -182,8 +197,20 @@ pelo servidor. Em toda coleta, o valor dentro do container foi igual ao do check
   `2026-10-01/g7-vpk-low-2000922/`, da mesma tarde (17:58), não vale como evidência: o container
   estava parado porque o PC suspendeu em 30/09 23:56, e o `docker exec` não leu nada (`NOTA.txt`
   dela).
+- Na Janela 0, os 14 caminhos (os 5 da tabela, o `.pdb` da captura `ca994b0c…` e os binds de
+  BotAimImprover (3) e BotRandomizer (5)) bateram com o checkout no boot do B0.8
+  (`sha-comparacao-boot1.txt`) e de novo no fechamento (`fechamento-sha-checkout.txt` ×
+  `fechamento-sha-container.txt`). O `match_config` `2000bf4e…` é o que já estava no checkout:
+  igual antes e depois do B0.8 e restaurado pelo `voltar` no ensaio.
 
 ### Como preencher na Janela 0 (B0.9)
+
+**Cumprido em 02/10** (janela 00:12–00:39, registro `logs/janelas/2026-10-02.md`, coleta
+`2026-10-02/janela0/`): os passos 1 a 4 saíram como abaixo, com 14 caminhos em vez de 5, e o
+passo 5 é a linha **Janela 0** da tabela. Build 2000922; `meta list` com CSSharp v1.0.375; 8
+plugins LOADED; imagem `sha256:1056e003…`; config-hash `3970b702…`. O inventário do volume
+ficou em [inventário do volume](inventario-volume.md). O roteiro fica como registro do que se
+fez:
 
 Quem faz é o papel servidor, na janela aberta pelo Victor, com o container de pé e sem partida:
 
@@ -240,7 +267,11 @@ jogavel-2026-09-27-5  6d573f3534cc8954d9568f15b25a3a2d0e67ff2f3d05254f72a96f4700
 jogavel-2026-09-28    86d9abd66ce0f6e939a0db41a0b0e862d2c56e1df0b3a509b635ca1fcf2ec19b · 7f49ec6e562f7f0fb5e54cd47bedec77e247b8c620870f598a09313fd905c69c
 jogavel-2026-10-01    86d9abd66ce0f6e939a0db41a0b0e862d2c56e1df0b3a509b635ca1fcf2ec19b · 7f49ec6e562f7f0fb5e54cd47bedec77e247b8c620870f598a09313fd905c69c
 candidato-2           36ff2fe29210820d59c8b82cab7675c9f10be47bccaa6392ab78d4420cef85a8 · 8cb6674414bc5f5e4cf0c01b363736de4168b0a0a30c6be26a2f000e89fc5f13
+candidato-8           46b77848b093402604970cf197a35c0c2d34769a8532f2ad7bfcc1fd0ad2b4c6 · 2a88947413497d434de821142c11498132662e5ce11af2a7c31d948047486cf5
 ```
+
+O CRLF do `candidato-8` é o da Janela 0 (`depois-medicoes.txt`); o blob LF saiu de
+`git show 214b25b:docker-compose.yml | sha256sum`, em 02/10.
 
 config-hash:
 
@@ -253,6 +284,7 @@ jogavel-2026-09-27-5  a6bbdcefd88953243f810e902d8d4ab8ff0b0590d9aed75f7c419389bb
 jogavel-2026-09-28    3970b702027592f02ad17e304f76ba8c19148bc9eedd060b9a679870da44fa37
 jogavel-2026-10-01    3970b702027592f02ad17e304f76ba8c19148bc9eedd060b9a679870da44fa37
 candidato-2           c8a2a53512439ea4f9baa7cbe2e598e2c4b24b1c0725738593c42e3b2f860ac5
+candidato-8           3970b702027592f02ad17e304f76ba8c19148bc9eedd060b9a679870da44fa37  (Janela 0)
 ```
 
 Arquivos montados e imagem:
@@ -268,6 +300,7 @@ ca994b0c37bf60e122b8ce4d25a1950bb71c82866b62f74c7240df5e37d07287  Cs2TrackerEven
 a6f6960623c91a4d6742e7b934d841792288f017fc6e5aa190f74106e9a9a627  match_config.spike.json (partidas 27, 29, 30 e 31)
 f8eeeaf7fb2913f0d6baf1dd712631b5ddc137b075266e2f1c6e13b45657074f  match_config.spike.json (partida 28)
 0816da11af268caff0a19fc6d4040d795897a9478b74d7bcd052795d0facb1bd  match_config.spike.json (partida 36)
+2000bf4e864826f24678f4cbb0e381f1399341f9a4bc54b01ab6debf8d89a7cf  match_config.spike.json (Janela 0, 02/10)
 7075101b5d7ac0369eac102b04d23561611b88d5ce44ea0fcc68ff1fe55ad71b  RoundDamageRecap.dll (volume)
 sha256:1056e0031e44709aa5e30a0a0a8f3d5de86c7ee16aa6fee1ec29726a7940ad04  xbird/cs2-matchzy
 ```
