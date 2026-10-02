@@ -64,6 +64,8 @@ services:
       - MATCHZY_FIXED_VERSION=0.8.15
     volumes:
       # Dados persistentes do servidor (jogo + addons instalados pela imagem).
+      # Guarda também os plugins de bot instalados à mão em 05/09 (B1.1) e
+      # não se reproduz: é external (bloco volumes: no fim do arquivo).
       - cs2-data:/home/steam/cs2-dedicated/
       # Reaproveita o cfg já validado no fluxo nativo (bot_difficulty,
       # economia de bot, mp_roundtime etc.) — é o arquivo que a engine
@@ -192,4 +194,12 @@ services:
     tty: true
 
 volumes:
+  # B0.8: o volume (~73 GB, não reproduzível) tem nome fixo e é external.
+  # Sem isso, o nome vinha do projeto (= nome da pasta), e um compose rodado
+  # de uma worktree criava um volume novo e vazio. Com external, o compose
+  # nunca cria nem apaga este volume: se ele não existir, o `up` falha.
+  # O projeto continua sem `name:`. O que isto NÃO protege e como
+  # reconstruir: docs/runbooks/reconstruir-volume.md.
   cs2-data:
+    external: true
+    name: cs2-tracker_cs2-data
