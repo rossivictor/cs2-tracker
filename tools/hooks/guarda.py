@@ -72,6 +72,18 @@ Limites conhecidos, que passam com 0 e ficam para o card B0.5d:
   - operador colado a <#c#> no fim da linha, em modo expressão;
   - outras opções sem valor que _VALOR_NA_PROXIMA trata como com valor, da
     família de grep -T, jq -C e grep --file=;
+  - Select-String/sls com -Path ou -LiteralPath nomeado, com espaço, e padrão
+    posicional depois (Select-String -Path <R>/.env SRCDS sai 0):
+    _alvos_sem_padrao toma o 1º posicional como padrão e o arquivo nomeado
+    escapa; vale com lista nua e com o banco;
+  - splatting de array: $a = @('<R>/.env'); Get-Content @a;
+  - # colado ao token anterior (depois de aspas, = ou )): o PowerShell abre
+    comentário e a guarda não, e uma aspa dentro desse comentário engole as
+    linhas seguintes na guarda (Write-Output 'a'#'<LF>Remove-Item
+    '<R>/cs2_tracker.db'<LF>#' sai 0, também com CR);
+  - aspas tipográficas fechando string ou here-string;
+  - <# no meio de palavra (a<#b é literal no PowerShell; a guarda abre bloco
+    de comentário);
   - falso positivo: Select-String -SimpleMatch "@(" arquivo sai 2.
 
 Só biblioteca padrão. Sem `docker logs` no comando, fica abaixo de 150 ms.
