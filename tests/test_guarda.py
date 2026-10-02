@@ -577,6 +577,53 @@ def test_continuacao_so_vale_para_o_powershell_e_fora_de_aspas(repo, ferramenta,
     assert _comando(repo, ferramenta, "wt", comando) == (0, "", "")
 
 
+# Critério 2, 2ª extensão (01/10): no PowerShell 5.1 o CR sozinho também é fim
+# de linha e encerra o comentário #. A guarda lia o CR como espaço e só fechava
+# o comentário no LF: o comentário engolia a linha de baixo, e o comando depois
+# do CR colava no de cima. Todas estas formas saíam 0 (QA, reprovação 4).
+CMDLETS_DO_CR = ["Set-Content", "Copy-Item", "Move-Item", "Remove-Item", "Get-Content", "gc",
+                 "ri", "type"]
+ALVOS_DO_CR = ["@('{P}/.env')[0]", "@('{P}/cs2_tracker.db')[0]", "'{P}/.env'",
+               "{P}/cs2_tracker.db"]
+FORMAS_DO_CR = [
+    "{c} 'docs/README.md', #c\r{a}\nWrite-Output ok",
+    "{c} 'docs/README.md', #c\r{a}\r\nWrite-Output ok",
+    "{c} 'docs/README.md', #c\r{a}\rWrite-Output ok",
+    "{c} 'docs/README.md',\r{a}",
+    "Write-Output x\r{c} {a}",
+    "Write-Output x #c\r{c} {a}\r\n",
+    "{c} `\r{a}",
+    "& {c} 'docs/README.md', #c\r{a}\nWrite-Output ok",
+    "Invoke-Command {{ {c} 'docs/README.md', #c\r{a} }}\r\nWrite-Output ok",
+    # Here-string com CR sozinho: o corpo acaba no CR'@ e a linha de baixo é comando.
+    "Write-Output @'\rit's\r'@\r{c} {a}"]
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("forma", FORMAS_DO_CR)
+def test_cr_sozinho_e_fim_de_linha_e_de_comentario_no_powershell(repo, forma, preflight_do_jogo):
+    for cmdlet in CMDLETS_DO_CR:
+        for alvo in ALVOS_DO_CR:
+            comando = forma.format(c=cmdlet, a=alvo)
+            codigo, erro, _ = _comando(repo, "PowerShell", "wt", comando,
+                                       preflight=lambda: preflight_do_jogo)
+            assert codigo == 2, (comando, erro)
+            assert "Em vez disso:" in erro
+
+
+@pytest.mark.parametrize("comando", [
+    "Get-Content 'docs/README.md',\r  'docs/SPEC.md'\rGet-Content docs/x.md",
+    "Get-Content 'docs/README.md', #c\r'docs/SPEC.md'\r\nWrite-Output ok",
+    "Write-Output x\rGet-Content docs/README.md\rRemove-Item cs2_tracker.db",
+    "# comentário\rCopy-Item @('docs/README.md') {F}\\destino",
+    "$texto = 'a' +\r'b'",
+    "Get-Content docs/README.md `\r -Encoding utf8",
+    "git commit -m @'\r\nGuarda: CR, vírgula,\r\n# e Remove-Item @('x')[0] no corpo\r\n'@",
+    "Write-Output @'\rit's, #c\r'@\rGet-Content docs/README.md"])
+def test_cr_sozinho_nao_vira_falso_positivo(repo, comando):
+    assert _comando(repo, "PowerShell", "wt", comando) == (0, "", "")
+
+
 @pytest.mark.parametrize("preflight_do_jogo", [0, 3])
 @pytest.mark.parametrize("ferramenta,lugar,comando,tipo", LEITURA_LITERAL_BLOQUEADA)
 def test_leitura_pelo_nome_e_lista_do_powershell_sao_bloqueadas(

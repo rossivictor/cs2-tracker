@@ -41,7 +41,9 @@ Bloqueia:
     sqlite3 (inclusive -readonly), cópia e `< arquivo` (card B0.5c); no
     PowerShell, ao lado de cmdlet que lê, copia, grava ou apaga, @(...) só
     passa como lista literal nua (@('a', "b"), cada string vira argumento do
-    cmdlet); qualquer outro @( falha fechado;
+    cmdlet); qualquer outro @( falha fechado. Linha que termina em vírgula ou
+    operador continua na de baixo, e o CR sozinho é fim de linha, de
+    comentário # e de here-string, como no PowerShell 5.1;
   - docker logs / compose logs quando tools/preflight.py não devolve 0 ou 4;
   - no Write/Edit, dado pessoal e segredo (tools/hooks/pii.py): segredo do
     .env em qualquer arquivo do repositório; SteamID em docs/**, tests/**,
@@ -59,6 +61,18 @@ Falha fechada com escopo: exceção ao analisar um comando que menciona
 docker, git ou pip (palavra inteira) sai com 2. Qualquer outro erro interno
 sai com 0 e um aviso (systemMessage): bug no hook não pode travar o trabalho
 normal.
+
+Limites conhecidos, que passam com 0 e ficam para o card B0.5d:
+  - formas indiretas: chaves, crase, xargs, for, tar, cp -r da raiz, nome 8.3;
+  - aliases fhx (Format-Hex) e ipcsv (Import-Csv);
+  - NBSP e outros brancos do PowerShell (VT, FF, U+0085) no lugar do espaço;
+  - cmd /c powershell -c "..." e o prefixo FileSystem:: no caminho;
+  - Get-Content $('<R>/.env'), -Path:$(...) e Get-Content ('<R>' + '/.env');
+  - caminho pelo pipe: '<R>/.env' | Get-Content;
+  - operador colado a <#c#> no fim da linha, em modo expressão;
+  - outras opções sem valor que _VALOR_NA_PROXIMA trata como com valor, da
+    família de grep -T, jq -C e grep --file=;
+  - falso positivo: Select-String -SimpleMatch "@(" arquivo sai 2.
 
 Só biblioteca padrão. Sem `docker logs` no comando, fica abaixo de 150 ms.
 """
@@ -432,6 +446,14 @@ class _Leitor:
         j = self.i + k
         return self.t[j] if j < self.n else "\0"
 
+    def _fim_da_linha(self, i):
+        """Onde acaba a linha que contém i: no LF ou, no PowerShell, também no
+        CR sozinho, que o 5.1 lê como fim de linha e de comentário (card B0.5c)."""
+        fim = self.t.find("\n", i)
+        fim = self.n if fim < 0 else fim
+        cr = self.t.find("\r", i, fim) if self.d == "ps" else -1
+        return fim if cr < 0 else cr
+
     def ler(self, fecha=False):
         toks, pal, anin = [], [], []
         tem = False
@@ -461,10 +483,10 @@ class _Leitor:
         while self.i < n:
             c = t[self.i]
             prox = self._prox()
-            if c in " \t\r":
+            if c in " \t" or (c == "\r" and (d != "ps" or prox == "\n")):
                 fechar()
                 self.i += 1
-            elif c == "\n":
+            elif c in "\r\n":  # no PowerShell, CR sozinho também é fim de linha (5.1)
                 if d == "ps":
                     fechar()
                     if cont:
@@ -477,12 +499,11 @@ class _Leitor:
                 if self.heredocs:
                     self._corpos(toks)
             elif c == "#" and not tem and d != "cmd":
-                fim = t.find("\n", self.i)
-                self.i = n if fim < 0 else fim
+                self.i = self._fim_da_linha(self.i)
             elif (d == "bash" and c == "\\") or (d == "ps" and c == "`") or (d == "cmd" and c == "^"):
                 if prox == "\r" and self._prox(2) == "\n":
                     self.i += 3
-                elif prox == "\n":
+                elif prox == "\n" or (prox == "\r" and d == "ps"):
                     self.i += 2
                 else:
                     if prox != "\0":
@@ -707,12 +728,13 @@ class _Leitor:
     def _here_string(self, pal, anin):
         t, n = self.t, self.n
         aspas = t[self.i + 1]
-        fim_linha = t.find("\n", self.i)
-        if fim_linha < 0 or t[self.i + 2:fim_linha].strip():
+        fim_linha = self._fim_da_linha(self.i)  # CR sozinho também fecha a linha
+        if fim_linha >= n or t[self.i + 2:fim_linha].strip():
             return False
-        fim = t.find("\n" + aspas + "@", fim_linha)
-        corpo = t[fim_linha + 1:] if fim < 0 else t[fim_linha + 1:fim]
-        self.i = n if fim < 0 else fim + 3
+        ini = fim_linha + (2 if t.startswith("\r\n", fim_linha) else 1)
+        fim = re.compile("[\r\n]" + aspas + "@").search(t, ini - 1)
+        corpo = t[ini:] if fim is None else t[ini:fim.start()]
+        self.i = n if fim is None else fim.end()
         pal.append(corpo)
         if aspas == '"':
             anin.extend(_substituicoes(corpo, "ps"))
