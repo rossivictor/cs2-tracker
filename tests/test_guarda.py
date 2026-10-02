@@ -520,8 +520,11 @@ CONTINUACAO_BLOQUEADA = [
     "Get-Content 'docs/README.md', <# c\nc #> @('{P}/.env')[0]",
 ]
 OPERADORES_NO_FIM = ["-join", "-and", "-or", "-f", "+", "-replace", "-split", "-eq", "-like",
-                     "-match", "-band", "-CNotMatch", "-ilike", "-xor", "=", "*", "%", "-"]
-DEPOIS_DO_OPERADOR = ["\n", "\r\n", " #c\n", " <# c #>\n", "\n\n", "\n# c\n\n", "\r\n\r\n"]
+                     "-match", "-band", "-CNotMatch", "-ilike", "-xor", "=", "*", "%", "-", ".."]
+# B0.5d: o `..` (1 ..<LF>5) e o comentário colado ao operador (-join<#c#>,
+# -join#c) também continuam a linha no PowerShell 5.1.
+DEPOIS_DO_OPERADOR = ["\n", "\r\n", " #c\n", " <# c #>\n", "\n\n", "\n# c\n\n", "\r\n\r\n",
+                      "#c\n", "<#c#>\n", "<#c#>\r"]
 
 
 @pytest.mark.parametrize("preflight_do_jogo", [0, 3])
@@ -704,6 +707,111 @@ def test_lista_do_powershell_abre_cada_item_como_argumento_do_cmdlet(repo):
 def test_leitura_do_env_explica_a_alternativa(repo):
     _, erro, _ = _comando(repo, "Bash", "wt", "cat {P}/.env")
     assert ".env.example" in erro and "não se lê, copia nem imprime" in erro
+
+
+# ---------------------------- formas indiretas (card B0.5d)
+# Só guarda.decidir com evento sintético e {P} falso em tmp_path: nada roda.
+# Na main a776a94 (antes do card) todas as bloqueadas saíam 0, menos três que
+# ficam de guarda contra regressão: crase e $(...) com o nome do .env ou com
+# curinga (já falhavam fechado pelo nome) e o Select-String com lista de dois.
+_Q, _QQ = chr(0x2019), chr(0x201D)  # aspas tipográficas: ’ e ”
+FORMAS_INDIRETAS_BLOQUEADAS = [
+    # Os 7 do Problema.
+    ("Bash", "wt", "cp {P}/cs2_tracker.{db,db-wal} {F}/", BANCO),
+    ("Bash", "wt", "cat `echo {P}`/cs2_tracker.d?", BANCO),
+    ("Bash", "wt", "ls {P}/cs2_tracker.d? | xargs cat", BANCO),
+    ("Bash", "wt", "for f in {P}/cs2_*.db; do cat $f; done", BANCO),
+    ("Bash", "wt", "tar cf {F}/a.tar {P}/cs2_*.db", BANCO),
+    ("Bash", "wt", "cp -r {P} {F}/", BANCO),
+    ("Bash", "wt", "cat {P}/CS2_TR~1.DB", BANCO),
+    # Critério 2: crase e $(...) colados ao padrão do banco ou do .env.
+    ("Bash", "wt", "cat $(echo {P})/cs2_tracker.d?", BANCO),
+    ("Bash", "wt", "cat `echo {P}`/.env", ENV),
+    ("Bash", "wt", "cat $(echo {P}/cs2_tracker.db)", BANCO),
+    # Critério 3: a raiz inteira, por qualquer copiador, inclusive subindo da worktree.
+    ("Bash", "wt", "cp -a {P} {F}/", BANCO),
+    ("Bash", "principal", "cp -r . {F}/x", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Recurse {P} {F}/x", BANCO),
+    ("PowerShell", "wt", "robocopy {PW} {F}\\x /E", BANCO),
+    ("PowerShell", "wt", "xcopy {PW} {F}\\x /E /I", BANCO),
+    ("PowerShell", "wt", "Copy-Item {P} {F}/x -Recurse -Filter *.db", BANCO),
+    ("Bash", "wt", "zip -r {F}/a.zip {P}", BANCO),
+    # Vizinhos: 8.3 na pasta, rm por 8.3, pipe e xargs.
+    ("Bash", "wt", "cat C:/Users/Victor/Projetos/CS2-TR~1/cs2_tracker.db", BANCO),
+    ("Bash", "wt", "rm {P}/CS2_TR~1.DB", BANCO),
+    ("Bash", "wt", "echo {P}/.env | xargs cat", ENV),
+    ("PowerShell", "wt", "'{P}/cs2_tracker.db' | Remove-Item", BANCO),
+    # QA do B0.5c: Select-String -Path nomeado e padrão posicional (N1).
+    ("PowerShell", "wt", "Select-String -Path {P}/.env SRCDS", ENV),
+    ("PowerShell", "wt", "sls -LiteralPath {P}/cs2_tracker.db x", BANCO),
+    ("PowerShell", "wt", "Select-String -Path @('docs/a.md', '{P}/.env') SRCDS", ENV),
+    # # e <# colados ao token anterior (N3, N5) e aspas tipográficas (N4).
+    ("PowerShell", "wt", "Write-Output 'a'#'\nRemove-Item '{P}/cs2_tracker.db'\n#'", BANCO),
+    ("PowerShell", "wt", "Write-Output 'a'#'\rRemove-Item '{P}/cs2_tracker.db'\r#'", BANCO),
+    ("PowerShell", "wt", "$x=1#'\nGet-Content '{P}/.env'\n#'", ENV),
+    ("PowerShell", "wt", "Write-Output (1)#'\nGet-Content '{P}/.env'\n#'", ENV),
+    ("PowerShell", "wt", "Write-Output a<#b\nGet-Content '{P}/.env'\n#>", ENV),
+    ("PowerShell", "wt", f"Write-Output 'a{_Q}\nGet-Content '{{P}}/.env'", ENV),
+    ("PowerShell", "wt", f'Write-Output "a{_QQ}\nGet-Content \'{{P}}/.env\'', ENV),
+    ("PowerShell", "wt", f"Write-Output @'\nx\n{_Q}@\nGet-Content '{{P}}/.env'", ENV),
+    # Splatting (N2) e os extras dos QA anteriores.
+    ("PowerShell", "wt", "$a = @('{P}/.env'); Get-Content @a", LISTA),
+    ("PowerShell", "wt", "fhx {P}/.env", ENV),
+    ("PowerShell", "wt", "ipcsv {P}/cs2_tracker.db", BANCO),
+    ("PowerShell", "wt", "Get-Content FileSystem::{P}/cs2_tracker.db", BANCO),
+    ("PowerShell", "wt", "Get-Content $('{P}/.env')", ENV),
+    ("PowerShell", "wt", "Get-Content -Path:$('{P}/cs2_tracker.db')", BANCO),
+    ("PowerShell", "wt", "Get-Content ('{P}/cs2' + '_tracker.db')", BANCO),
+    ("Bash", "wt", "grep --color X {P}/.env", ENV),
+] + [("PowerShell", "wt", f"Get-Content{chr(c)}{{P}}/.env", ENV)
+     for c in (0x0B, 0x0C, 0x85, 0xA0, 0x2003)]  # VT, FF, NEL, NBSP, EM SPACE
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("ferramenta,lugar,comando,tipo", FORMAS_INDIRETAS_BLOQUEADAS)
+def test_forma_indireta_de_ler_o_banco_ou_o_env_e_bloqueada(repo, ferramenta, lugar, comando,
+                                                             tipo, preflight_do_jogo):
+    codigo, erro, _ = _comando(repo, ferramenta, lugar, comando,
+                               preflight=lambda: preflight_do_jogo)
+    assert codigo == 2, (comando, erro)
+    assert erro.startswith("guarda (B0.5) bloqueou:") and "Em vez disso:" in erro
+    for trecho in ALTERNATIVA[tipo]:
+        assert trecho in erro, (comando, erro)
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("ferramenta,lugar,comando", [
+    # Os 5 do critério 4.
+    ("Bash", "wt", "cp -r docs {F}/"),
+    ("Bash", "wt", "tar cf {F}/d.tar docs"),
+    ("Bash", "wt", "for f in docs/*.md; do cat $f; done"),
+    ("Bash", "wt", "ls docs/*.md | xargs cat"),
+    ("Bash", "wt", "cp tests/fixtures/{a,b}.json {F}/"),
+    # Subpasta do principal, a própria worktree, filtro inofensivo e vizinhos.
+    ("Bash", "principal", "cp -r docs {F}/"),
+    ("Bash", "wt", "cp -r . {F}/x"),
+    ("PowerShell", "wt", "Copy-Item -Recurse docs {F}/x"),
+    ("PowerShell", "wt", "robocopy {PW} {F}\\x *.md /S"),
+    ("PowerShell", "wt", "Copy-Item {P} {F}/x -Recurse -Filter *.md"),
+    ("Bash", "wt", "find . -name '*.py' | xargs grep -l '\\.env'"),
+    ("PowerShell", "wt", "Get-ChildItem docs | Get-Content"),
+    ("Bash", "wt", "cat docs/README~1.md"),
+    ("PowerShell", "wt", "Select-String -Path AGENTS.md '\\.env'"),  # era falso positivo
+    ("PowerShell", "wt", "Write-Output a#b\nGet-Content docs/README.md"),
+    ("PowerShell", "wt", f"Write-Output {_Q}a{_Q}; $x = 1 ..\n5"),
+    ("Bash", "wt", "grep --color=auto X docs/README.md"),
+    ("Bash", "wt", "python -c \"import subprocess; subprocess.run(['ls', 'docker-compose.yml'])\""),
+])
+def test_forma_indireta_que_nao_alcanca_o_banco_nem_o_env_passa(repo, ferramenta, lugar, comando,
+                                                                preflight_do_jogo):
+    assert _comando(repo, ferramenta, lugar, comando,
+                    preflight=lambda: preflight_do_jogo) == (0, "", "")
+
+
+def test_copia_da_raiz_explica_o_que_vai_junto_e_a_alternativa(repo):
+    _, erro, _ = _comando(repo, "Bash", "wt", "cp -r {P} {F}/")
+    assert "raiz do checkout principal" in erro and ".env" in erro
+    assert "Em vez disso:" in erro and "tools/backup.py" in erro and "docs/" in erro
 
 
 def test_compose_na_worktree_fala_do_volume_e_do_checkout_principal(repo):
