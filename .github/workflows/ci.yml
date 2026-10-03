@@ -1,0 +1,64 @@
+# CI mínimo (card T1.1): confere o compose e a compilação do plugin de
+# captura antes do merge, pra que um erro de YAML ou de build apareça no PR
+# e não no boot do servidor, dentro da janela.
+#
+# Nada aqui toca o jogo: roda só no runner do GitHub, sem segredos, sem
+# subir container do CS2 e sem gravar em docker/plugins/.
+# Rollback: apagar este arquivo.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  compose:
+    name: compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      # O compose interpola ${SRCDS_TOKEN}, ${CS2_RCONPW} e ${MATCHZY_ADMINS}.
+      # No runner o .env nasce do modelo versionado (valores vazios ou de
+      # exemplo); o .env real da máquina nunca entra aqui.
+      - name: Criar .env a partir do .env.example
+        run: cp .env.example .env
+
+      # `config` só parseia, interpola e valida o modelo: não cria nem exige
+      # o volume external cs2-tracker_cs2-data, nem confere se as pastas de
+      # bind mount existem (BotAimImprover e BotRandomizer são gitignored).
+      - name: Validar docker-compose.yml
+        run: docker compose config -q
+
+  plugin:
+    name: plugin
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Mesma imagem do docker/build-events-plugin.sh, pra o CI compilar com o
+    # SDK que gera a DLL usada no servidor.
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:10.0
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      # Saída no diretório temporário do runner, nunca em docker/plugins/.
+      - name: Compilar Cs2TrackerEvents (Release)
+        run: >
+          dotnet publish docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEvents.csproj
+          -c Release -o "$RUNNER_TEMP/Cs2TrackerEvents"
+
+      - name: Conferir que a DLL saiu
+        run: test -s "$RUNNER_TEMP/Cs2TrackerEvents/Cs2TrackerEvents.dll"
