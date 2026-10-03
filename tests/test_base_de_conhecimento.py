@@ -12,7 +12,7 @@ que a revisão achou em docs/ e que é barato voltar sem ninguém notar.
   índice são a exceção).
 - Interpretador relativo, que não existe numa worktree.
 - `fontes` fora da gramática que o checar_fontes.py (K1.4) vai ler.
-- Exceção de SteamID fictício do pii.py sem registro no ADR-0003.
+- SteamID fictício acima da base liberado no pii.py, contra o ADR-0003.
 
 Só leitura de arquivo versionado: nada de processo, rede, Docker ou banco.
 """
@@ -221,9 +221,9 @@ def test_gramatica_de_fontes_aceita_as_formas_do_moc():
 
 # ---- ADR-0003 e o pii.py ---------------------------------------------------
 
-def test_adr_0003_nomeia_todo_id_ficticio_acima_da_base():
+def test_adr_0003_e_pii_sem_id_ficticio_acima_da_base():
+    # T1.3: a única exceção acima da base saiu do pii.py (OK do Victor, 28/09).
     adr = (ADRS / "0003-repo-publico.md").read_text(encoding="utf-8")
     acima = [i for i in pii.IDS_FICTICIOS if int(i) > pii.BASE_STEAMID64]
-    assert acima, "o pii.py não libera mais nenhum ID acima da base: revise o ADR-0003"
-    for steamid in acima:
-        assert steamid in adr, "ID liberado pelo pii.py sem registro no ADR-0003"
+    assert not acima, "o pii.py voltou a liberar ID acima da base: revise o ADR-0003"
+    assert "Nenhum ID acima da base é liberado" in adr

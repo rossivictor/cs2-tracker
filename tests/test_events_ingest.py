@@ -28,7 +28,7 @@ from identity import PlayerIdentity
 HUMANO = "can1sh"
 # Identidade COM steamid de propósito: é o modo MatchZy, e é o cenário em que
 # a detecção por nome dos eventos novos precisa funcionar mesmo assim.
-IDENT = PlayerIdentity(name=HUMANO, steamid="76561198000000001")
+IDENT = PlayerIdentity(name=HUMANO, steamid="76561190000000001")
 BOT = "Bot Kaiser"
 
 

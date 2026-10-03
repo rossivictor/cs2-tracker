@@ -1177,7 +1177,7 @@ def test_pii_em_docs_e_fixtures_e_bloqueado_sem_imprimir_o_valor(repo, ferrament
 
 
 @pytest.mark.parametrize("caminho,texto", [
-    ("docs/partida.md", "fictícios: 76561198000000001, 76561190000000001 e [U:1:39734273]"),
+    ("docs/partida.md", "fictícios: 76561190000000001, 76561190000000002 e [U:1:0]"),
     # Até a base não existe conta: fixture anonimizada pode ter quantos jogadores quiser.
     ("tests/fixtures/eventos.jsonl", "76561190000000002 76561190000000003 76561197960265728 "
                                      "[U:1:0]"),
@@ -1242,14 +1242,14 @@ def test_segredos_do_env_ignoram_o_valor_publico_do_exemplo_e_quebram_a_lista(tm
     (tmp_path / ".env.example").write_text("CS2_RCONPW=CHANGE_ME_LOCAL_ONLY\n", encoding="utf-8")
     env = tmp_path / ".env"
     env.write_text("# comentário\nexport SRCDS_TOKEN='abc'\nCS2_RCONPW=CHANGE_ME_LOCAL_ONLY\n"
-                   f"MATCHZY_ADMINS={ID_REAL_FALSO}, 76561198000000001\nOUTRA=valor-longo\n",
+                   f"MATCHZY_ADMINS={ID_REAL_FALSO}, 76561190000000001\nOUTRA=valor-longo\n",
                    encoding="utf-8")
     segredos = pii.ler_segredos(env)
     # "abc" é curto demais (casaria palavra comum); o placeholder é público.
     assert ("SRCDS_TOKEN", "abc") not in segredos
     assert not any(chave == "CS2_RCONPW" for chave, _ in segredos)
     assert ("MATCHZY_ADMINS", ID_REAL_FALSO) in segredos
-    assert ("MATCHZY_ADMINS", "76561198000000001") not in segredos  # fictício continua livre
+    assert ("MATCHZY_ADMINS", "76561190000000001") not in segredos  # fictício continua livre
     assert not any(chave == "OUTRA" for chave, _ in segredos)
 
 
@@ -1262,9 +1262,14 @@ def test_pii_bordas_de_steamid_e_ip():
 
 def test_pii_steamid_ate_a_base_e_ficticio_e_versao_nao_e_ip():
     for ficticio in ("76561190000000002", "76561190000000099", str(pii.BASE_STEAMID64),
-                     "[U:1:0]", "76561198000000001"):
+                     "[U:1:0]", "76561190000000001"):
         assert pii.achar(ficticio) == [], ficticio
     assert pii.achar(str(pii.BASE_STEAMID64 + 1)) == ["SteamID64 real na linha 1"]
+    # T1.3: a exceção acima da base saiu do IDS_FICTICIOS, com o SteamID3
+    # equivalente. Montados aqui para o literal não entrar em tests/.
+    conta = 39734273
+    assert pii.achar(str(pii.BASE_STEAMID64 + conta)) == ["SteamID64 real na linha 1"]
+    assert pii.achar(f"[U:1:{conta}]") == ["SteamID3 [U:1:n] na linha 1"]
     for versao in ("CS2 build 1.40.9.3", "PatchVersion=1.40.9.3", "Versão do jogo: 1.40.9.3",
                    "version 1.40.9.3"):
         assert pii.achar(versao) == [], versao
