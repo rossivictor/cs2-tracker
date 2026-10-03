@@ -4,7 +4,7 @@ status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.sprints)"
   - "backup:temp-artifacts/eb5adec0/plan/plan.md (seção 3, Sequência)"
-atualizado: 2026-09-30
+atualizado: 2026-10-03
 ---
 
 # Ordem das sprints
@@ -75,21 +75,15 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 | 27/09 | Passos da B1 por runbook à mão enquanto o `jogavel.py` não existe | PM | ver `docs/runbooks/trilha-de-bots.md` |
 | 26–28/09 | K1.1, K1.2 e K1.3 feitos antes da T1 | sem registro de decisão | ficam como estão; não abrem precedente |
 
-## Posição em 30/09, 21h
+## Posição em 03/10
 
-Foto do board (`docs/board-cs2/`, fora do git) nessa hora. **O status de cada card é o do board**; esta seção diz a sprint da vez, a ordem da fila e as decisões que a mudaram, e não repete status que muda a cada rodada.
+Foto do board (`docs/board-cs2/`, fora do git) nesta data. **O status de cada card é o do board**; esta seção diz a sprint da vez, a ordem da fila e as decisões que a mudaram, e não repete status que muda a cada rodada.
 
-- **Trilho:** B1 fechada pelo B1.10 (tag `jogavel-2026-09-28`). A **B0 é a sprint aberta** e vai primeiro.
-- **Pista paralela:** a **H1 é a sprint aberta** (H1.1b, H1.7, H1.8, H1.9; o H1.10 está adiado). O H1.8 depende do B0.7b, então a H1 só fecha depois do B0.7b. T1 espera a H1.
-- **Feito na B0:** B0.3, B0.6, B0.5b e B0.9b em 28/09 (PRs #25 a #28); B0.7 (PRs #31 e #32) e B0.9c (PR #33) em 30/09.
-- **Decisões do Victor em 30/09:** ordem B0.5c → B0.7 → B0.7b → B0.5d → B0.9c; critério 2 do B0.5c trocado por "`@(` que não seja lista literal nua falha fechado"; critério 5 do B0.7b (bloquear docker cru) retirado para o B0.7d; B0.7c e B0.9d criados como pré-requisitos da Janela 0.
-- **Fila da B0**, na ordem (status no board):
-  1. B0.5c, depois B0.5d (guarda).
-  2. B0.7b, depois B0.7c (`jogavel.py`; mexem nos mesmos arquivos).
-  3. B0.9d (regra única das cvars no fechamento).
-  4. Janela 0 (B0.9), que o Victor abre, com B0.8 e B0.11 (compose); depende do B0.7c e do B0.9d. A partida seguinte dele fecha a B0 com uma tag.
-  5. B0.7d (bloquear docker cru fora do `jogavel.py`): estacionado; entra depois da Janela 0 e não segura o fechamento da B0.
-- **Sobras da B1:** B1.10b, B1.7a e B1.8b sem servidor; B1.7 (BotAI) e B1.2 (depende do T1.1) no caminho de jogo, depois da B0.
-- **Validação pendente no jogo:** VPK Low e a build 2000919 do CS2, na próxima partida do Victor.
+- **B0 fechada em 03/10** pela tag `jogavel-2026-10-03` (063b8a4): candidato-8 (B0.8, volume external) validado no G7 da partida 74 (de_inferno 13x1), depois da Janela 0 de 02/10 (B0.9), que também ensaiou o `voltar` de verdade. Os cinco critérios de saída da B0 estão cumpridos.
+- **Trilho:** B0 e B1 fechadas. A próxima sprint do trilho é a **P1**, que espera a T1 (G4). Até lá o trilho anda só com sobras de caminho de jogo, uma por vez, cada uma com janela e partida: B0.11 (comentários do compose), B1.7a → B1.7 (BotAI) e B1.2 (depende do T1.1).
+- **Pista paralela:** a **H1 é a sprint aberta** (H1.1b, H1.7, H1.8 e o resto do H1.9; o H1.10 está adiado). Depois vêm T1, K1 e V1, nesta ordem.
+- **Sobras sem servidor:** B0.5e (guarda: `Copy-Item -Destination` nomeado), B0.8b (textos do volume external), registro da `jogavel-2026-10-03` em `versoes-conhecidas.md`, B1.10b e B1.8b. B0.7d (bloquear docker cru) fica estacionado até os runbooks migrarem para o `jogavel.py`.
+- **Decisões do Victor de 30/09 a 02/10:** ordem da fila da B0; critério 2 do B0.5c ampliado duas vezes, com teto; critério 5 do B0.7b retirado para o B0.7d; B0.7c e B0.9d como pré-requisitos da Janela 0; B0.5d encerrado na 3ª rodada com o resto documentado como limite (opção a).
+- **Lições da B0** (vão para `licoes.md` no H1.9): não abrir janela com outro agente rodando python (o `vigiar` aborta); o harness às vezes nega `gh pr merge` ao TM e o Victor mergeia; enumerar formas na guarda não converge, e regra que falha fechado sim.
 
 Quem fecha uma sprint, abre exceção ou muda a fila atualiza esta seção no mesmo dia (PM). Sprint nova semeada no board ganha a faixa na tabela "Ordem de execução".
