@@ -187,7 +187,7 @@ services:
       - ./docker/plugins/Cs2TrackerEvents:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/Cs2TrackerEvents
       - ./docker/events-live:/home/steam/cs2-dedicated/game/csgo/events-live
     ports:
-      - "27015:27015/tcp"
+      - "abc:27015/tcp"
       - "27015:27015/udp"
       - "27020:27020/udp"
     stdin_open: true # docker attach --sig-proxy=false cs2-spike
