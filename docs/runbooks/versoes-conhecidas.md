@@ -3,8 +3,11 @@ tipo: runbook
 status: vigente
 fontes:
   - "docs/runbooks/trilha-de-bots.md:32-47 (máscaras no efcaa42)"
-  - "docs/runbooks/trilha-de-bots.md:303-331 (registro G6 e G7)"
-  - "docs/runbooks/trilha-de-bots.md:347-369 (épocas)"
+  - "docs/runbooks/trilha-de-bots.md:203-226 (critério 8: variante do VPK pelo sha256 lido no volume)"
+  - "docs/runbooks/trilha-de-bots.md:329-360 (registro G6 e G7)"
+  - "docs/runbooks/trilha-de-bots.md:376-400 (épocas)"
+  - "logs/janelas/2026-09-28.md:7-13 (sha256 das três variantes e o RoundDamageRecap 1.2.0; fora do git)"
+  - "logs/janelas/2026-09-28.md:26 (as três variantes relidas na janela VPK Low)"
   - "docs/runbooks/b1.4b-botaimimprover-upstream.md:17-32"
   - "docs/runbooks/b1.9-botrandomizer-upstream.md:30-36"
   - "docker-compose.yml:62-64"
@@ -85,7 +88,9 @@ Ressalva do QA sobre a dificuldade da `jogavel-2026-10-03`: o Low é inferido, n
 partida. O log não anuncia a dificuldade (nenhum "BOT Difficulty" na coleta) e a coleta não leu
 o sha do VPK ativo. O Low vem do inventário da Janela 0 (`overrides/botprofile.vpk` =
 `02e5e958…`, 02/10), e o container não foi recriado depois dela (`Created`
-2026-10-02T03:30:20Z) nem houve janela até a partida.
+2026-10-02T03:30:20Z) nem houve janela até a partida. Pelo critério 8 da
+[trilha](trilha-de-bots.md#critérios-de-sucesso-de-cada-passo), a variante dessa tag fica
+registrada como **inferida**.
 
 Na `jogavel-2026-10-01`, o compose é o mesmo da `jogavel-2026-09-28`. As duas variáveis que
 entraram depois dela, sem commit, foram validadas juntas na partida 36 (época "VPK Low" da
@@ -339,3 +344,11 @@ VPK (`overrides/<variante>/botprofile.vpk`, no volume):
 ba754b610aaeb67a3088a796b92cf28c49ac725ac071760aaf24208583dcc585  Medium (408010 B)
 b08bf74eb74f1a0c9e84fb12c4a92bdb972703d35303cc69f9258176f0a10176  High (116192 B)
 ```
+
+São a referência do critério 8 da
+[trilha](trilha-de-bots.md#critérios-de-sucesso-de-cada-passo): a variante ativa é a que tem o
+mesmo sha256 do `overrides/botprofile.vpk`, lido no volume pelo servidor (janela ou coleta),
+com a hora. Os três valores foram lidos no volume nas janelas VPK de 28/09 (18:23 e 19:52) e
+de novo no inventário da Janela 0 (02/10). O RoundDamageRecap 1.2.0 faz a mesma comparação e
+anuncia Low `[1/3]`, Medium `[2/3]` ou High `[3/3]`, só no chat do jogo: o anúncio não é
+evidência coletável.

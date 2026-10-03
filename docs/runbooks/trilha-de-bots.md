@@ -179,7 +179,8 @@ BotController v0.7.0) pedem Metamod 1469+ e CSSharp 1.0.375+. Se o B1.3r for apl
 
 ## Critérios de sucesso de cada passo
 
-Valem na janela (G6) e na partida do Victor (G7). Todos precisam valer:
+Valem na janela (G6) e na partida do Victor (G7). Os itens 1 a 7 precisam valer; o 8 é
+registro e não reprova o passo:
 
 1. **BO1 completo com troca de mapa.** Escolha um mapa diferente de `de_mirage`, o
    `CS2_STARTMAP`, para que o `loadmatch` troque de mapa.
@@ -199,6 +200,30 @@ Valem na janela (G6) e na partida do Victor (G7). Todos precisam valer:
    `[Cs2TrackerEvents] Pronto — gravando em`.
 7. A build do CS2 antes e depois da janela fica registrada. O sha256 dos arquivos montados,
    lido dentro do container, é igual ao do checkout.
+8. **Variante do `botprofile.vpk` e época.** A variante ativa só se prova pelo sha256 de
+   `game/csgo/overrides/botprofile.vpk` lido **no volume** pelo papel servidor e comparado com
+   o de `overrides/{Low,Medium,High}/botprofile.vpk` (valores em
+   [versões conhecidas](versoes-conhecidas.md#hashes-completos)), com a hora da leitura.
+   - Quem lê: o servidor, na janela ou na coleta só leitura pós-partida (preflight 0, sem
+     janela), com `docker exec cs2-spike sha256sum` nos quatro caminhos, sob
+     `/home/steam/cs2-dedicated/game/csgo/overrides/`. Dev, QA e tech-manager não rodam docker.
+   - O `jogavel.py coletar` ainda **não** lê o VPK: ele confere só os arquivos montados do
+     checkout (binds de arquivo e pastas de `docker/plugins/`), e o VPK mora no volume, fora
+     deles. Ler o VPK na coleta é card separado; até lá, a leitura é esse `docker exec` à mão.
+   - Registre `VPK: <variante> (<sha abreviado>, lido <data hora>, <janela|coleta>)` e a época
+     da tabela [Épocas](#épocas). Hoje é a "VPK Low": `02e5e958…` desde 28/09 19:54:52, em
+     vigor na `jogavel-2026-10-03`.
+   - Sem esse sha, registre `VPK: <variante> inferida (<de onde>)`. Foi o caso do G7 do B0.8
+     (`candidato-8`, matchid 74): o log não anuncia a dificuldade (0 ocorrências de
+     `difficulty`), a coleta não leu o VPK, e o Low ficou inferido do
+     [inventário da Janela 0](inventario-volume.md#vpk).
+   - O "BOT Difficulty: <variante> [n/3]" do RoundDamageRecap 1.2.0 aparece **só no chat do
+     jogo**. Ele não vai para o `docker logs` nem para o JSONL, e o `evidencia_partida.py` não
+     o vê: não é evidência coletável. O relato do Victor de que viu o anúncio vale junto com a
+     partida (`demo_name` ou matchid) e a hora, como relato, e não substitui o sha. Uma
+     lembrança sem partida e hora já virou pedido de janela (28/09 18:22: "do High para o
+     Medium", com o Medium ativo desde 27/09 15:34; a hipótese da janela é que o "High"
+     lembrado era da partida 26, a última no High).
 
 O veredito de cada passo é um destes:
 
@@ -305,7 +330,9 @@ A via rápida (Q0=A) valeu para o passo 1. Enquanto o `tools/jogavel.py` (B0.7/B
 
 Preencha uma linha por passo, na janela e depois da partida. Se o passo voltar e for
 refeito, use uma linha nova com o mesmo passo e sufixo (ex.: `2b`). A coluna "Smoke só de
-bots" traz o resultado do [runbook do smoke](smoke-partida-de-bots.md#resultado).
+bots" traz o resultado do [runbook do smoke](smoke-partida-de-bots.md#resultado). A variante
+do VPK e a época (critério 8) entram nas [Notas por passo](#notas-por-passo), como lida (com o
+sha e a hora) ou inferida (com a origem).
 
 ### Janela (G6)
 
@@ -366,8 +393,10 @@ recreate ou da troca. Para as estatísticas (coluna `bot_suite`, S2.4), a fronte
 | VPK Low | 28/09 19:54:52 (VPK) e 19:59:26 (build 2000919); build 2000922 em 30/09 23:10 | VPK Medium → Low, a pedido do Victor; no mesmo boot, o steamcmd da imagem atualizou o CS2 sem OK prévio (G5); o restart da janela de 30/09 levou à 2000922 | os mesmos da 7 | Low | 2000919 → 2000922 | 36 (matchid 71, `events_71_map0`, de_ancient 13x7, 01/10, G7 OK na 2000922). Ressalva: a `events_69` (partida 32, de_dust2 13x6, 30/09 15:59) e a `events_70` (MD3, 30/09, antes da janela) já jogaram o Low na 2000919, sem G7 | **validada**: jogavel-2026-10-01; em vigor na jogavel-2026-10-03 (B0.8, só o volume external, matchid 74) |
 
 - O B1.7 não abriu época: foi pulado, e o BotAI segue mascarado.
-- Na partida, a época do VPK se confere pelo chat: o RoundDamageRecap compara o sha256 do
-  VPK ativo com as variantes e anuncia, por exemplo, "BOT Difficulty: Low [1/3]".
+- A época do VPK se prova pelo sha256 do VPK ativo lido no volume (critério 8 dos
+  [Critérios de sucesso](#critérios-de-sucesso-de-cada-passo)). O RoundDamageRecap faz a mesma
+  comparação e anuncia, por exemplo, "BOT Difficulty: Low [1/3]", mas só no chat do jogo: é
+  relato do Victor, não evidência coletável.
 - As versões e as tags desta tabela entram na lista de versões conhecidas, que é do card B0.3.
 
 ## Fechamento
