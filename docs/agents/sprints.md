@@ -75,15 +75,16 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 | 27/09 | Passos da B1 por runbook à mão enquanto o `jogavel.py` não existe | PM | ver `docs/runbooks/trilha-de-bots.md` |
 | 26–28/09 | K1.1, K1.2 e K1.3 feitos antes da T1 | sem registro de decisão | ficam como estão; não abrem precedente |
 
-## Posição em 03/10
+## Posição em 03/10, fim do dia
 
-Foto do board (`docs/board-cs2/`, fora do git) nesta data. **O status de cada card é o do board**; esta seção diz a sprint da vez, a ordem da fila e as decisões que a mudaram, e não repete status que muda a cada rodada.
+Foto do board (`docs/board-cs2/`, fora do git) nesta data. **O status de cada card é o do board**; esta seção diz a sprint da vez, a ordem da fila e as decisões que a mudaram.
 
-- **B0 fechada em 03/10** pela tag `jogavel-2026-10-03` (063b8a4): candidato-8 (B0.8, volume external) validado no G7 da partida 74 (de_inferno 13x1), depois da Janela 0 de 02/10 (B0.9), que também ensaiou o `voltar` de verdade. Os cinco critérios de saída da B0 estão cumpridos.
-- **Trilho:** B0 e B1 fechadas. A próxima sprint do trilho é a **P1**, que espera a T1 (G4). Até lá o trilho anda só com sobras de caminho de jogo, uma por vez, cada uma com janela e partida: B0.11 (comentários do compose), B1.7a → B1.7 (BotAI) e B1.2 (depende do T1.1).
-- **Pista paralela:** a **H1 é a sprint aberta** (H1.1b, H1.7, H1.8 e o resto do H1.9; o H1.10 está adiado). Depois vêm T1, K1 e V1, nesta ordem.
-- **Sobras sem servidor:** B0.5e (guarda: `Copy-Item -Destination` nomeado), B0.8b (textos do volume external), registro da `jogavel-2026-10-03` em `versoes-conhecidas.md`, B1.10b e B1.8b. B0.7d (bloquear docker cru) fica estacionado até os runbooks migrarem para o `jogavel.py`.
-- **Decisões do Victor de 30/09 a 02/10:** ordem da fila da B0; critério 2 do B0.5c ampliado duas vezes, com teto; critério 5 do B0.7b retirado para o B0.7d; B0.7c e B0.9d como pré-requisitos da Janela 0; B0.5d encerrado na 3ª rodada com o resto documentado como limite (opção a).
-- **Lições da B0** (vão para `licoes.md` no H1.9): não abrir janela com outro agente rodando python (o `vigiar` aborta); o harness às vezes nega `gh pr merge` ao TM e o Victor mergeia; enumerar formas na guarda não converge, e regra que falha fechado sim.
+- **B0 fechada em 03/10** pela tag `jogavel-2026-10-03` (063b8a4): candidato-8 (B0.8, volume external) validado no G7 da partida 74, depois da Janela 0 de 02/10 (B0.9), que também ensaiou o `voltar` de verdade. Sobras da B0 feitas no mesmo dia: B0.8b, B0.3c, B0.5e e B0.7e (o vigiar que não aborta por python do próprio servidor). B0.7d (bloquear docker cru) segue estacionado até os runbooks migrarem para o `jogavel.py`; B0.11 (comentários do compose) espera janela.
+- **H1 fecha com este PR** (H1.9: plano versionado, [licoes.md](licoes.md), [pm-playbook.md](pm-playbook.md), [ideias.md](ideias.md)); H1.1b, H1.7 e H1.8 entraram em 03/10. O H1.10 (limpeza de worktrees) está adiado.
+- **Próxima sprint: T1** (pista paralela), testes herméticos, G4 e CI. Ela destrava a **P1**, a próxima do trilho.
+- **Trilho até a P1:** só sobras de caminho de jogo, uma por vez, cada uma com janela e partida: B0.11, B1.7 (BotAI, depois da investigação B1.7a, que é Offline) e B1.2 (depende do T1.1).
+- **Sobras sem servidor:** B1.7a e B1.8b.
+- **Decisões do Victor de 30/09 a 03/10:** ordem da fila da B0; critério 2 do B0.5c ampliado duas vezes, com teto; critério 5 do B0.7b retirado para o B0.7d; B0.7c e B0.9d como pré-requisitos da Janela 0; B0.5d encerrado na 3ª rodada com o resto como limite (opção a); fila pós-B0 (sobras, H1) e o card B0.7e.
+- **Lições da B0:** L01 a L05 em [licoes.md](licoes.md).
 
 Quem fecha uma sprint, abre exceção ou muda a fila atualiza esta seção no mesmo dia (PM). Sprint nova semeada no board ganha a faixa na tabela "Ordem de execução".
