@@ -8,7 +8,7 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Entities.Constants;
 using CounterStrikeSharp.API.Modules.Utils;
 
-namespace Cs2TrackerEvents;
+namespace Cs2TrackerEvents; int x = ;
 
 /// <summary>
 /// Captura a partida direto dos hooks e das structs server-side do
