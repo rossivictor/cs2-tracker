@@ -11,11 +11,12 @@ fontes:
   - "tools/jogavel.py:310-354 (runtime file e volta do merge falho)"
   - "tools/jogavel.py:385-415 (recreate só do checkout principal)"
   - "tools/jogavel.py:459-501 (voltar)"
-  - "tools/jogavel.py:900-1131 (janela abrir, fechar, vigiar e aborto; timeouts do ciclo no B0.7c)"
+  - "tools/jogavel.py:910-1298 (janela abrir, fechar, vigiar e aborto; timeouts do ciclo no B0.7c)"
+  - "tools/jogavel.py:1058-1210 (python sem linha confirmado na releitura e árvore do servidor, B0.7e)"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:452-703 (tipos de evento)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:641-670 (a volta à mão que o voltar substitui)"
   - "docs/runbooks/versoes-conhecidas.md:200-216 (manifesto do plugin de captura)"
-atualizado: 2026-10-01
+atualizado: 2026-10-03
 ---
 
 # Voltar ao jogável
@@ -117,10 +118,21 @@ Todos aceitam `--seco`.
 - `janela vigiar [--intervalo 30]`: deixe rodando em segundo plano. A cada ≤30 s lista os
   processos e o `docker ps`. O `current.jsonl` não conta: na janela quem escreve nele é o
   servidor.
-  - Processo do Victor (`cs2.exe`, TUI, `start_match`, `watcher`, ou `python` sem linha de
-    comando legível): aborta (saída 3), registra e, se o checkout mudou na janela, roda o
-    `voltar --tag <HEAD da abertura>`, que recusa com partida em curso. VPK, volume e pasta do
-    plugin voltam pelo rollback do runbook do passo. A marca fica até o `fechar`.
+  - Processo do Victor (`cs2.exe`, TUI, `start_match` ou `watcher` com linha legível, ou a
+    lista de processos que falha toda): aborta no mesmo ciclo (saída 3), registra e, se o
+    checkout mudou na janela, roda o `voltar --tag <HEAD da abertura>`, que recusa com partida
+    em curso. VPK, volume e pasta do plugin voltam pelo rollback do runbook do passo. A marca
+    fica até o `fechar`.
+  - `python` sem linha de comando legível (B0.7e) é quase sempre um python saindo, inclusive os
+    do próprio servidor (janela 0 de 02/10). Ele só aborta se repetir: o ciclo espera 4 s e
+    relê pelo mesmo método, com 6 s de teto (no máximo 10 s entre as leituras). Abortam o
+    mesmo PID ainda vivo ou outro python sem linha; sumiu, o registro diz `sinal sem
+    confirmação` e a vigília segue. Releitura que falha conta como o Victor jogando.
+  - Não conta python sem linha que descende do `vigiar` ou do processo que abriu a janela: o
+    `abrir` grava na marca a cadeia de ancestrais dele (PID e hora de criação), e a raiz é o
+    ancestral mais próximo comum ao `abrir` e ao `vigiar` (o agente servidor). Explorer,
+    terminal do Windows e afins não valem como raiz. Sem a árvore (só `wmic`/`tasklist`, ou
+    marca sem ela), vale só a confirmação.
   - **Depois de um aborto só cabe `janela fechar`**: nada de seguir o passo, de rodar o
     `vigiar` de novo nem de abrir outra janela por cima. A janela acabou; outra só com nova
     frase do Victor.
