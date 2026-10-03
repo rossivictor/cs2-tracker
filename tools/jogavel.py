@@ -335,24 +335,34 @@ def sinais_de_partida(ex: Executor, agora: float) -> tuple:
 
 
 def sinais_de_processo(ex: Executor) -> tuple:
-    """(bloqueios, avisos) só da lista de processos, sem o current.jsonl:
-    é o que o `janela vigiar` olha, porque na janela quem escreve no
-    current.jsonl é o servidor (boot, changelevel, smoke só de bots)."""
-    bloqueios, avisos = [], []
+    """(bloqueios, avisos) só da lista de processos, sem o current.jsonl.
+    É o do `voltar` e do `atualizar`: python cego bloqueia na hora. O
+    `janela vigiar` usa o `processos_do_victor`, que confirma o cego."""
     try:
         processos = preflight.listar_processos(ex.para_preflight)
     except preflight.DeteccaoFalhou as exc:
-        return [f"sem certeza sobre o watcher: {exc}"], avisos
+        return [f"sem certeza sobre o watcher: {exc}"], []
     proprios = frozenset({os.getpid(), os.getppid()})
     cegos = [p.pid for p in processos if p.linha is None and p.pid not in proprios
              and preflight._eh_python(p.nome)]
-    if cegos:
-        bloqueios.append("sem certeza sobre o watcher: python sem linha de comando "
-                         f"legível (PID {', '.join(map(str, cegos))})")
+    bloqueios = [_sinal_cego(cegos)] if cegos else []
     # Os cegos já bloquearam: passados como próprios, não levantam de novo e
     # deixam os avisos (cs2.exe, TUI) saírem.
-    sinais = preflight.sinais_nos_processos(processos, proprios | frozenset(cegos))
-    for sinal in sinais:
+    duros, avisos = _sinais_legiveis(processos, proprios | frozenset(cegos))
+    return bloqueios + duros, avisos
+
+
+def _sinal_cego(pids, extra: str = "") -> str:
+    return ("sem certeza sobre o watcher: python sem linha de comando legível "
+            f"(PID {', '.join(map(str, pids))}){extra}")
+
+
+def _sinais_legiveis(processos: list, ignorar: frozenset) -> tuple:
+    """(bloqueios, avisos) do que tem nome ou linha legível: watcher bloqueia;
+    cs2.exe, TUI e start_match avisam o que fechar. `ignorar` leva todo
+    python cego, senão o preflight levantaria por ele."""
+    bloqueios, avisos = [], []
+    for sinal in preflight.sinais_nos_processos(processos, ignorar):
         if sinal.startswith("python watcher"):
             bloqueios.append(f"watcher ingerindo ({sinal})")
         else:
@@ -990,7 +1000,9 @@ def janela_abrir(args, ex: Executor, relogio: Callable, _entrada) -> int:
     container = estado_container(ex)
     dados = {"aberta_em": _hora(t, "%Y-%m-%dT%H:%M:%S"), "por": por, "teto_min": args.teto,
              "head": head, "container": container,
-             "registro": f"logs/janelas/{_hora(t, '%Y-%m-%d')}.md"}
+             "registro": f"logs/janelas/{_hora(t, '%Y-%m-%d')}.md",
+             # B0.7e: o vigiar acha nela o processo que abriu a janela
+             "arvore": arvore_da_abertura(ex)}
     if ex.seco:
         print(f"[seco] criaria {MARCA.as_posix()}: {json.dumps(dados, ensure_ascii=False)}")
     else:
@@ -1043,6 +1055,161 @@ def janela_fechar(args, ex: Executor, relogio: Callable, _entrada) -> int:
     return OK
 
 
+# ------------------------------- vigiar: processo do Victor (B0.7e)
+
+# Python sem linha de comando legível é quase sempre um python saindo: o
+# Windows tira a linha antes de o processo sumir da lista (janela 0 de
+# 02/10, diag-python.txt: 4 casos, todos pares lançador .venv + filho do
+# próprio servidor, no instante da saída; provável causa do aborto de 01/10).
+# No vigiar, ele só aborta se repetir: o ciclo espera ESPERA_CONFIRMACAO_S e
+# relê pelo mesmo método, com cada chamada limitada a TETO_CONFIRMACAO_S.
+# Do fim da 1ª leitura ao fim da 2ª passam no máximo CONFIRMACAO_MAX_S, tudo
+# dentro do ciclo de 30 s. cs2.exe, TUI, start_match e watcher legíveis, e a
+# lista que falha toda, abortam já na 1ª leitura.
+ESPERA_CONFIRMACAO_S = 4
+TETO_CONFIRMACAO_S = 6
+CONFIRMACAO_MAX_S = ESPERA_CONFIRMACAO_S + TETO_CONFIRMACAO_S  # 10 s
+# A mesma consulta do preflight (que não muda), mais o pai e a hora de
+# criação de cada processo: é o que deixa ler a árvore do servidor.
+CIM_COM_PAIS = (
+    "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
+    "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,CommandLine,"
+    "@{n='Criado';e={if ($_.CreationDate) {$_.CreationDate.ToFileTimeUtc()}}} | "
+    "ConvertTo-Json -Compress"
+)
+# Ancestral comum que não é do servidor, e sim da sessão do Windows: com ele
+# como raiz, todo python do Victor pareceria do servidor.
+HOSPEDEIROS = frozenset({"system", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe",
+                         "services.exe", "svchost.exe", "sihost.exe", "userinit.exe", "explorer.exe",
+                         "windowsterminal.exe", "openconsole.exe", "conhost.exe",
+                         "code.exe", "cursor.exe"})
+
+
+@dataclass
+class Leitura:
+    duros: list            # abortam já: lista que falhou, cs2.exe, TUI, start_match, watcher
+    cegos: list            # python sem linha, fora da árvore do vigiar e da do servidor
+    pids: frozenset = frozenset()
+    metodo: Optional[Callable] = None
+
+
+def via_powershell_com_pais(executar) -> tuple:
+    """(processos, pais): pais[pid] = (ppid, criado, nome), só de quem veio
+    com pai e hora de criação."""
+    texto = preflight._rodar(executar, [preflight._exe_do_sistema("powershell.exe"),
+                                        "-NoProfile", "-NonInteractive", "-Command", CIM_COM_PAIS])
+    texto = texto.strip().lstrip("﻿")
+    if not texto:
+        raise preflight.DeteccaoFalhou("Get-CimInstance não devolveu nada")
+    try:
+        dados = json.loads(texto)
+    except ValueError as exc:
+        raise preflight.DeteccaoFalhou("Get-CimInstance devolveu JSON inválido") from exc
+    processos, pais = [], {}
+    for item in [dados] if isinstance(dados, dict) else dados:
+        pid, nome = int(item.get("ProcessId") or 0), str(item.get("Name") or "")
+        processos.append(preflight.Processo(pid=pid, nome=nome, linha=item.get("CommandLine")))
+        ppid, criado = item.get("ParentProcessId"), item.get("Criado")
+        if isinstance(ppid, int) and isinstance(criado, int):
+            pais[pid] = (ppid, criado, nome)
+    return processos, pais
+
+
+def listar_com_pais(ex: Executor, metodos: Optional[tuple] = None) -> tuple:
+    """(processos, pais, método). Sem o PowerShell, cai no wmic e no tasklist
+    do preflight, sem árvore (pais vazio). Tudo falhando, DeteccaoFalhou."""
+    falhas = []
+    for metodo in metodos or (via_powershell_com_pais, preflight.via_wmic, preflight.via_tasklist):
+        try:
+            lido = metodo(ex.para_preflight)
+        except preflight.DeteccaoFalhou as exc:
+            falhas.append(str(exc))
+            continue
+        except Exception as exc:  # saída estranha: tenta o próximo, como o preflight
+            falhas.append(f"{metodo.__name__}: {exc.__class__.__name__}")
+            continue
+        processos, pais = lido if isinstance(lido, tuple) else (lido, {})
+        return processos, pais, metodo
+    raise preflight.DeteccaoFalhou("não deu pra listar os processos (" + "; ".join(falhas) + ")")
+
+
+def ancestrais(pid: int, pais: dict) -> list:
+    """PIDs acima de `pid`, do pai para cima. Para no pai que já saiu, no que
+    nasceu depois do filho (PID reaproveitado) e em quem veio sem pai."""
+    cadeia, atual = [], pid
+    while atual in pais:
+        ppid, criado, _nome = pais[atual]
+        pai = pais.get(ppid)
+        if pai is None or ppid == atual or ppid in cadeia or pai[1] > criado:
+            break
+        cadeia.append(ppid)
+        atual = ppid
+    return cadeia
+
+
+def arvore_da_abertura(ex: Executor) -> list:
+    """[pid, nome, criado] do `abrir` e dos ancestrais dele, para a marca.
+    Sem a árvore (PowerShell falhou), lista vazia: vale só a confirmação."""
+    try:
+        _processos, pais, _metodo = listar_com_pais(ex, (via_powershell_com_pais,))
+    except preflight.DeteccaoFalhou:
+        return []
+    eu = os.getpid()
+    return [[p, pais[p][2], pais[p][1]] for p in [eu, *ancestrais(eu, pais)] if p in pais]
+
+
+def raiz_do_servidor(dados: dict, pais: dict) -> Optional[int]:
+    """O processo que abriu a janela, como o vigiar o enxerga: o ancestral
+    mais próximo comum ao `abrir` (gravado na marca) e ao vigiar, conferido
+    pelo PID e pela hora de criação (o agente servidor, ou o shell dele).
+    Hospedeiro da sessão do Windows não vale: aí não há árvore."""
+    try:
+        abertura = {(int(p), int(c)) for p, _nome, c in dados.get("arvore") or []}
+    except (TypeError, ValueError):
+        return None
+    for pid in ancestrais(os.getpid(), pais):
+        _ppid, criado, nome = pais[pid]
+        if (pid, criado) in abertura:
+            return None if nome.lower() in HOSPEDEIROS else pid
+    return None
+
+
+def ler_processos(ex: Executor, dados: dict, metodos: Optional[tuple] = None) -> Leitura:
+    try:
+        processos, pais, metodo = listar_com_pais(ex, metodos)
+    except preflight.DeteccaoFalhou as exc:
+        return Leitura([f"sem certeza sobre o watcher: {exc}"], [])
+    proprios = frozenset({os.getpid(), os.getppid()})
+    raizes = {os.getpid(), raiz_do_servidor(dados, pais)} - {None}
+    todos = [p.pid for p in processos if p.linha is None and preflight._eh_python(p.nome)]
+    cegos = [pid for pid in todos if pid not in proprios and not raizes & set(ancestrais(pid, pais))]
+    bloqueios, avisos = _sinais_legiveis(processos, proprios | frozenset(todos))
+    return Leitura(bloqueios + avisos, cegos, frozenset(p.pid for p in processos), metodo)
+
+
+def processos_do_victor(ex: Executor, dados: dict, relogio: Callable) -> list:
+    """Os sinais que abortam a janela, ou [] para seguir. O python cego só
+    aborta se, na releitura, o mesmo PID ainda vive ou há outro python cego
+    (fora das árvores); sumiu, fica no registro como sinal sem confirmação."""
+    primeira = ler_processos(ex, dados)
+    if primeira.duros or not primeira.cegos:
+        return primeira.duros
+    t1 = relogio()
+    ex.dormir(ESPERA_CONFIRMACAO_S)
+    with ex.no_maximo(TETO_CONFIRMACAO_S):
+        segunda = ler_processos(ex, dados, (primeira.metodo,))
+    depois = f" na releitura {relogio() - t1:.0f} s depois"
+    if segunda.duros:
+        return segunda.duros
+    repetidos = sorted(set(segunda.cegos) | (set(primeira.cegos) & segunda.pids))
+    if repetidos:
+        return [_sinal_cego(repetidos, f", de novo{depois}")]
+    pids = ", ".join(map(str, primeira.cegos))
+    _avisar(ex, dados, relogio(), f"sinal sem confirmação: python sem linha de comando legível "
+                                  f"(PID {pids}) sumiu{depois}; a vigilância segue")
+    return []
+
+
 def janela_vigiar(args, ex: Executor, relogio: Callable, entrada: Callable) -> int:
     """Laço a cada ≤30 s. O tempo vem do relógio de parede e do mtime da
     marca, nunca da soma dos ciclos: um comando preso (o docker que esperou
@@ -1065,12 +1232,12 @@ def janela_vigiar(args, ex: Executor, relogio: Callable, entrada: Callable) -> i
         ex.historico.clear()  # só o ciclo atual: a listagem de processos é grande
         inicio = relogio()
         with ex.no_maximo(TETO_CICLO_S):
-            bloqueios, avisos = sinais_de_processo(ex)
-            if not (bloqueios or avisos):
+            sinais = processos_do_victor(ex, dados, relogio)
+            if not sinais:
                 estado = estado_container(ex, timeout=ESPERA_PS_VIGIA_S)
-        if bloqueios or avisos:
+        if sinais:
             # Fora do teto: o `voltar` do aborto recria com o timeout dele.
-            return _abortar(ex, dados, bloqueios + avisos, relogio, entrada)
+            return _abortar(ex, dados, sinais, relogio, entrada)
         t = relogio()
         if t - inicio > INTERVALO_VIGIA_S:
             lenta = max(ex.historico, key=lambda c: c.segundos)

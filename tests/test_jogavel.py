@@ -105,7 +105,9 @@ class Mundo:
         if nome == "powershell.exe":
             if self.listagem != "powershell":
                 return _feito(argv, 1, "")
-            linhas = [{"ProcessId": pid, "Name": n, "CommandLine": c} for pid, n, c in self.processos]
+            # (pid, nome, linha) ou, com a árvore (B0.7e), (pid, nome, linha, ppid, criado)
+            chaves = ("ProcessId", "Name", "CommandLine", "ParentProcessId", "Criado")
+            linhas = [dict(zip(chaves, p)) for p in self.processos]
             return _feito(argv, 0, json.dumps(linhas))
         if nome == "wmic.exe":
             raise FileNotFoundError(argv[0])
@@ -113,7 +115,7 @@ class Mundo:
             if self.listagem != "tasklist":
                 return _feito(argv, 1, "")
             return _feito(argv, 0, "".join(f'"{n}","{pid}","Console","1","1.000 K"\n'
-                                           for pid, n, _c in self.processos))
+                                           for pid, n, *_c in self.processos))
         if any(a.endswith("preflight.py") for a in argv):
             return _feito(argv, self.preflight, f"preflight {self.preflight}: falso")
         if "-c" in argv and "rcon_run" in argv[argv.index("-c") + 1]:
@@ -976,9 +978,13 @@ def test_fechar_seco_nao_apaga(mundo, capsys):
     ("powershell", [(10, "cs2.exe", None)], "feche o CS2: cs2.exe (PID 10)"),
     ("powershell", [(11, "python.exe", f"{PY} start_match.py")],
      "feche o start_match (terminal da partida): python start_match (PID 11)"),
-    ("tasklist", [(4321, "python.exe", None)],
-     "sem certeza sobre o watcher: python sem linha de comando legível (PID 4321)")])
+    ("powershell", [(12, "python.exe", f"{PY} wizard_tui.py")], "feche a TUI: python wizard_tui (PID 12)"),
+    ("powershell", [(13, "python.exe", f"{PY} -u watcher.py --mode matchzy")],
+     "watcher ingerindo (python watcher (PID 13))"),
+    # B0.7e: o cs2.exe não espera a confirmação do python cego ao lado dele
+    ("tasklist", [(10, "cs2.exe", None), (4321, "python.exe", None)], "feche o CS2: cs2.exe (PID 10)")])
 def test_vigiar_aborta_quando_aparece_processo_do_victor(mundo, capsys, listagem, processos, sinal):
+    # Sem confirmação: aborta no ciclo em que aparece, sem o sono de 4 s (B0.7e).
     _marca(mundo, 600)
     rel = Relogio()
     mundo.listagem, mundo.processos = listagem, [(1, "explorer.exe", None)]
@@ -1179,6 +1185,125 @@ def test_vigiar_intervalo_acima_de_30_s_e_uso_errado(mundo):
 def test_janela_acao_desconhecida_e_uso_errado(mundo):
     with pytest.raises(SystemExit):
         _rodar(mundo, "janela", "outra")
+
+
+# ------------------------- vigiar: python do próprio servidor (B0.7e)
+
+EU, LANCADOR = os.getpid(), os.getppid()  # o vigiar, nos testes, é o pytest
+VIGIAR = f"{PY} -u tools/jogavel.py janela vigiar --intervalo 30"
+
+
+def test_vigiar_par_lancador_e_filho_que_some_na_releitura_nao_aborta(mundo):
+    # O caso de 01/10 (PIDs 2876 e 24736): o par sem linha some antes da
+    # releitura. Fica no registro como sinal sem confirmação e a vigília segue.
+    _marca(mundo, 44 * 60)
+    par = [(2876, "python.exe", None), (24736, "python.exe", None)]
+    mundo.processos = [(1, "explorer.exe", None)] + par
+    rel = Relogio()
+    rel.no_sono[1] = lambda: setattr(mundo, "processos", [(1, "explorer.exe", None)])
+    assert _janela(mundo, "vigiar", rel=rel) == VENCIDA
+    assert rel.sonos == [4, 26, 30]
+    registro = _registro(mundo)
+    assert "ABORTO" not in registro
+    assert ("vigiar: sinal sem confirmação: python sem linha de comando legível (PID 2876, 24736) "
+            "sumiu na releitura 4 s depois; a vigilância segue") in registro
+    # a releitura é a única chamada com 6 s de teto, 4 s depois da 1ª leitura
+    assert [(lim, t - AGORA) for n, lim, t in mundo.chamadas if n == "powershell.exe"] == [
+        (20, 0), (6, 4), (20, 30), (20, 60)]
+
+
+@pytest.mark.parametrize("listagem,depois,pids", [
+    ("powershell", [(4321, "python.exe", None)], "4321"),   # o mesmo PID, ainda vivo
+    ("tasklist", [(4321, "python.exe", None)], "4321"),
+    ("powershell", [(5000, "python.exe", None)], "5000")])  # outro python sem linha
+def test_vigiar_python_sem_linha_que_persiste_aborta(mundo, listagem, depois, pids):
+    _marca(mundo, 600)
+    mundo.listagem, mundo.processos = listagem, [(1, "explorer.exe", None), (4321, "python.exe", None)]
+    rel = Relogio()
+    rel.no_sono[1] = lambda: setattr(mundo, "processos", [(1, "explorer.exe", None)] + depois)
+    assert _janela(mundo, "vigiar", rel=rel) == PARTIDA
+    assert rel.sonos == [4] and mundo.docker == []
+    assert ("ABORTO, processo do Victor (sem certeza sobre o watcher: python sem linha de comando "
+            f"legível (PID {pids}), de novo na releitura 4 s depois)") in _registro(mundo)
+    if listagem == "tasklist":  # a releitura só pelo método que respondeu, com 6 s
+        assert [(n, lim) for n, lim, _t in mundo.chamadas if n != "git"] == [
+            ("powershell.exe", 20), ("wmic.exe", 20), ("tasklist.exe", 20), ("tasklist.exe", 6)]
+
+
+def test_vigiar_releitura_que_falha_conta_como_victor_jogando_em_ate_10_s(mundo):
+    # G0 também na releitura: pendurada, ela estoura os 6 s e aborta; da 1ª
+    # leitura ao fim da 2ª, 10 s.
+    _marca(mundo, 600)
+    mundo.processos = [(4321, "python.exe", None)]
+    rel = Relogio()
+    rel.no_sono[1] = lambda: mundo.pendurados.add("listagem")
+    assert _janela(mundo, "vigiar", rel=rel) == PARTIDA
+    assert [(n, lim, t - AGORA) for n, lim, t in mundo.chamadas if n != "git"] == [
+        ("powershell.exe", 20, 0), ("powershell.exe", 6, 4)]
+    assert rel.t - AGORA == 10 == jogavel.CONFIRMACAO_MAX_S
+    assert ("ABORTO, processo do Victor (sem certeza sobre o watcher: não deu pra listar os "
+            "processos (powershell.exe: SubprocessError)") in _registro(mundo)
+
+
+def test_vigiar_filho_do_vigiar_sem_linha_nao_aborta(mundo):
+    # Filho e neto do vigiar, sem linha o tempo todo: não contam, sem releitura.
+    _marca(mundo, 44 * 60 + 30)
+    mundo.processos = [(LANCADOR, "python.exe", VIGIAR, 9000, 90), (EU, "python.exe", VIGIAR, LANCADOR, 100),
+                       (5001, "python.exe", None, EU, 200), (5002, "python.exe", None, 5001, 300)]
+    rel = Relogio()
+    assert _janela(mundo, "vigiar", rel=rel) == VENCIDA
+    assert rel.sonos == [30] and "sinal sem confirmação" not in _registro(mundo)
+
+
+# A abertura gravou na marca a árvore do `abrir`: ele (700), o lançador
+# (699), o shell (650) e o agente servidor (600), que também é avô do
+# vigiar. O `jogavel.py rcon` (800, 801) roda noutro shell (660) do agente.
+ARVORE = [[700, "python.exe", 400], [699, "python.exe", 399], [650, "bash.exe", 300],
+          [600, "claude.exe", 100], [1, "explorer.exe", 10]]
+
+
+def _servidor(agente=(600, "claude.exe", 100)):
+    pid, nome, criado = agente
+    return [(1, "explorer.exe", None, 0, 10), (pid, nome, None, 1, criado),
+            (655, "bash.exe", None, pid, 310), (LANCADOR, "python.exe", VIGIAR, 655, 320),
+            (EU, "python.exe", VIGIAR, LANCADOR, 321), (660, "bash.exe", None, pid, 500),
+            (800, "python.exe", f"{PY} tools/jogavel.py rcon get5_status", 660, 510),
+            (801, "python.exe", f"{PY} tools/jogavel.py rcon get5_status", 800, 511),
+            (802, "python.exe", None, 801, 520), (803, "python.exe", None, 802, 521)]
+
+
+@pytest.mark.parametrize("agente,arvore,aborta", [
+    ((600, "claude.exe", 100), ARVORE, False),
+    # PID 600 reaproveitado: nasceu depois do da abertura, não é o mesmo
+    ((600, "claude.exe", 450), ARVORE, True),
+    # só o explorer em comum: hospedeiro da sessão, não é árvore do servidor
+    ((600, "claude.exe", 100), [[1, "explorer.exe", 10]], True),
+    ((600, "claude.exe", 100), None, True)])  # marca sem árvore
+def test_vigiar_python_sem_linha_da_arvore_do_servidor_nao_conta(mundo, agente, arvore, aborta):
+    _marca(mundo, 44 * 60 + 30, **({"arvore": arvore} if arvore is not None else {}))
+    mundo.processos = _servidor(agente)
+    rel = Relogio()
+    assert _janela(mundo, "vigiar", rel=rel) == (PARTIDA if aborta else VENCIDA)
+    assert rel.sonos == ([4] if aborta else [30])
+    assert ("python sem linha de comando legível (PID 802, 803), de novo" in _registro(mundo)) is aborta
+
+
+def test_abrir_grava_na_marca_a_arvore_do_abrir(mundo):
+    mundo.processos = [(4, "System", None, 0, 1), (600, "claude.exe", None, 4, 100),
+                       (650, "bash.exe", None, 600, 300),
+                       (LANCADOR, "python.exe", f"{PY} tools/jogavel.py janela abrir", 650, 399),
+                       (EU, "python.exe", f"{PY} tools/jogavel.py janela abrir", LANCADOR, 400),
+                       (999, "python.exe", None, EU, 50)]  # "filho" mais velho: não entra
+    assert _janela(mundo, "abrir", "--por", "pode mexer no servidor") == OK
+    dados = json.loads((mundo.raiz / MARCA).read_text(encoding="utf-8"))
+    assert dados["arvore"] == [[EU, "python.exe", 400], [LANCADOR, "python.exe", 399],
+                               [650, "bash.exe", 300], [600, "claude.exe", 100], [4, "System", 1]]
+
+
+def test_abrir_sem_powershell_grava_arvore_vazia(mundo):
+    mundo.listagem = "tasklist"
+    assert _janela(mundo, "abrir", "--por", "pode mexer no servidor") == OK
+    assert json.loads((mundo.raiz / MARCA).read_text(encoding="utf-8"))["arvore"] == []
 
 
 # ----------------------------------------- comandos do servidor (B0.7b)
