@@ -35,6 +35,14 @@ Bloqueia:
     o volume do Docker, por ferramenta de arquivo, redirecionamento, comando
     (rm, cp, mv, ln, tee, Set-Content...), curinga (rm -rf docker/*),
     chamada .NET ([IO.File]::Delete) ou código inline (python -c);
+  - cópia ou movimentação para uma pasta do checkout principal quando o
+    nome de uma origem é cs2_tracker.db (e -wal, -shm, -journal) ou .env: a
+    pasta mais o nome da origem é o alvo (Copy-Item -Path x/cs2_tracker.db
+    -Destination <R> escreve <R>/cs2_tracker.db), com -Destination e as
+    abreviações de -Des em diante, -Destination:<R>, -Path, -LiteralPath,
+    -LP, lista nua e em qualquer ordem (card B0.5e). Fora do checkout
+    principal, o banco copiado para uma pasta pode (cp x/cs2_tracker.db
+    <outra>/); pasta que não se resolve ($d) falha fechado;
   - leitura com curinga que casa o cs2_tracker.db (e -wal, -shm, -journal)
     do checkout principal: origem de cp/Copy-Item/copy, cat/type/Get-Content
     e sqlite3 (card B0.5b); pasta que não se resolve falha fechado;
@@ -114,8 +122,13 @@ sandbox: quem quer contornar contorna (card B0.5d).
   - escrita pelo pipe ou por xargs em data/profile.json, docker/events-live e
     afins; o banco e o .env só barram pela conferência de leitura quando o
     nome deles está na lista ('<R>/.env' | Remove-Item), não pela pasta;
-  - cópia com -Path nomeado e destino no principal: Copy-Item -Path
-    x/cs2_tracker.db -Destination <R> não confere <R>/cs2_tracker.db;
+  - lista com @(...) depois de vírgula no -Path (Select-String -Path
+    a,@('<R>/.env') x): passa, mas o PowerShell 5.1 recusa a forma (erro de
+    parâmetro) e não lê nada; fica registrada como não explorável;
+  - no Git Bash, //XD e //XF do robocopy (que o MSYS reescreve para /XD e
+    /XF) não são lidos como exclusão: o valor seguinte vira filtro. robocopy
+    <R> <destino> //XD x //E passa e copia a raiz, e robocopy docs <destino>
+    //XF cs2_tracker.db barra à toa (falso positivo);
   - filtros do rsync e do tar (--include, --exclude) não contam: cópia da
     raiz com eles barra; seq de chaves ({1..3}) não abre;
   - falso positivo: @( dentro de aspas ao lado de cmdlet de arquivo sai 2
@@ -281,7 +294,9 @@ _NOMES_DO_BANCO = ("cs2_tracker.db", "cs2_tracker.db-wal", "cs2_tracker.db-shm",
 
 def _motivo_protegido(bruto, ctx, modo="escrita"):
     """(motivo, alternativa) se `bruto` é caminho protegido, senão None.
-    modo: escrita, apagar (o cs2_tracker.db fora do principal pode) ou mover."""
+    modo: escrita, apagar e destino (nos dois, o cs2_tracker.db fora do
+    principal pode; destino é a pasta de cópia mais o nome da origem) ou
+    mover."""
     if bruto.startswith(("(", "$(")) and bruto.endswith(")"):  # (Join-Path $PWD 'x'), $(...)
         for caminho in _caminhos_de_expressao(bruto[bruto.index("(") + 1:-1], ctx):
             achado = _motivo_protegido(caminho, ctx, modo)
@@ -297,7 +312,7 @@ def _motivo_protegido(bruto, ctx, modo="escrita"):
     chaves = [forma.lower()] + ([absoluto.lower()] if absoluto else [])
     nome = chaves[0].rsplit("/", 1)[-1]
     if nome == "cs2_tracker.db" or nome.startswith("cs2_tracker.db-"):
-        lixo_local = (modo == "apagar" and absoluto is not None
+        lixo_local = (modo in ("apagar", "destino") and absoluto is not None
                       and not ctx.no_principal(posixpath.dirname(absoluto)))
         if not lixo_local:
             return "é o banco cs2_tracker.db", ALT_BANCO
@@ -1412,21 +1427,44 @@ def _alvos_de_escrita(prog, args):
     if prog in _APAGAR:
         return [(a, "apagar") for a in caminhos + pos]
     if prog in _MOVER:
-        return [(a, "mover") for a in caminhos + pos]
+        destinos, origens = _destinos_e_origens(prog, nomeados, pos)
+        return [(a, "mover") for a in caminhos + pos] + _na_pasta(destinos, origens)
     if prog in _COPIAR:
-        destinos = [v for nome, v in nomeados if nome in _DESTINO]
-        origens = pos
-        if not destinos and pos and (len(pos) >= 2 or caminhos):
-            destinos, origens = [pos[-1]], pos[:-1]
-            if prog == "robocopy" and len(pos) >= 2:  # robocopy origem destino arquivos...
-                destinos = [pos[1]] + [pos[1].rstrip("/\\") + "/" + a for a in pos[2:]]
-                origens = []
-        alvos = list(destinos)
-        for destino in destinos:  # destino pasta: cp x/cs2_tracker.db .
-            for origem in origens:
-                alvos.append(destino.rstrip("/\\") + "/" + _barras(origem).rsplit("/", 1)[-1])
-        return [(a, "escrita") for a in alvos]
+        destinos, origens = _destinos_e_origens(prog, nomeados, pos)
+        return [(a, "escrita") for a in destinos] + _na_pasta(destinos, origens)
     return [(a, "escrita") for a in caminhos + pos]
+
+
+def _eh_destino(nome):
+    """-Destination, as abreviações que o PowerShell aceita (de -Des em
+    diante: -D e -De empatam com -Debug), -t e --target-directory."""
+    return nome in _DESTINO or (len(nome) >= 3 and "destination".startswith(nome))
+
+
+def _destinos_e_origens(prog, nomeados, pos):
+    """([destino], [origem]) de cópia ou movimentação. Com destino nomeado
+    (-Destination, -Des:<R>, -t), toda palavra solta é origem; sem ele, o
+    destino é a última. Nomeado que não é destino (-Path, -LiteralPath, -LP,
+    abreviação) também é origem, em qualquer ordem (card B0.5e)."""
+    destinos = [v for nome, v in nomeados if _eh_destino(nome)]
+    origens = [v for nome, v in nomeados if not _eh_destino(nome) and nome not in _PS_NAO_CAMINHO]
+    if destinos:
+        return destinos, origens + pos
+    if pos and (len(pos) >= 2 or origens):
+        if prog == "robocopy" and len(pos) >= 2:  # robocopy origem destino arquivos...
+            return [pos[1]] + [pos[1].rstrip("/\\") + "/" + a for a in pos[2:]], []
+        return [pos[-1]], origens + pos[:-1]
+    return [], []
+
+
+def _na_pasta(destinos, origens):
+    """Destino que é pasta recebe o arquivo com o nome da origem: Copy-Item
+    -Path x/cs2_tracker.db -Destination <R> escreve <R>/cs2_tracker.db (card
+    B0.5e). Modo `destino`: o banco com esse nome só barra no checkout
+    principal ou quando a pasta não se resolve; o .env e o resto barram como
+    escrita."""
+    return [(destino.rstrip("/\\") + "/" + _barras(origem).rsplit("/", 1)[-1], "destino")
+            for destino in destinos for origem in origens]
 
 
 # Comandos que leem o arquivo e o mostram, copiam ou entregam a outro programa:
