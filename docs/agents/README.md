@@ -3,7 +3,7 @@ tipo: indice
 status: rascunho
 fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.kb_structure; card H1.9)"
-atualizado: 2026-09-28
+atualizado: 2026-10-03
 ---
 
 # Agents
@@ -12,4 +12,9 @@ Como os agentes trabalham neste repo, além do [AGENTS.md](../../AGENTS.md): o p
 
 - [sprints.md](sprints.md): a ordem das sprints pelas siglas do board, o que cada uma contempla e as exceções aprovadas.
 
-Notas previstas (H1.9): `plano-2026-09-26.json`, `licoes.md`, `pm-playbook.md` e `ideias.md`. O board em si fica no vault `docs/board-cs2/`, fora do git ([ADR-0002](../adr/0002-kb-e-board-no-obsidian.md)).
+- [plano-2026-09-26.json](plano-2026-09-26.json): o plano de 26/09 (parte `final` do `all.json` do backup; a crítica e os julgamentos ficam no backup, porque citam dado que não vai para repo público).
+- [licoes.md](licoes.md): o que o programa aprendeu errando (L01–L05) e onde cada lição virou regra.
+- [pm-playbook.md](pm-playbook.md): o manual da sessão do PM.
+- [ideias.md](ideias.md): sugestões que ainda não viraram card.
+
+O board em si fica no vault `docs/board-cs2/`, fora do git ([ADR-0002](../adr/0002-kb-e-board-no-obsidian.md)).

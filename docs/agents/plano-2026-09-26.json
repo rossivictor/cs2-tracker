@@ -1,0 +1,2692 @@
+{
+  "summary": "Plano final revisado. Aplica os 8 bloqueios da crítica e os ajustes não bloqueantes que valem a pena. A arquitetura do programa é a mesma: bots primeiro, trilho único, voltar em Python, evidência de carona na partida normal, extrair antes de podar.\n\nCorreções dos bloqueios:\n1. Arquivo montado por bind (cfg, pre.sh, match_config, pasta do plugin) só muda em janela, com `up -d --force-recreate`. G6/G7 comparam o sha256 DENTRO do container com o do checkout.\n2. Captura que não carrega gera AVISO e a partida segue. Abortar é opt-in (Q19).\n3. Órfão = current.jsonl com round_start, player_death ou player_hurt depois do último arquivamento. A cauda de snapshots de toda partida limpa não conta.\n4. Colisão de demo_name nunca descarta partida (P1.1a). O snapshot restaurado exclui o estado de matchid da MatchZy.\n5. B0.2 copia a auditoria inteira e este plano para o backup, antes de qualquer card de dev.\n6. Hook com caminho absoluto do Python e falha fechada, deny/ask para Bash e PowerShell, testado de dentro de uma worktree.\n7. S1 depende de K1.4, K1.5 e K1.6.\n8. Janela vigiada a cada 30 s, container parado no máximo 5 min, checklist de fechamento com a MatchZy sem partida carregada, e 'terminei' definido.\n\nAjustes não bloqueantes: o voltar só recusa com partida em curso; LF garantido no pre.sh; import tardio no watcher; migrações só aditivas; config.compose_files() único; servidor.py fundido no jogavel.py; caminho crítico dos bots mais curto; licença e snapshot antes do CSSharp; checagem de PII; métrica de linhas com base 8.028; vault = docs/board-cs2 (Q21). H1.10, K1.7, B2 e S8 ficam fora do backlog ativo.\n\nA pauta foi reescrita como o Victor pediu: Q1–Q9 agora, Q10–Q21 com prazo. Mudanças: Q19 passou a ser 'captura não carregou' (a carência da TUI virou informativa) e Q21 é nova (vault).",
+  "principles": [
+    "O jogo é do Victor. A main é sempre jogável, todo sprint termina numa tag jogavel-* em que ele jogou, e nenhuma etapa o impede de jogar quando quiser, sem aviso.",
+    "Trilho único: no máximo uma mudança não validada em partida no caminho de jogo.",
+    "Infra é compose, fontes de bind mount (cfg, pre.sh, match_config, plugins) e DLL. Só muda em janela, pelo papel servidor, a partir do checkout principal, com --force-recreate. O G6 prova o sha256 dentro do container, até em mudança só de comentário.",
+    "Voltar ao jogável é um comando Python que funciona sem agente: `.venv/Scripts/python.exe tools/jogavel.py voltar`. Só recusa com partida em curso.",
+    "A partida normal do Victor é o teste de aceitação. A evidência é lida depois, por ferramenta, sem tocar no que está vivo. A impressão dele é bem-vinda, mas não bloqueia.",
+    "Falha de captura avisa, não trava o jogo. Abortar a partida só com opt-in dele.",
+    "Zero perda de dados: backup antes de toda janela, volume external, C:/cs2server e o volume intocáveis. Nenhuma partida descartada em silêncio: colisão de nome vira arquivo novo.",
+    "Trava determinística antes de regra em prosa. O hook falha fechado e usa caminho absoluto, porque as worktrees não têm .venv.",
+    "Uma variável por experimento, evidência antes de concluir, confundidores registrados (overflow no signon, SteamCMD, RayTrace).",
+    "Extrair antes de podar. Só se apaga o que foi confirmado; refutado nunca, e incerto ganha card de checagem.",
+    "Kalendas enxuto: 1 dev por vez, 4 subagentes, board com B0/B1 + 1 sprint Offline, custo medido por card.",
+    "Decisões definitivas não voltam a ser pergunta. wizard_tui.py fica sem diff até o S8.",
+    "A .venv é a do jogo: nenhum agente instala nada. Agentes usam o caminho absoluto C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe.",
+    "Repo público: nenhum SteamID real, IP ou segredo em docs/, tests/ ou no plano.",
+    "Tudo em pt-BR."
+  ],
+  "playability_protocol": "1. JOGÁVEL E CAMINHO DE JOGO\nJogável: a TUI ou o start_match, rodados no checkout principal (C:/Users/Victor/Projetos/cs2-tracker), sobem o servidor, os bots entram, a partida vai até o fim e é ingerida.\n\nCaminho de jogo:\n- docker-compose.yml, docker/pre.sh, docker/plugins-src/**, docker/plugins/** e server-configs/**;\n- start_match.py, wizard_core.py, wizard_tui.py, watcher.py, parser.py, config.py, identity.py e roster.py;\n- stats.py, home.py e report.py, até o P1.3 provar o isolamento;\n- cs2tracker/{settings,db,ingest,server};\n- web/, a partir do S6.3.\n\nQualquer diff nesses arquivos é um degrau. A exceção é diff só de comentário em arquivo NÃO montado, provado por `docker compose config` idêntico e checar_so_comentarios.py.\n\n2. INFRA\nInfra = docker-compose.yml, toda fonte de bind (lista gerada de `docker compose config`) e docker/plugins/*.\n\nMudança de infra:\n- só em janela, pelo servidor;\n- `docker compose up -d --force-recreate` a partir do checkout principal;\n- motivo: o start_match não recria um container que já está de pé (start_match.py:733-736), e bind de arquivo único segue o inode antigo (start_match.py:238-241). O config-hash não enxerga o conteúdo dos binds.\n\nO `atualizar` recusa commits que tocam infra quando não há janela aberta.\n\n3. TAGS E REGISTRO\n- jogavel-AAAA-MM-DD: commit que passou por partida real.\n- candidato-N: merge de um degrau que aguarda partida.\n- docs/runbooks/versoes-conhecidas.md registra, por tag:\n  - build do CS2, Metamod, CSSharp, MatchZy, imagem e digest;\n  - plugins ativos e mascarados; variante do VPK;\n  - sha256 do compose e config-hash;\n  - sha256 DENTRO do container de gamemode_competitive_server.cfg, pre.sh, match_config, Cs2TrackerEvents.dll e .deps.json;\n  - manifesto da pasta do plugin (cópia em C:/Users/Victor/cs2-tracker-backups/plugins/Cs2TrackerEvents/<sha256 do DLL>/);\n  - partida que serviu de evidência.\n- Primeira tag: jogavel-2026-09-26 = efcaa42, evidência na partida 24 (events_60_map0). Sintoma que já existia: overflow no signon às 16:04.\n\n4. TRILHO ÚNICO\n- Um candidato por vez.\n- Exceção: 2 mudanças defensivas com evidências disjuntas, justificadas no card.\n- Durante a B1, só cards da B1 editam o compose.\n\n5. COMO A MUDANÇA CHEGA\n- Python sem infra: o TM roda `jogavel.py atualizar` com preflight 0 e Q6=A.\n- Infra: o servidor, em janela.\n- Aviso ao Victor sobre o que a próxima partida valida:\n  - mensagem no chat mais PushNotification;\n  - `jogavel.py status`;\n  - depois do P1.1, uma linha [INFO] no log da TUI/start_match, lida de data/candidato.json.\n\n6. EVIDÊNCIA DE CARONA\nDepois da partida, com preflight 0:\n1. o servidor roda `jogavel.py coletar` (só leitura, sem janela): docker logs --since StartedAt, config-hash e sha256 dos arquivos montados via docker exec sha256sum;\n2. o QA roda tools/evidencia_partida.py sobre os logs salvos, o JSONL arquivado e uma cópia mode=ro do banco.\n\nResultado:\n- G7 ok → jogavel-<data>;\n- ruim → revert e voltar;\n- abandonada, não ingerida ou sha montado divergente → sem evidência, espera outra partida.\n\nA impressão do Victor é opcional.\n\n7. VOLTAR\n`jogavel.py voltar [--tag X] [--seco] [--agora]`\nRecusa só com partida em curso: current.jsonl com evento de round há menos de 2 min, ou watcher ingerindo. cs2.exe e TUI abertos geram aviso, com o que fechar. `--agora` pede confirmação digitada.\n\nPassos:\n1. salva os docker logs;\n2. trata match_config.spike.json: copia, faz checkout, switch e restaura se ainda for rastreado;\n3. `git switch --detach <tag>`;\n4. restaura a pasta do plugin pelo manifesto sha256, com o container parado;\n5. confere que docker/pre.sh não tem '\\r' (aborta com o comando de conserto se tiver);\n6. se a infra difere, --force-recreate com build antes e depois.\n\nVálvula vanilla: `voltar --tag jogavel-2026-09-26` até o P1.2; depois, `jogavel.py vanilla on`.\n\n8. JANELAS\nTipos: Janela 0, pré-partida, pós-partida e de dados.\n\nAbertura: pelo Victor, ou pelo PM com OK explícito. A pós-partida da trilha de bots vale com Q5=A, depois do 'terminei' = 'fechei a TUI e o jogo'. Nunca por ausência de processo.\n\nRegras:\n- antes: preflight 0, backup.py e logs salvos;\n- snapshot antes de mexer no volume;\n- uma variável por janela; no máximo 45 min;\n- container parado no máximo ~5 min por passo;\n- `jogavel.py janela vigiar` a cada ≤30 s: se aparecer cs2.exe, wizard_tui ou start_match iniciado depois da abertura, aborta e devolve o jogável na hora.\n\nChecklist de fechamento (G6):\n- MatchZy sem partida carregada (css_endmatch ou restart);\n- mp_ignore_round_win_conditions 0; sv_hibernate_when_empty e bot_quota nos valores normais;\n- sha256 montados = checkout;\n- registro em logs/janelas/<data>.md.\n\n9. QUEM TOCA O QUÊ\n- Container, RCON e volume: só o servidor, em janela, via jogavel.py. `coletar` basta preflight 0.\n- Banco vivo: watcher, migração com backup e janela de dados executada pelo servidor.\n- Porta 8000: é do Victor; agentes usam a 8010, sem docker cp.\n- C:/cs2server e o volume: nunca.\n- O volume só é escrito pela extração da imagem ao subir CSSharp ou Metamod (B1.3, B2.2) e por restauração de snapshot, sempre com snapshot antes.\n\n10. PREFLIGHT\ntools/preflight.py devolve:\n- 0: livre;\n- 3: Victor jogando (cs2.exe; wizard_tui, watcher ou start_match; current.jsonl com menos de 10 min);\n- 4: janela aberta.\nO 3 tem precedência sobre o 4.\n\n11. NUNCA\n- down -v, volume rm/prune, compose run, compose fora do checkout principal;\n- git clean, pip install;\n- porta 8000;\n- VPK ou DLL com o servidor vivo;\n- docker logs com partida em curso;\n- aposentar a TUI antes da D13 e do OK dele.",
+  "sprints": [
+    {
+      "id": "B0",
+      "name": "Linha de base jogável e travas",
+      "goal": "Criar referência, volta em um comando, travas e backup do que só existe no %TEMP%. Única mudança de infra: o volume external, validado mecanicamente na Janela 0.",
+      "why_now": "Nada toca o servidor sem retorno comprovado. O %TEMP% guarda a auditoria e os clones, e um compose em worktree pode custar 60 GB.",
+      "exit_criteria": [
+        "Tag jogavel-2026-09-26 no origin; main em FF.",
+        "Auditoria, plano, clones e teste-correcao.log no backup, com manifesto sha256.",
+        "Hook testado de dentro de uma worktree real; deny/ask para Bash e PowerShell.",
+        "jogavel.py parte 1 testado e ensaiado na Janela 0.",
+        "Volume external aplicado, com docker inspect de volume e mounts idênticos."
+      ],
+      "owner_play_needed": "Responder Q1–Q9, abrir a Janela 0 (30–45 min) e jogar normalmente depois.",
+      "rollback": "Tudo é aditivo, menos o volume external: `jogavel.py voltar --tag jogavel-2026-09-26`.",
+      "cards": [
+        {
+          "id": "B0.2",
+          "title": "Backup da auditoria, do plano e da sessão paralela (PRIMEIRO)",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente+Humano",
+          "depends_on": [],
+          "acceptance": [
+            "scratchpad/audit/ inteiro (eb5adec0) e o JSON final deste plano estão em C:/Users/Victor/cs2-tracker-backups/2026-09-26/temp-artifacts/eb5adec0/, com manifesto sha256, antes de qualquer card de dev.",
+            "Clones e arquivos de 5a2af0df (apidump, botai, bullseye, cbi, improver, gd-*.json, *.py, p11*.db, plugin-0.2.0.cs.bak) estão em temp-artifacts/5a2af0df/, com sha256. Nada é apagado na origem.",
+            "logs/teste-correcao.log está em repo-local/logs/, com sha256.",
+            "O handoff está copiado para docs/historico/2026-09-26-handoff-plugins-de-bot.md. Q2 registrada."
+          ],
+          "files": [
+            "docs/historico/2026-09-26-handoff-plugins-de-bot.md"
+          ],
+          "notes": "Os dead_*.json e o infra.json são a fonte de verdade de S1 e K1."
+        },
+        {
+          "id": "B0.1",
+          "title": "Merge FF e tag jogavel-2026-09-26",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B0.2"
+          ],
+          "acceptance": [
+            "Com Q1=A e preflight 0: main == origin/main por FF, sem squash.",
+            "A tag anotada aponta para efcaa42, com versões, suíte mascarada, VPK High, partida 24 e o overflow das 16:04.",
+            "O sha256 de match_config.spike.json é o mesmo antes e depois."
+          ],
+          "files": [],
+          "notes": "Com Q1=B, a tag vai no efcaa42 e o merge fica para depois."
+        },
+        {
+          "id": "B0.3",
+          "title": "Registro de versões conhecidas",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.1"
+          ],
+          "acceptance": [
+            "docs/runbooks/versoes-conhecidas.md tem todas as colunas da seção 3 do protocolo, inclusive o sha256 dentro do container dos arquivos montados (preenchido na Janela 0).",
+            "A pasta docker/plugins/Cs2TrackerEvents/ (dll, deps.json, pdb) está copiada para backups/plugins/Cs2TrackerEvents/<sha256>/, com manifesto.",
+            "A lista de mascarados confere com as linhas _empty (101, 108, 141-146, 149 e 155)."
+          ],
+          "files": [
+            "docs/runbooks/versoes-conhecidas.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B0.4",
+          "title": "AGENTS.md mínimo, CLAUDE.md, deny/ask e preflight",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B0.1"
+          ],
+          "acceptance": [
+            "AGENTS.md tem no máximo 120 linhas, com a regra do caminho ABSOLUTO C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe. CLAUDE.md contém só @AGENTS.md.",
+            "Com Q3=A, deny e ask estão DUPLICADOS em Bash(...) e PowerShell(...): deny para compose down, volume rm/prune, system prune, git clean, pip install e compose run; ask para compose up/stop/restart e docker run/exec/cp.",
+            "tools/preflight.py devolve 0, 3 ou 4 (3 com precedência), com teste.",
+            ".cursor/rules/agentes.md repete as proibições (o Cursor não obedece hooks)."
+          ],
+          "files": [
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".claude/settings.json",
+            "tools/preflight.py",
+            "tests/test_preflight.py",
+            ".cursor/rules/agentes.md"
+          ],
+          "notes": "Configuração persistente: só com Q3."
+        },
+        {
+          "id": "B0.5",
+          "title": "Hook de guarda que falha fechado",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.4"
+          ],
+          "acceptance": [
+            "Registrado com o interpretador absoluto e o script via $CLAUDE_PROJECT_DIR/tools/hooks/guarda.py, para Bash, PowerShell, Edit e Write.",
+            "Qualquer exceção ao analisar comando docker, git ou pip sai com 2.",
+            "Bloqueia: compose fora do checkout principal; compose run; down -v; volume rm/prune; git clean; pip install; uvicorn na 8000; escrita em cs2_tracker.db, .env, data/profile.json e events-live; C:/cs2server; docker logs com preflight 3.",
+            "No Write em docs/ e tests/fixtures/, bloqueia PII: SteamID64 real, [U:1:n], IPv4 fora de 127.0.0.1/0.0.0.0 e valores de SRCDS_TOKEN, CS2_RCONPW e MATCHZY_ADMINS lidos do .env (o hook nunca imprime os valores). O módulo fica em tools/hooks/pii.py.",
+            "test_guarda.py tem pelo menos 25 casos. Um teste disparado de DENTRO de uma worktree real bloqueia `docker compose up`, `compose run` e `pip install`."
+          ],
+          "files": [
+            "tools/hooks/guarda.py",
+            "tools/hooks/pii.py",
+            ".claude/settings.json",
+            "tests/test_guarda.py"
+          ],
+          "notes": "Primeiro card de dev em worktree; nenhum outro dev roda antes do merge dele."
+        },
+        {
+          "id": "B0.6",
+          "title": "tools/backup.py",
+          "camada": "Dados",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.5"
+          ],
+          "acceptance": [
+            "Banco copiado pela API de backup (origem em mode=ro), com integrity_check e contagem de matches.",
+            "Copia events-live, profile, logs e docs/board-cs2, e guarda cada pasta docker/plugins/*/ por manifesto sha256.",
+            "Recusa com preflight 3, salvo --leitura-com-jogo. Teste prova a origem intacta."
+          ],
+          "files": [
+            "tools/backup.py",
+            "tests/test_backup.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B0.7",
+          "title": "jogavel.py parte 1: status, voltar, atualizar, janela",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.3",
+            "B0.6"
+          ],
+          "acceptance": [
+            "voltar segue a seção 7 do protocolo: recusa só com partida em curso; --agora com confirmação digitada; mensagem diz o que fechar; runtime file; switch; checagem de '\\r' no pre.sh; --force-recreate se a infra difere; build antes e depois.",
+            "atualizar: preflight 0; recusa commits que tocam compose, fontes de bind ou plugins sem janela; imprime 'reabra a TUI e o uvicorn'.",
+            "janela abrir, fechar e vigiar (a cada ≤30 s, com aborto se aparecer processo do Victor) e checklist de fechamento.",
+            "Entram .gitattributes mínimo (`*.sh text eol=lf`) e, no .gitignore: logs/, data/servidor.json, data/candidato.json, docker/runtime/, docs/board-cs2/ e docs/.obsidian/.",
+            "Testes em repo temporário com docker falso cobrem: partida em curso × só cs2.exe; runtime file nos dois sentidos; pre.sh com CRLF aborta; detecção de fonte de bind; --seco."
+          ],
+          "files": [
+            "tools/jogavel.py",
+            "tests/test_jogavel.py",
+            ".gitattributes",
+            ".gitignore",
+            "docs/runbooks/voltar-ao-jogavel.md"
+          ],
+          "notes": "Fatiado para encurtar o caminho crítico. A pasta do plugin e o marcar vêm no B0.7b."
+        },
+        {
+          "id": "B0.7b",
+          "title": "jogavel.py parte 2: plugin por manifesto, marcar e comandos do servidor (funde o antigo H1.2)",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.7"
+          ],
+          "acceptance": [
+            "voltar restaura a pasta inteira do plugin pelo manifesto sha256, com o container parado, e confere.",
+            "marcar candidato|jogavel cria a tag, a linha do registro, a cópia da pasta do plugin e data/candidato.json.",
+            "Subcomandos do servidor (up/recreate com --force-recreate, stop, rcon, snapshot, restaurar, soak) exigem logs/janelas/ABERTA e cwd = checkout principal.",
+            "coletar exige só preflight 0 e salva logs, config-hash e o sha256 dos arquivos montados (docker exec sha256sum), com os binds tirados de `docker compose config`.",
+            "O hook passa a bloquear docker fora do jogavel.py, exceto ps, image inspect e compose config. Testes com docker falso."
+          ],
+          "files": [
+            "tools/jogavel.py",
+            "tools/hooks/guarda.py",
+            "tests/test_jogavel.py",
+            "tests/test_guarda.py"
+          ],
+          "notes": "Até aqui, o TM cria tags com git tag -a e o servidor segue o runbook. Pré-requisito do passo de DLL do B1.3 e do P1.10."
+        },
+        {
+          "id": "B0.8",
+          "title": "Volume external (declarativo)",
+          "camada": "Bots/Servidor",
+          "verificacao": "Servidor",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B0.5"
+          ],
+          "acceptance": [
+            "compose com cs2-data external, name cs2-tracker_cs2-data, sem name de projeto.",
+            "Validação mecânica na Janela 0: docker volume ls idêntico; docker inspect com o mesmo volume e os mesmos mounts de antes; G6 ok.",
+            "reconstruir-volume.md descreve a proteção real: container_name só barra `up` com o container de pé; compose run montaria o volume vivo (por isso o hook o bloqueia); com o container removido, um `up` de worktree subiria com os binds da worktree; Cursor sem hook; semente C:/cs2server; 0x602."
+          ],
+          "files": [
+            "docker-compose.yml",
+            "docs/runbooks/reconstruir-volume.md"
+          ],
+          "notes": "Não exige partida própria."
+        },
+        {
+          "id": "B0.9",
+          "title": "Janela 0",
+          "camada": "Bots/Servidor",
+          "verificacao": "Servidor",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B0.2",
+            "B0.7",
+            "B0.8"
+          ],
+          "acceptance": [
+            "Abertura com OK (Q4), preflight 0, backup e logs salvos, e vigilância ativa.",
+            "Snapshot: `docker run --rm --pull=never --entrypoint tar -v cs2-tracker_cs2-data:/d:ro ...` gera volume-addons.tgz com sha256. Sem tar, parar e perguntar.",
+            "inventario-volume.md registra: plugins, versões, configs e deps (pasta do BotRandomizer); sha256 de configs/core.json (FollowCS2ServerGuidelines); ONDE a MatchZy guarda o contador de matchid e o valor atual; variantes do VPK; digest.",
+            "O runbook de restauração exclui o estado de matchid da MatchZy, ou reaplica o contador atual.",
+            "Ensaio do voltar; B0.8 aplicado com --force-recreate; sha256 montados no registro; partida só de bots se Q7=A.",
+            "Checklist de fechamento cumprido: MatchZy sem partida carregada, cvars normais."
+          ],
+          "files": [
+            "docs/runbooks/inventario-volume.md",
+            "docs/runbooks/versoes-conhecidas.md",
+            "docs/runbooks/smoke-partida-de-bots.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B0.10",
+          "title": "Primeira partida normal depois da Janela 0",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B0.9"
+          ],
+          "acceptance": [
+            "O Victor joga normalmente. Depois, coletar mais o checklist manual do QA: partida ingerida, zero segfault, sha montados e config-hash iguais aos da janela.",
+            "O TM cria jogavel-<data>. Não bloqueia o B1.3: na mesma janela pós-partida, se isto der ok, o B1.3 é aplicado."
+          ],
+          "files": [
+            "docs/runbooks/versoes-conhecidas.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B0.11",
+          "title": "Runbook da trilha de bots e comentários falsos do compose",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.2",
+            "B0.10"
+          ],
+          "acceptance": [
+            "docs/runbooks/trilha-de-bots.md feito a partir do handoff.",
+            "Comentários falsos do compose corrigidos, com `docker compose config` idêntico (o compose não é montado).",
+            "README honesto sobre a suíte instalada à mão e mascarada."
+          ],
+          "files": [
+            "docs/runbooks/trilha-de-bots.md",
+            "docker-compose.yml",
+            "README.md"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Trilha de bots",
+      "goal": "CSSharp 1.0.375 e os plugins religados um por partida real, sem nunca quebrar o jogo.",
+      "why_now": "É a prioridade do Victor. A D2 está inválida desde 23/09.",
+      "exit_criteria": [
+        "CSSharp 1.0.375 ativo, ou volta documentada.",
+        "Cada plugin religado ou mascarado, com as assinaturas pelo nome.",
+        "BotRandomizer 5dfe948 por bind, ou mascarado.",
+        "Épocas registradas."
+      ],
+      "owner_play_needed": "~7 partidas normais, com as janelas pós-partida depois do seu 'terminei', e 2–4 janelas pré-partida curtas.",
+      "rollback": "Por passo: `jogavel.py voltar`. CSSharp: YAML de volta para a 1.0.373 e, de preferência, restauração do tgz da pasta counterstrikesharp sem o estado de matchid da MatchZy.",
+      "cards": [
+        {
+          "id": "B1.1",
+          "title": "Matriz de compatibilidade, guarda e licença",
+          "camada": "Bots/Servidor",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.2"
+          ],
+          "acceptance": [
+            "Tabela com fonte: Metamod mínimo da 1.0.375, MatchZy × 1.0.375, API usada pela captura, API de cada plugin.",
+            "Guarda confirmada no fonte para BotAimImprover, BotAI, BotState e BotBuy; NadeSystem e BotRandomizer marcados 'sem guarda'.",
+            "Licença do BotRandomizer registrada ANTES de qualquer workflow; se for copyleft, o B1.9 compila localmente."
+          ],
+          "files": [
+            "docs/runbooks/trilha-de-bots.md"
+          ],
+          "notes": "Só leitura; re-clone só com OK."
+        },
+        {
+          "id": "B1.2",
+          "title": "Cs2TrackerEvents compilado contra 1.0.375",
+          "camada": "Captura",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "T1.1"
+          ],
+          "acceptance": [
+            "Versão da API por propriedade MSBuild, padrão 1.0.373; CI em matriz com artefato e sha256.",
+            "compilar-plugin.md atualizado."
+          ],
+          "files": [
+            "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEvents.csproj",
+            ".github/workflows/ci.yml",
+            "docs/runbooks/compilar-plugin.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B1.3",
+          "title": "CSSharp v1.0.375 com a suíte mascarada",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B0.9",
+            "B1.1"
+          ],
+          "acceptance": [
+            "O PR muda só CSSHARP_FIXED_VERSION. O card pede OK para o download que a imagem faz no boot.",
+            "Na janela: snapshot IMEDIATAMENTE antes; sha256 de core.json e das configs de plugin antes e depois (divergência é registrada ou restaurada); --force-recreate; build antes e depois.",
+            "G6: sem as 2 assinaturas; MatchZy e captura carregados (linha de load no log).",
+            "Se a captura não carregar: DLL 1.0.375 só com B1.2 e B0.7b prontos; senão voltar e Bloqueada.",
+            "Partida: ingerida, zero segfault, nenhum overflow depois de SIGNONSTATE_FULL + 60 s, sha montados conferidos."
+          ],
+          "files": [
+            "docker-compose.yml",
+            "docs/runbooks/versoes-conhecidas.md"
+          ],
+          "notes": "A imagem extrai o zip dentro do volume: é uma das exceções da regra, com snapshot."
+        },
+        {
+          "id": "B1.4",
+          "title": "Religar BotAimImprover",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B1.3"
+          ],
+          "acceptance": [
+            "Só a linha 142 muda; aplicação na janela pós-partida, com G6 e as assinaturas pelo nome.",
+            "Partida completa: zero segfault, nenhum overflow em jogo, ingerida.",
+            "Impressão do Victor opcional, registrada se vier."
+          ],
+          "files": [
+            "docker-compose.yml"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B1.5",
+          "title": "Religar BotState",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B1.4"
+          ],
+          "acceptance": [
+            "Só a linha 146 muda; sem guarda confirmada, janela pré-partida com partida só de bots.",
+            "Mesmos critérios objetivos do B1.4."
+          ],
+          "files": [
+            "docker-compose.yml"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B1.6",
+          "title": "Religar BotBuy",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B1.5"
+          ],
+          "acceptance": [
+            "Só a linha 143 muda; mesma regra de janela do B1.5.",
+            "As compras dos bots variam mais que no events_60; partida ingerida."
+          ],
+          "files": [
+            "docker-compose.yml"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B1.7",
+          "title": "Religar BotAI",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B1.6"
+          ],
+          "acceptance": [
+            "Só a linha 141 muda; lista pelo nome das 43 assinaturas que falham.",
+            "Conclusão: religado, degradado ou mascarado."
+          ],
+          "files": [
+            "docker-compose.yml",
+            "docs/runbooks/trilha-de-bots.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B1.8",
+          "title": "Religar NadeSystem",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B1.7",
+            "H1.1"
+          ],
+          "acceptance": [
+            "Linha de base de granadas de bot medida no events_60.",
+            "Janela pré-partida: com qualquer assinatura faltando, volta a mascarado. Partida só de bots com pelo menos 5 rounds (Q7=A; com Q7=B fica mascarado; com Q7=C vai direto para a partida dele).",
+            "Partida normal sem segfault e com granadas acima da linha de base."
+          ],
+          "files": [
+            "docker-compose.yml"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B1.9",
+          "title": "BotRandomizer 5dfe948 por bind mount",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B1.8",
+            "T1.1",
+            "B0.7b"
+          ],
+          "acceptance": [
+            "Build no SHA exato: pelo CI se a licença permitir redistribuir; senão, compilação local no container do SDK (mecanismo de docker/build-events-plugin.sh), feita pelo servidor; ou o Victor baixa e passa o caminho.",
+            "Download só com OK. A pasta docker/plugins/BotRandomizer/ recebe o DLL e as configs extraídas do tgz, com sha256 iguais aos do volume.",
+            "Janela pré-partida com G6 e partida só de bots; na partida normal, o Victor confirma skins."
+          ],
+          "files": [
+            ".github/workflows/plugins-terceiros.yml",
+            "docker-compose.yml",
+            ".gitignore",
+            "docs/runbooks/trilha-de-bots.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B1.10",
+          "title": "Fechamento da trilha",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B1.9"
+          ],
+          "acceptance": [
+            "Uma linha por passo no registro, com as épocas.",
+            "Sobras pelo nome, com recomendação para Q16 e Q17.",
+            "ADR-0005 atualizado."
+          ],
+          "files": [
+            "docs/runbooks/versoes-conhecidas.md",
+            "docs/runbooks/trilha-de-bots.md",
+            "docs/adr/0005-trilha-de-bots-uma-variavel-por-vez.md"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "H1",
+      "name": "Harness enxuto",
+      "goal": "Evidência por ferramenta, CLI do board, papéis e skills.",
+      "why_now": "Anda em paralelo à B1 sem tocar no jogo. O H1.1 deve ficar pronto antes da partida do B1.3; sem ele, vale o checklist manual.",
+      "exit_criteria": [
+        "evidencia_partida.py e o CLI do board com testes verdes.",
+        "Vault docs/board-cs2 aberto, com 1 visão.",
+        "4 papéis e 4 skills; AGENTS.md completo."
+      ],
+      "owner_play_needed": "~15 min para abrir o vault.",
+      "rollback": "Reverter o PR.",
+      "cards": [
+        {
+          "id": "H1.1",
+          "title": "tools/evidencia_partida.py",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.5"
+          ],
+          "acceptance": [
+            "Só leitura: banco por mode=ro (mtime intacto), JSONL arquivados, logs/servidor.",
+            "Conta segfault, assinaturas por plugin, Fatal error, plugins carregados, build e config-hash. Classifica overflow como signon ou em jogo e dá a frequência por partida.",
+            "Detecta: mapa NULL; placar × MR12; JSONL arquivado sem linha no banco; COLISÃO de demo_name; current.jsonl COM rounds não arquivado (cauda só de snapshot/round_stats/round_officially_ended é normal); sha montados divergentes; granadas de bot.",
+            "Gabarito com recortes anonimizados de 19/09 e 26/09, e a cauda real do current.jsonl de 26/09 como fixture."
+          ],
+          "files": [
+            "tools/evidencia_partida.py",
+            "tests/test_evidencia_partida.py",
+            "tests/fixtures/logs/"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "H1.3",
+          "title": "CLI do board em Python",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.5"
+          ],
+          "acceptance": [
+            "validar, fila (--agora, trilho único), criar --spec, mover, historico e reclassificar; --seco e --papel.",
+            "Valores exatos dos campos; testes portados de board.ts."
+          ],
+          "files": [
+            "tools/board/",
+            "tests/board/"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "H1.4",
+          "title": "Vault do board",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "H1.3"
+          ],
+          "acceptance": [
+            "Com Q21=A: vault = docs/board-cs2/ (gitignored), como no kalendas, com Board.base de 1 visão (Esteira). Com Q21=B: docs/ como vault, com a regra 'edição do Victor em nota versionada vira commit do TM a pedido'.",
+            "Caminho absoluto no AGENTS.md; backup.py copia a pasta."
+          ],
+          "files": [
+            "tools/board/Board.base",
+            "AGENTS.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "H1.5",
+          "title": "Abrir o vault",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Humano",
+          "depends_on": [
+            "H1.4"
+          ],
+          "acceptance": [
+            "O Victor abre o vault e instala o Better Kanban Bases View."
+          ],
+          "files": [],
+          "notes": ""
+        },
+        {
+          "id": "H1.6",
+          "title": "Papéis em .claude/agents",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "H1.3"
+          ],
+          "acceptance": [
+            "tech-manager, dev, qa e servidor, cada um com no máximo 120 linhas, frontmatter testado e relatórios fixos.",
+            "Todos citam o Python absoluto."
+          ],
+          "files": [
+            ".claude/agents/",
+            "tests/test_agentes_frontmatter.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "H1.7",
+          "title": "Skills e web dourado",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "H1.6",
+            "H1.1"
+          ],
+          "acceptance": [
+            "board-cs2, cs2-servidor, cs2-partida e cs2-web.",
+            "web_golden na 8010 com catálogo de VPK de fixture: nunca faz docker cp (roster.py:260-272 recebe o catálogo injetado)."
+          ],
+          "files": [
+            ".claude/skills/",
+            "tools/web_golden.py",
+            ".claude/launch.json"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "H1.8",
+          "title": "AGENTS.md completo",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "H1.6",
+            "B0.7b"
+          ],
+          "acceptance": [
+            "No máximo 200 linhas, cada regra com a origem, sem duplicação com os papéis."
+          ],
+          "files": [
+            "AGENTS.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "H1.9",
+          "title": "Plano, lições, playbook e semente",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "H1.4",
+            "H1.8"
+          ],
+          "acceptance": [
+            "docs/agents/sprints.md e plano-2026-09-26.json versionados, com o check de PII verde.",
+            "licoes.md L01–L05; pm-playbook; ideias.md.",
+            "O board é semeado com B0/B1 mais o sprint Offline corrente e o próximo."
+          ],
+          "files": [
+            "docs/agents/"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "H1.10",
+          "title": "Limpeza de worktrees (adiado)",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "H1.3"
+          ],
+          "acceptance": [
+            "limpar_worktrees.py com --seco, sem tocar o checkout principal."
+          ],
+          "files": [
+            "tools/limpar_worktrees.py"
+          ],
+          "notes": "Fora do backlog ativo até haver 8 ou mais worktrees."
+        }
+      ]
+    },
+    {
+      "id": "T1",
+      "name": "Testes herméticos, G4 e CI",
+      "goal": "Suíte verde em clone limpo e G4 antes de tocar no caminho de jogo.",
+      "why_now": "O P1 mexe no caminho de jogo.",
+      "exit_criteria": [
+        "CI verde em clone limpo.",
+        "G4 e o teste de integração TUI → run_match.",
+        "PII e CRLF checados no CI."
+      ],
+      "owner_play_needed": "Q20.",
+      "rollback": "Reverter PRs.",
+      "cards": [
+        {
+          "id": "T1.1",
+          "title": "CI mínimo (compose e plugin)",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.5"
+          ],
+          "acceptance": [
+            "Jobs compose e plugin verdes; PRs de prova ficam vermelhos."
+          ],
+          "files": [
+            ".github/workflows/ci.yml"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "T1.2",
+          "title": "pyproject e lock",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "T1.1"
+          ],
+          "acceptance": [
+            "pyproject (3.13), requirements-dev e lock sem instalar nada.",
+            "O ruff não está na .venv: o G2 roda só no CI."
+          ],
+          "files": [
+            "pyproject.toml",
+            "requirements-dev.txt",
+            "requirements.lock",
+            ".python-version"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "T1.3",
+          "title": "Fixtures anonimizadas",
+          "camada": "Captura",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.2"
+          ],
+          "acceptance": [
+            "events_44 (com BOM), events_59 reduzido, serie_bo3.log e a cauda de current.jsonl pós-partida.",
+            "SteamID64 → 76561198000000001; SteamID3 e IPs trocados; pii.py verde."
+          ],
+          "files": [
+            "tests/fixtures/"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "T1.4",
+          "title": "conftest hermético",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "T1.2",
+            "T1.3"
+          ],
+          "acceptance": [
+            "golden.db, caminhos em tmp, docker e sockets proibidos.",
+            "Clone limpo com 0 falhas (hoje 43) e banco real intacto."
+          ],
+          "files": [
+            "tests/conftest.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "T1.5",
+          "title": "G4: smoke da TUI e integração TUI → run_match",
+          "camada": "TUI",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "T1.4"
+          ],
+          "acceptance": [
+            "make_screenshots consertado; tests/test_tui_smoke.py com bo1 e bo3 em menos de 20 s.",
+            "tests/test_tui_integracao.py: TUI → core.launch → run_match com docker e RCON falsos confere o argv do compose e o argumento do matchzy_loadmatch.",
+            "wizard_tui.py sem diff."
+          ],
+          "files": [
+            "tools/make_screenshots.py",
+            "tests/test_tui_smoke.py",
+            "tests/test_tui_integracao.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "T1.6",
+          "title": "CI completo",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "T1.4",
+            "T1.5"
+          ],
+          "acceptance": [
+            "windows-latest com 3.13: ruff (G2) e pytest.",
+            "Check de CRLF em *.sh; check de PII (pii.py, por padrões) em docs/ e tests/fixtures/."
+          ],
+          "files": [
+            ".github/workflows/ci.yml"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "T1.7",
+          "title": ".gitattributes completo",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "T1.6"
+          ],
+          "acceptance": [
+            "text=auto eol=lf, ps1 em crlf e binários.",
+            "Renormalização em commit isolado; pre.sh i/lf e hash inalterado."
+          ],
+          "files": [
+            ".gitattributes"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "T1.8",
+          "title": "Proteger a main",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Humano",
+          "depends_on": [
+            "T1.6"
+          ],
+          "acceptance": [
+            "Com Q20=A, os 3 checks obrigatórios."
+          ],
+          "files": [],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "V1",
+      "name": "Pauta e partidas órfãs",
+      "goal": "Salvar as órfãs e registrar as respostas.",
+      "why_now": "events_50 e partida_23set só existem fora do banco.",
+      "exit_criteria": [
+        "Órfãs decididas e ingeridas ou arquivadas.",
+        "ADR-0006."
+      ],
+      "owner_play_needed": "~15 min e 1 janela de dados.",
+      "rollback": "Voltar o código e reingerir, a partir dos JSONL, o que veio depois do backup.",
+      "cards": [
+        {
+          "id": "V1.1",
+          "title": "Corrigir reingest_events",
+          "camada": "Dados",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.6"
+          ],
+          "acceptance": [
+            "series_num_maps e humano por SteamID, com teste; --db obrigatório; --confirmo-banco-real."
+          ],
+          "files": [
+            "tools/reingest_events.py",
+            "tests/test_reingest_events.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "V1.2",
+          "title": "Ficha das órfãs em cópia",
+          "camada": "Dados",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "V1.1"
+          ],
+          "acceptance": [
+            "Mapa, placar, lado, data e K/D feitos em cópia; o hash do banco real não muda."
+          ],
+          "files": [],
+          "notes": ""
+        },
+        {
+          "id": "V1.3",
+          "title": "Decidir as órfãs (Q10)",
+          "camada": "Dados",
+          "verificacao": "Offline",
+          "executor": "Humano",
+          "depends_on": [
+            "V1.2"
+          ],
+          "acceptance": [
+            "Resposta por arquivo registrada."
+          ],
+          "files": [],
+          "notes": ""
+        },
+        {
+          "id": "V1.4",
+          "title": "Ingerir as aprovadas",
+          "camada": "Dados",
+          "verificacao": "Offline",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "V1.3"
+          ],
+          "acceptance": [
+            "Executado pelo papel servidor, em janela de dados, com o watcher parado e backup antes.",
+            "integrity_check; played_at corrigido; originais arquivados."
+          ],
+          "files": [],
+          "notes": ""
+        },
+        {
+          "id": "V1.5",
+          "title": "Q11 (partidas 1–2)",
+          "camada": "Captura",
+          "verificacao": "Offline",
+          "executor": "Humano",
+          "depends_on": [],
+          "acceptance": [
+            "Resposta registrada antes do S1.4."
+          ],
+          "files": [],
+          "notes": ""
+        },
+        {
+          "id": "V1.6",
+          "title": "Q12 (GOTV)",
+          "camada": "Bots/Servidor",
+          "verificacao": "Offline",
+          "executor": "Humano",
+          "depends_on": [],
+          "acceptance": [
+            "Resposta registrada antes do S1.2."
+          ],
+          "files": [],
+          "notes": ""
+        },
+        {
+          "id": "V1.7",
+          "title": "Q13 (estático)",
+          "camada": "Web",
+          "verificacao": "Offline",
+          "executor": "Humano",
+          "depends_on": [],
+          "acceptance": [
+            "Resposta registrada antes do S4.4."
+          ],
+          "files": [],
+          "notes": ""
+        },
+        {
+          "id": "V1.8",
+          "title": "Q14 (tiles e protótipo)",
+          "camada": "Web",
+          "verificacao": "Offline",
+          "executor": "Humano",
+          "depends_on": [],
+          "acceptance": [
+            "Resposta registrada antes do S4.5; o protótipo nunca é apagado."
+          ],
+          "files": [],
+          "notes": ""
+        },
+        {
+          "id": "V1.9",
+          "title": "ADR-0006 da pauta",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "K1.1"
+          ],
+          "acceptance": [
+            "Q1–Q21 com resposta e cards afetados; board reclassificado."
+          ],
+          "files": [
+            "docs/adr/0006-pauta-1.md"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "K1",
+      "name": "Base de conhecimento",
+      "goal": "Extrair o conhecimento dos comentários para docs/ antes de qualquer poda.",
+      "why_now": "As armadilhas só existem em comentário, e o S1 depende disso.",
+      "exit_criteria": [
+        "ADRs 0001–0005.",
+        "54 armadilhas com fonte.",
+        "Contrato JSONL e glossário.",
+        "Poda de comentários provada."
+      ],
+      "owner_play_needed": "~20 min para ler o ADR-0001.",
+      "rollback": "Reverter o PR.",
+      "cards": [
+        {
+          "id": "K1.1",
+          "title": "Estrutura da KB e política de comentários",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B0.4"
+          ],
+          "acceptance": [
+            "Pastas, MOC, modelo de ADR e frontmatter padrão."
+          ],
+          "files": [
+            "docs/README.md",
+            "docs/adr/0000-modelo.md",
+            "docs/politica-de-comentarios.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "K1.2",
+          "title": "ADR-0001 Visão",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "K1.1"
+          ],
+          "acceptance": [
+            "Partidas avulsas agora, carreira no horizonte longo, pontos de extensão verificáveis; o Victor leu."
+          ],
+          "files": [
+            "docs/adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "K1.3",
+          "title": "ADRs 0002–0005",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "K1.1"
+          ],
+          "acceptance": [
+            "Obsidian sem Notion; repo público; jogo sempre jogável; trilha de bots."
+          ],
+          "files": [
+            "docs/adr/"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "K1.4",
+          "title": "Runbook e 54 armadilhas",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "K1.1"
+          ],
+          "acceptance": [
+            "Os 54 itens distribuídos, cada um com sintoma, causa, contorno e path:linha.",
+            "checar_fontes.py verde."
+          ],
+          "files": [
+            "docs/armadilhas/",
+            "docs/runbooks/servidor-boot-saudavel.md",
+            "tools/checar_fontes.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "K1.5",
+          "title": "Contrato JSONL v0.4 e glossário",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "K1.1"
+          ],
+          "acceptance": [
+            "Tipos, gerações e BOM; 'órfão' definido pela regra do round; glossário."
+          ],
+          "files": [
+            "docs/arquitetura/contrato-events-jsonl.md",
+            "docs/dominio/glossario.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "K1.6",
+          "title": "ADRs retroativos e SPEC reconciliada",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "K1.3"
+          ],
+          "acceptance": [
+            "ADRs tirados dos commits; D1..D22 com status real."
+          ],
+          "files": [
+            "docs/adr/",
+            "docs/SPEC.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "K1.7",
+          "title": "Histórico de planos (adiado)",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "K1.1"
+          ],
+          "acceptance": [
+            "Planos e timeline com o check de PII verde."
+          ],
+          "files": [
+            "docs/historico/"
+          ],
+          "notes": "Fora do backlog ativo."
+        },
+        {
+          "id": "K1.8",
+          "title": "README honesto",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "K1.4"
+          ],
+          "acceptance": [
+            "Build, captura, suíte, testes, jogar e voltar, sem contradições."
+          ],
+          "files": [
+            "README.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "K1.9",
+          "title": "Poda de comentários",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "K1.4",
+            "K1.5",
+            "K1.6",
+            "B1.10",
+            "T1.6"
+          ],
+          "acceptance": [
+            "checar_so_comentarios.py prova que só comentários mudaram.",
+            "O PR linka a nota de cada bloco removido.",
+            "O cfg é montado: mesmo sem mudar comportamento, só chega ao checkout pelo servidor em janela, com --force-recreate e sha256 no container."
+          ],
+          "files": [
+            "tools/checar_so_comentarios.py",
+            "docker-compose.yml",
+            "server-configs/cfg/gamemode_competitive_server.cfg",
+            "start_match.py",
+            "watcher.py",
+            "parser.py"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "P1",
+      "name": "Bugs de jogabilidade",
+      "goal": "MD3 automática, nenhuma partida perdida ou herdando estado, aviso de captura e válvula vanilla.",
+      "why_now": "Depois dos bots, com o G4 pronto.",
+      "exit_criteria": [
+        "MD3 com os mapas 2 e 3 começando sozinhos.",
+        "Partida limpa sem orphan; partida interrompida no meio gera 1 orphan com os rounds dela.",
+        "Colisão de nome sem descarte.",
+        "Aviso de captura; vanilla em um comando; RCON local."
+      ],
+      "owner_play_needed": "1 MD3 e ~6 partidas normais, mais janelas curtas.",
+      "rollback": "`jogavel.py voltar`; a pasta do plugin 0.4.0 volta pelo manifesto.",
+      "cards": [
+        {
+          "id": "P1.1",
+          "title": "Órfão real preservado, log em arquivo e aviso de candidato",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "T1.5",
+            "B1.10"
+          ],
+          "acceptance": [
+            "Antes do compose_up e do loadmatch, current.jsonl com pelo menos 1 round_start, player_death ou player_hurt depois do último arquivamento vira orphan_<utc>.jsonl. Cauda só de snapshot, round_stats ou round_officially_ended é descartada, como hoje. Teste usa a cauda real.",
+            "O Sink grava em logs/partidas/, e falha de escrita não para a partida.",
+            "Com data/candidato.json presente, imprime a linha [INFO] do candidato.",
+            "Na partida: partida limpa sem orphan; ingerida."
+          ],
+          "files": [
+            "start_match.py",
+            "watcher.py",
+            "tests/test_orphan_e_log.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "P1.1a",
+          "title": "Colisão de demo_name nunca descarta partida",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "T1.5"
+          ],
+          "acceptance": [
+            "Se events_<matchid>_map<N>.jsonl já existe, o watcher nunca pula (watcher.py:476-490): arquiva como events_<matchid>_map<N>__<utc>.jsonl e ingere com demo_name único, sem cair no 'já está no banco' do parser (parser.py:1024-1032). Teste com colisão.",
+            "Partida normal ingerida."
+          ],
+          "files": [
+            "watcher.py",
+            "parser.py",
+            "tests/test_colisao_demo_name.py"
+          ],
+          "notes": "Par defensivo do P1.1."
+        },
+        {
+          "id": "P1.2",
+          "title": "Válvula vanilla e config.compose_files()",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "P1.1",
+            "B0.7b"
+          ],
+          "acceptance": [
+            "config.compose_files() é a única fonte da lista de -f, usada por start_match, jogavel.py e pelo recreate; estado em data/servidor.json.",
+            "docker-compose.vanilla.yml; `jogavel vanilla on|off`.",
+            "test_tui_integracao confere o vanilla no argv sem diff na TUI.",
+            "Janela: on → G6 → off → G6; partida sem regressão."
+          ],
+          "files": [
+            "config.py",
+            "start_match.py",
+            "docker-compose.vanilla.yml",
+            "tools/jogavel.py",
+            "tests/test_vanilla.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "P1.3",
+          "title": "Watcher isolado dos geradores",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "P1.2"
+          ],
+          "acceptance": [
+            "Imports de report e home são tardios, dentro do try (watcher.py:102-103).",
+            "Teste injeta um módulo quebrado em sys.modules: o watcher sobe e ingere.",
+            "Só depois disso stats, home e report saem do caminho de jogo."
+          ],
+          "files": [
+            "watcher.py",
+            "tests/test_watcher_isolado.py",
+            "AGENTS.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "P1.4",
+          "title": "Aviso de captura não carregada",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "P1.3"
+          ],
+          "acceptance": [
+            "Sem DLL, ou sem 'CS2 Tracker Events' no css_plugins list E sem a linha de load no docker logs: [AVISO] bem visível no Sink e logs/partidas, e a partida SEGUE.",
+            "Aborta só com CS2_TRACKER_EXIGIR_CAPTURA=1 (Q19=B).",
+            "Testes com resposta RCON vazia (sem falso negativo) e com o opt-in."
+          ],
+          "files": [
+            "start_match.py",
+            "tests/test_aviso_captura.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "P1.5",
+          "title": "Mapas 2+ sozinhos (teto de 3 h)",
+          "camada": "Orquestração",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "P1.4",
+            "T1.3"
+          ],
+          "acceptance": [
+            "Sem o timeout de 240 s (start_match.py:585-616, 802-809); teto de 3 h, cancelável; --since em epoch (linha 598).",
+            "docker logs incremental: --since avança até a última linha lida. Teste limita o número de chamadas e o volume relido.",
+            "Teste com serie_bo3.log e relógio falso.",
+            "MD3: mapas 2 e 3 sem botão; series_num_maps=3."
+          ],
+          "files": [
+            "start_match.py",
+            "tests/test_serie_md3.py"
+          ],
+          "notes": "Mesmo candidato do P1.6."
+        },
+        {
+          "id": "P1.6",
+          "title": "Lado por mapa",
+          "camada": "Orquestração",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "T1.5"
+          ],
+          "acceptance": [
+            "map_sides[i] nas linhas 452 e 812, com teste; lados certos na MD3."
+          ],
+          "files": [
+            "start_match.py",
+            "tests/test_serie_md3.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "P1.7",
+          "title": "Contagem de presentes",
+          "camada": "Orquestração",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "P1.5"
+          ],
+          "acceptance": [
+            "start_match.py:511 conta clientes; teste 4x5; partida 5x5."
+          ],
+          "files": [
+            "start_match.py",
+            "tests/test_balanceamento.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "P1.8",
+          "title": "live_override limpo",
+          "camada": "Orquestração",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "P1.7"
+          ],
+          "acceptance": [
+            "Override neutro antes do loadmatch, com teste; partida sem regressão."
+          ],
+          "files": [
+            "start_match.py",
+            "tests/test_live_override.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "P1.9",
+          "title": "match_config template × runtime",
+          "camada": "Orquestração",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "P1.8"
+          ],
+          "acceptance": [
+            "Template versionado; runtime em docker/runtime/ (diretório montado).",
+            "wizard_tui.py sem diff: o nome exportado por config faz ROOT/'docker'/<nome> (wizard_tui.py:34, 210, 267, 735-736) apontar para o runtime, e o teste de integração prova.",
+            "Teste 'não herda nada'; janela com --force-recreate; git status limpo depois de jogar."
+          ],
+          "files": [
+            "docker/match_config.template.json",
+            "docker-compose.yml",
+            "wizard_core.py",
+            "start_match.py",
+            "config.py",
+            "tests/test_match_config.py"
+          ],
+          "notes": "orquestracao-13 e 52 são refutados: não apagar."
+        },
+        {
+          "id": "P1.10",
+          "title": "Plugin 0.4.1 sem truncar",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "P1.9",
+            "T1.6",
+            "P1.1a"
+          ],
+          "acceptance": [
+            "Load e OnMapStart renomeiam para orphan_<utc> só se houver round_start, player_death ou player_hurt; a cauda só de snapshot continua sendo truncada. Teste com a cauda real.",
+            "A pasta do plugin é instalada com o container parado, com manifesto e sha no container.",
+            "Partida limpa sem orphan; ingerida."
+          ],
+          "files": [
+            "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs",
+            "tests/test_orphan.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "P1.11",
+          "title": "RCON só em 127.0.0.1",
+          "camada": "Bots/Servidor",
+          "verificacao": "Servidor",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "P1.10"
+          ],
+          "acceptance": [
+            "27015/tcp publicado em 127.0.0.1; testado da LAN; partida seguinte ok."
+          ],
+          "files": [
+            "docker-compose.yml"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "P1.12",
+          "title": "SPEC e M5 com o diagnóstico",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "P1.5"
+          ],
+          "acceptance": [
+            "Bug de código documentado e D11 rebaixada."
+          ],
+          "files": [
+            "docs/SPEC.md",
+            "docs/features/M5-confiabilidade.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "P1.13",
+          "title": "Investigar o overflow no signon",
+          "camada": "Bots/Servidor",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "H1.1"
+          ],
+          "acceptance": [
+            "Frequência por partida medida desde 19/09.",
+            "Hipóteses (exec do warmup.cfg da MatchZy, carga do host) com evidência.",
+            "Se exigir mudança de cfg, abre card degrau."
+          ],
+          "files": [
+            "docs/armadilhas/engine-cs2.md"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "B2",
+      "name": "Bots etapa 2 (fora do backlog ativo; só se Q16=A)",
+      "goal": "Metamod 1469+, plugins nativos e dificuldade no .env.",
+      "why_now": "Só depois de B1 e P1 estáveis.",
+      "exit_criteria": [
+        "Metamod decidido; nativos classificados; BOT_PROFILE_VARIANT."
+      ],
+      "owner_play_needed": "2–4 partidas e 1–2 janelas.",
+      "rollback": "voltar mais o tgz da pasta afetada, sem o estado da MatchZy.",
+      "cards": [
+        {
+          "id": "B2.1",
+          "title": "Compatibilidade do Metamod 1469+",
+          "camada": "Bots/Servidor",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "B1.10"
+          ],
+          "acceptance": [
+            "Tabela com fonte, ou recomendação de não subir."
+          ],
+          "files": [
+            "docs/runbooks/trilha-de-bots.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B2.2",
+          "title": "Subir o Metamod",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B2.1",
+            "P1.11"
+          ],
+          "acceptance": [
+            "OK do download; snapshot imediatamente antes; hashes de config antes e depois; G6 sem 'Loaded 0 plugins'; partida ingerida."
+          ],
+          "files": [
+            "docker-compose.yml"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B2.3",
+          "title": "Nativos um por vez",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B2.2"
+          ],
+          "acceptance": [
+            "BotHider → BotVision → BotController, com uma janela e uma partida por passo."
+          ],
+          "files": [
+            "docker-compose.yml"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B2.4",
+          "title": "BOT_PROFILE_VARIANT",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B1.10",
+            "B0.9"
+          ],
+          "acceptance": [
+            "pre.sh idempotente e em LF; janela com --force-recreate e sha do pre.sh no container; partida confirma a variante (Q9)."
+          ],
+          "files": [
+            "docker/pre.sh",
+            "docker-compose.yml",
+            "roster.py",
+            ".env.example"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "B2.5",
+          "title": "Retestar o RayTrace (condicional)",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "B2.3"
+          ],
+          "acceptance": [
+            "Só se houver dependência; numa MD3, sem core dump."
+          ],
+          "files": [
+            "docker-compose.yml"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "S1",
+      "name": "Poda verificada",
+      "goal": "Apagar só o que foi confirmado, em cadeia, depois da KB.",
+      "why_now": "A KB (K1.4–K1.6) e os gates já existem.",
+      "exit_criteria": [
+        "nao-apagar.md publicado.",
+        "Cadeia da demo concluída.",
+        "CSV removido.",
+        "Pelo menos 500 linhas a menos que a base de 8.028 (raiz + web + cs2tracker, sem tools/ e tests/)."
+      ],
+      "owner_play_needed": "3–4 partidas (+2 se o GOTV sair).",
+      "rollback": "`jogavel.py voltar`.",
+      "cards": [
+        {
+          "id": "S1.0",
+          "title": "tools/metricas.py (ex-H1.11)",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "T1.6"
+          ],
+          "acceptance": [
+            "Escopo raiz + web + cs2tracker; base 8.028; também comentários, ingestões e clientes RCON."
+          ],
+          "files": [
+            "tools/metricas.py",
+            "tests/test_metricas.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S1.1",
+          "title": "Lista 'não apagar'",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "K1.4",
+            "K1.5",
+            "K1.6"
+          ],
+          "acceptance": [
+            "Refutados e preservados por decisão, com as colunas 'condição que levanta a refutação' e 'quem decide'.",
+            "Incertos apontam para o S1.9."
+          ],
+          "files": [
+            "docs/arquitetura/nao-apagar.md",
+            "AGENTS.md"
+          ],
+          "notes": "Todo o S1 depende deste card, portanto da KB."
+        },
+        {
+          "id": "S1.2",
+          "title": "Remover enrich_from_demos",
+          "camada": "Captura",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "S1.1",
+            "V1.6"
+          ],
+          "acceptance": [
+            "captura-11 removido; motivo em historico; PR com link para a KB."
+          ],
+          "files": [
+            "tools/enrich_from_demos.py",
+            "tests/test_enrich_from_demos.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S1.3",
+          "title": "Re-verificação cética da cadeia",
+          "camada": "Captura",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "S1.2"
+          ],
+          "acceptance": [
+            "Veredito novo para captura-2, 3, 10, 40 e 42."
+          ],
+          "files": [],
+          "notes": ""
+        },
+        {
+          "id": "S1.4",
+          "title": "Caminho de demo e modo nativo, na ordem",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S1.3",
+            "V1.5",
+            "P1.11"
+          ],
+          "acceptance": [
+            "Só re-confirmados, nesta ordem: reingest_demos e fix_damage_clamp → modo nativo → parse_and_store e PLAYER_PROPS → server.cfg.",
+            "watcher.py:13-56 só sai com o item 54 já na KB.",
+            "C:/cs2server intocado; partidas 1–2 mantidas; G4; partida."
+          ],
+          "files": [
+            "watcher.py",
+            "parser.py",
+            "tools/reingest_demos.py",
+            "tools/fix_damage_clamp.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S1.5",
+          "title": "awpy e polars fora",
+          "camada": "Infra/Harness",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "S1.4"
+          ],
+          "acceptance": [
+            "Sem imports; lock sem eles; .venv intocada."
+          ],
+          "files": [
+            "requirements.txt",
+            "requirements.lock"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S1.6",
+          "title": "Caminho CSV",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S1.1",
+            "P1.11"
+          ],
+          "acceptance": [
+            "captura-4 a 8, 15, 16 e 22; golden igual; partida sem aviso novo."
+          ],
+          "files": [
+            "parser.py",
+            "stats.py",
+            "watcher.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S1.7",
+          "title": "Miudezas da apresentação",
+          "camada": "Web",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "S1.1",
+            "P1.3"
+          ],
+          "acceptance": [
+            "Só os IDs confirmados; 15, 22, 31 e 33 ficam; screenshots iguais."
+          ],
+          "files": [
+            "web/",
+            "stats.py",
+            "matches.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S1.8",
+          "title": "Miudezas do caminho de jogo",
+          "camada": "Orquestração",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S1.1",
+            "P1.11"
+          ],
+          "acceptance": [
+            "orquestracao-1, 3, 8 e 9; DefaultAgents só depois de o item 6 estar na KB; G4; partida."
+          ],
+          "files": [
+            "roster.py",
+            "wizard_core.py",
+            "docker/plugins/DefaultAgents/"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S1.9",
+          "title": "Checar os incertos",
+          "camada": "Orquestração",
+          "verificacao": "Servidor",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S1.1",
+            "B0.7b"
+          ],
+          "acceptance": [
+            "Veredito novo para cada incerto; dump de cvars de bot em janela; nada removido."
+          ],
+          "files": [
+            "docs/armadilhas/bots-e-perfis.md"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S1.10",
+          "title": "Desligar o GOTV (Q12=A)",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S1.9",
+            "V1.6",
+            "P1.9"
+          ],
+          "acceptance": [
+            "Dois passos, duas partidas; o cfg (bloco 53-131, já na KB) muda em janela com --force-recreate.",
+            "O fim de mapa continua detectado."
+          ],
+          "files": [
+            "start_match.py",
+            "wizard_core.py",
+            "docker-compose.yml",
+            "server-configs/cfg/gamemode_competitive_server.cfg"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "name": "Schema versionado",
+      "goal": "Migrações aditivas com user_version, trava e compatibilidade para trás.",
+      "why_now": "Pré-requisito da ingestão única.",
+      "exit_criteria": [
+        "user_version ≥ 1 com backup.",
+        "Teste 'tag anterior roda contra banco migrado'.",
+        "bot_suite preenchido."
+      ],
+      "owner_play_needed": "2 partidas.",
+      "rollback": "Voltar o código e reingerir, com reingest_events, os JSONL posteriores ao backup. Nunca sobrescrever o banco sozinho.",
+      "cards": [
+        {
+          "id": "S2.1",
+          "title": "db.py fora do parser",
+          "camada": "Dados",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S1.5"
+          ],
+          "acceptance": [
+            "Movimento puro; import sem awpy; G4."
+          ],
+          "files": [
+            "db.py",
+            "parser.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S2.2",
+          "title": "Migrações aditivas com trava",
+          "camada": "Dados",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S2.1"
+          ],
+          "acceptance": [
+            "Só ADD, nunca DROP ou RENAME; BEGIN IMMEDIATE e lockfile; backup antes-vN.",
+            "Código com versão menor que a do banco segue com aviso, com teste.",
+            "Se ensure_schema falhar, o watcher arquiva o JSONL mesmo assim.",
+            "Teste de concorrência."
+          ],
+          "files": [
+            "db.py",
+            "migrations/",
+            "watcher.py",
+            "tests/test_migracoes.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S2.3",
+          "title": "ALTERs viram migrações",
+          "camada": "Dados",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S2.2"
+          ],
+          "acceptance": [
+            "0002+ com series_num_maps; sem diferença de dados."
+          ],
+          "files": [
+            "migrations/"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S2.4",
+          "title": "Época dos bots",
+          "camada": "Dados",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S2.3",
+            "B1.10"
+          ],
+          "acceptance": [
+            "bot_suite com backfill aprovado; selo em /partidas."
+          ],
+          "files": [
+            "migrations/",
+            "templates/matches.html"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S2.5",
+          "title": "ADR revisando a D10",
+          "camada": "Docs/KB",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "S2.2"
+          ],
+          "acceptance": [
+            "ADR escrito e SPEC ligada a ele."
+          ],
+          "files": [
+            "docs/adr/"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "name": "Ingestão única",
+      "goal": "Um persist_match, provado por reingestão dourada.",
+      "why_now": "As persistências já divergiram.",
+      "exit_criteria": [
+        "Um escritor só.",
+        "Diferenças aprovadas.",
+        "reconcile manual."
+      ],
+      "owner_play_needed": "2 partidas e 10 min.",
+      "rollback": "voltar mais o reconcile --ingerir.",
+      "cards": [
+        {
+          "id": "S3.1",
+          "title": "Reingestão dourada",
+          "camada": "Dados",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "S2.2",
+            "S1.6"
+          ],
+          "acceptance": [
+            "Comparação tabela a tabela em cópias."
+          ],
+          "files": [
+            "tools/reingestao_dourada.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S3.2",
+          "title": "Aprovar as diferenças",
+          "camada": "Dados",
+          "verificacao": "Offline",
+          "executor": "Humano",
+          "depends_on": [
+            "S3.1"
+          ],
+          "acceptance": [
+            "diferencas_esperadas.json aprovado."
+          ],
+          "files": [
+            "tests/golden/diferencas_esperadas.json"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S3.3",
+          "title": "MatchRecord e persist_match",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S3.2"
+          ],
+          "acceptance": [
+            "Escritor único; só as diferenças aprovadas; partida ingerida."
+          ],
+          "files": [
+            "cs2tracker/ingest/",
+            "cs2tracker/db/writes.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S3.4",
+          "title": "ingest_file idempotente e reconcile",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S3.3"
+          ],
+          "acceptance": [
+            "Idempotente pelo hash; reconcile --listar e --ingerir com lista explícita; demo_name único mantido."
+          ],
+          "files": [
+            "cs2tracker/ingest/service.py",
+            "cs2tracker/cli.py",
+            "watcher.py"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "name": "Apresentação",
+      "goal": "Paridade de /partidas e fim do estático depois do launcher web.",
+      "why_now": "Uma fonte por métrica.",
+      "exit_criteria": [
+        "Paridade.",
+        "K/D e ADR iguais em todas as telas.",
+        "Estático aposentado (Q13=A) depois do S6.4."
+      ],
+      "owner_play_needed": "2 partidas e 5 min.",
+      "rollback": "`jogavel.py voltar`.",
+      "cards": [
+        {
+          "id": "S4.1",
+          "title": "Paridade de /partidas",
+          "camada": "Web",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "T1.6"
+          ],
+          "acceptance": [
+            "Bombsite, score_source, assists e apresentacao-15; números batem."
+          ],
+          "files": [
+            "matches.py",
+            "templates/"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S4.2",
+          "title": "Uma fórmula de K/D e ADR",
+          "camada": "Dados",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "P1.3",
+            "T1.6"
+          ],
+          "acceptance": [
+            "Consolidada, com teste de valor; Victor avisado da mudança de número."
+          ],
+          "files": [
+            "stats.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S4.3",
+          "title": "team_size e clutches",
+          "camada": "Dados",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S2.3"
+          ],
+          "acceptance": [
+            "Migração aditiva; teste 3v3."
+          ],
+          "files": [
+            "migrations/",
+            "stats.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S4.4",
+          "title": "Aposentar o estático (Q13=A)",
+          "camada": "Web",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S4.1",
+            "V1.7",
+            "S6.4"
+          ],
+          "acceptance": [
+            "Depois da D13 (o uvicorn já é o ponto de entrada), o Victor confirma a paridade no 8000.",
+            "Re-verificação cética dos refutados captura-17 e apresentacao-2, 37 e 41, pela condição do nao-apagar.md. Só os confirmados saem."
+          ],
+          "files": [
+            "watcher.py",
+            "report.py",
+            "home.py",
+            "web/app.py",
+            "templates/report.html"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S4.5",
+          "title": "Helpers de apresentação",
+          "camada": "Web",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "S4.4",
+            "V1.8"
+          ],
+          "acceptance": [
+            "Consolidados; os SVGs ficam; Q14 aplicada."
+          ],
+          "files": [
+            "home.py",
+            "matches.py",
+            "stats.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S4.6",
+          "title": "load_stats sem criar banco",
+          "camada": "Dados",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "P1.3",
+            "T1.4"
+          ],
+          "acceptance": [
+            "Não cria arquivo; GET / responde 200."
+          ],
+          "files": [
+            "stats.py"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "name": "Configuração e MatchRunner",
+      "goal": "Runner único; TUI sem diff.",
+      "why_now": "Ponte para o launcher web.",
+      "exit_criteria": [
+        "Settings, RCON e Docker únicos.",
+        "MatchRunner.",
+        "wizard_tui.py sem diff.",
+        "MD3 pela TUI."
+      ],
+      "owner_play_needed": "~3 partidas e 1 MD3.",
+      "rollback": "`jogavel.py voltar`.",
+      "cards": [
+        {
+          "id": "S5.1",
+          "title": "Settings",
+          "camada": "Orquestração",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S3.4"
+          ],
+          "acceptance": [
+            "Precedência env > .env > default; adaptadores; G4."
+          ],
+          "files": [
+            "config.py",
+            ".env.example"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S5.2",
+          "title": "RCON e Docker únicos",
+          "camada": "Orquestração",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S5.1"
+          ],
+          "acceptance": [
+            "Um cliente de cada, usando compose_files(); FakeRcon."
+          ],
+          "files": [
+            "cs2tracker/server/"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S5.3",
+          "title": "MatchSetup",
+          "camada": "Orquestração",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S5.1"
+          ],
+          "acceptance": [
+            "Validação única; CLI mantém --map e --side; G4."
+          ],
+          "files": [
+            "cs2tracker/domain/setup.py",
+            "wizard_core.py",
+            "start_match.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S5.4",
+          "title": "MatchRunner",
+          "camada": "Orquestração",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S5.2",
+            "S5.3",
+            "P1.5"
+          ],
+          "acceptance": [
+            "Estados tipados, sem sys.exit; 'cannot load a new match' vira erro tratado com css_endmatch.",
+            "FakeServer BO3; TUI sem diff; MD3 pela TUI."
+          ],
+          "files": [
+            "cs2tracker/server/runner.py",
+            "wizard_core.py",
+            "start_match.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S5.5",
+          "title": "Cfg sem disputa de quota",
+          "camada": "Bots/Servidor",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S5.4",
+            "S1.9"
+          ],
+          "acceptance": [
+            "Só o que o dump provar; janela com --force-recreate e sha do cfg; 5x5."
+          ],
+          "files": [
+            "server-configs/cfg/gamemode_competitive_server.cfg",
+            "start_match.py"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "S6",
+      "name": "Launcher web e D13",
+      "goal": "Iniciar pelo browser e cumprir a D13.",
+      "why_now": "Condição para aposentar TUI e estático.",
+      "exit_criteria": [
+        "MD3 completa pelo browser."
+      ],
+      "owner_play_needed": "1 MD3 pelo browser.",
+      "rollback": "voltar; a TUI está viva.",
+      "cards": [
+        {
+          "id": "S6.1",
+          "title": "Rotas de partida",
+          "camada": "Web",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "S5.4"
+          ],
+          "acceptance": [
+            "Trava de uma partida por vez (409); FakeServer."
+          ],
+          "files": [
+            "web/routes/partida.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S6.2",
+          "title": "SSE e reidratação",
+          "camada": "Web",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "S6.1"
+          ],
+          "acceptance": [
+            "Log desde o início; reinício do uvicorn testado."
+          ],
+          "files": [
+            "web/app.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S6.3",
+          "title": "Botão Iniciar",
+          "camada": "Web",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "S6.2"
+          ],
+          "acceptance": [
+            "Botão habilitado; web/ entra no caminho de jogo."
+          ],
+          "files": [
+            "web/templates/"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S6.4",
+          "title": "MD3 pelo browser",
+          "camada": "Web",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S6.3"
+          ],
+          "acceptance": [
+            "3 mapas ingeridos; evidência no ADR da D13."
+          ],
+          "files": [
+            "docs/adr/"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "S7",
+      "name": "Plugin JSONL v1",
+      "goal": "Arquivo por mapa, placar do engine, watcher por pasta.",
+      "why_now": "Elimina a corrida rename × truncate e as regex.",
+      "exit_criteria": [
+        "Schema v1.",
+        "3 placares batendo.",
+        "0 regex sobre docker logs."
+      ],
+      "owner_play_needed": "3 partidas e 1 janela.",
+      "rollback": "voltar restaura a pasta do plugin 0.4.1.",
+      "cards": [
+        {
+          "id": "S7.1",
+          "title": "Contrato v1",
+          "camada": "Captura",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "K1.5"
+          ],
+          "acceptance": [
+            "JSON Schema com capture_id único (resolve a colisão na origem); ADR do que se captura."
+          ],
+          "files": [
+            "docs/arquitetura/"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S7.2",
+          "title": "Plugin v1",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S7.1",
+            "P1.10"
+          ],
+          "acceptance": [
+            ".part renomeado no map_end; instalado em janela; arquivo válido."
+          ],
+          "files": [
+            "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S7.3",
+          "title": "Parser v0 e v1",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S7.2"
+          ],
+          "acceptance": [
+            "Fixtures de cada geração; score_source='engine'."
+          ],
+          "files": [
+            "cs2tracker/ingest/events.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S7.4",
+          "title": "Watcher por pasta",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S7.3",
+            "S5.4"
+          ],
+          "acceptance": [
+            "Ingere arquivos fechados; brutos copiados com hash."
+          ],
+          "files": [
+            "watcher.py",
+            "cs2tracker/ingest/watch.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S7.5",
+          "title": "Fim das regex de docker logs",
+          "camada": "Captura",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S7.4"
+          ],
+          "acceptance": [
+            "Depois de 3 partidas com placar batendo; re-verificação cética."
+          ],
+          "files": [
+            "watcher.py",
+            "start_match.py",
+            "parser.py"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "S8",
+      "name": "Aposentar a TUI (fora do backlog ativo)",
+      "goal": "Remover a TUI depois da D13 e do OK dele.",
+      "why_now": "Último passo, sem prazo.",
+      "exit_criteria": [
+        "checar_d13 OK; autorização; tag tui-final."
+      ],
+      "owner_play_needed": "1 partida pelo browser.",
+      "rollback": "git checkout tui-final.",
+      "cards": [
+        {
+          "id": "S8.1",
+          "title": "Checklist D13",
+          "camada": "TUI",
+          "verificacao": "Offline",
+          "executor": "Agente",
+          "depends_on": [
+            "S6.4"
+          ],
+          "acceptance": [
+            "checar_d13.py dá OK ou NÃO OK, com o motivo."
+          ],
+          "files": [
+            "tools/checar_d13.py"
+          ],
+          "notes": ""
+        },
+        {
+          "id": "S8.2",
+          "title": "Autorização",
+          "camada": "TUI",
+          "verificacao": "Offline",
+          "executor": "Humano",
+          "depends_on": [
+            "S8.1"
+          ],
+          "acceptance": [
+            "OK explícito no chat."
+          ],
+          "files": [],
+          "notes": ""
+        },
+        {
+          "id": "S8.3",
+          "title": "Remover a TUI",
+          "camada": "TUI",
+          "verificacao": "Partida",
+          "executor": "Agente+Humano",
+          "depends_on": [
+            "S8.2"
+          ],
+          "acceptance": [
+            "Tag tui-final; remoção; partida pelo browser."
+          ],
+          "files": [
+            "wizard_tui.py",
+            "tests/test_tui_smoke.py"
+          ],
+          "notes": ""
+        }
+      ]
+    }
+  ],
+  "agents": [
+    {
+      "name": "pm (sessão principal)",
+      "role": "Fala com o Victor, faz a pauta, cura o board, abre janela com OK dele, avisa o que a próxima partida valida e mede o custo.",
+      "model_and_isolation": "Sessão principal (Opus), sem worktree.",
+      "key_rules": [
+        "Não escreve código, não mergeia, não opera o servidor.",
+        "Janela só com OK explícito; pós-partida da trilha só depois de 'terminei' = TUI e jogo fechados.",
+        "Aviso ao Victor por chat, PushNotification e jogavel status.",
+        "Board: B0/B1 + 1 sprint Offline + o próximo. Portão de backlog.",
+        "Custo medido por card (get_usage ou explain-usage) e registrado no Histórico. Recalibra depois de 3 cards e para acima de 1,5× o teto."
+      ],
+      "tools": "Agent (tech-manager, qa, servidor), board CLI, preflight, jogavel status/janela, PushNotification, skill grilling."
+    },
+    {
+      "name": "tech-manager",
+      "role": "Conduz 1 card por vez até o merge e controla o trilho único e as tags.",
+      "model_and_isolation": "sonnet, worktree.",
+      "key_rules": [
+        "1 card = 1 branch = 1 PR com até ~400 linhas; merge commit.",
+        "Não mergeia degrau com o trilho ocupado; marcar candidato.",
+        "atualizar só com preflight 0, Q6=A e sem infra.",
+        "Nunca roda docker."
+      ],
+      "tools": "git, gh, board CLI, jogavel (marcar, atualizar, status), preflight, Agent (dev)."
+    },
+    {
+      "name": "dev",
+      "role": "Implementa um card no worktree, com testes.",
+      "model_and_isolation": "opus, worktree.",
+      "key_rules": [
+        "Sempre o Python absoluto C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe; nunca pip install.",
+        "Nunca docker, RCON, porta 8000, banco real ou TUI/start_match de verdade.",
+        "G4 quando toca o caminho de jogo; wizard_tui.py nunca.",
+        "Em poda: ID com veredito confirmado e link para a KB no PR."
+      ],
+      "tools": "Read/Edit/Write, Bash/PowerShell no worktree, pytest, web_golden na 8010."
+    },
+    {
+      "name": "qa",
+      "role": "Julga o card pelos critérios, a evidência de partida pela ferramenta e faz a re-verificação cética antes de poda.",
+      "model_and_isolation": "sonnet (opus em Captura, Dados e poda), worktree, só leitura.",
+      "key_rules": [
+        "G7 pelo log de boot, config-hash e sha montados, não pelo que a TUI anuncia.",
+        "Sem evidência não é reprovação.",
+        "Refutado ou incerto sumindo reprova.",
+        "Nunca roda docker."
+      ],
+      "tools": "pytest, evidencia_partida.py, checar_fontes, sqlite mode=ro, Browser na 8010, board CLI."
+    },
+    {
+      "name": "servidor",
+      "role": "Único a operar o jogo: janelas, recreate, snapshot, soak, coletar, voltar.",
+      "model_and_isolation": "opus, sem worktree (checkout principal).",
+      "key_rules": [
+        "Só com janela aberta e vigilância ativa; coletar exige só preflight 0.",
+        "Infra com --force-recreate; sha256 no container igual ao do checkout.",
+        "Container parado no máximo ~5 min; checklist de fechamento com a MatchZy sem partida carregada.",
+        "Snapshot antes de qualquer escrita no volume; restauração exclui o estado de matchid da MatchZy.",
+        "Download só com OK; Docker travado, chama o Victor."
+      ],
+      "tools": "tools/jogavel.py (todos os subcomandos), backup.py, preflight, board CLI."
+    }
+  ],
+  "skills": [
+    {
+      "name": "board-cs2",
+      "purpose": "Operar o board pelo CLI: campos exatos, ciclo 'Aguardando partida', vault absoluto, regra do board curto."
+    },
+    {
+      "name": "cs2-servidor",
+      "purpose": "Janela: preflight, vigilância, backup, snapshot --pull=never, --force-recreate, sha montados, G6 e checklist de fechamento, restauração sem o estado da MatchZy, hashes de config em upgrade."
+    },
+    {
+      "name": "cs2-partida",
+      "purpose": "coletar e evidencia_partida: G7, confundidores, órfão pela regra do round, colisão, sem evidência, fixture anonimizada."
+    },
+    {
+      "name": "cs2-web",
+      "purpose": "web_golden na 8010 com catálogo de fixture, prova de que serve a branch, screenshots; nunca 8000 nem docker cp."
+    },
+    {
+      "name": "grilling (existente)",
+      "purpose": "Pautas Q1..Qn com a opção recomendada."
+    }
+  ],
+  "kb_structure": "docs/ é versionado.\n- O board é um vault próprio, gitignored, em docs/board-cs2/ (Q21=A, modelo kalendas).\n- A KB pode ser aberta como segundo vault, só leitura.\n- Frontmatter: tipo, status, fontes [path:linha], atualizado.\n- O código diz o quê; a KB diz o porquê.\n- Check de PII em docs/.\n\ndocs/\n- README.md (MOC)\n- politica-de-comentarios.md\n- SPEC.md\n- features/\n- adr/\n  - 0000 modelo\n  - 0001 visão (carreira no horizonte longo)\n  - 0002 KB e board no Obsidian\n  - 0003 repo público\n  - 0004 jogo sempre jogável\n  - 0005 trilha de bots\n  - 0006 pauta\n  - 0007+ retroativos\n- arquitetura/\n  - caminho-de-jogo.md, alvo.md\n  - contrato-events-jsonl.md (com a definição de órfão)\n  - schema-sqlite.md, nao-apagar.md (com a condição de cada refutação)\n- runbooks/\n  - jogar, voltar-ao-jogavel, versoes-conhecidas (com sha no container), inventario-volume (inclui o matchid da MatchZy)\n  - janela-de-manutencao (vigilância e checklist), servidor-boot-saudavel, smoke-partida-de-bots, trilha-de-bots\n  - reconstruir-volume (proteção real), compilar-plugin, backup-e-restauracao\n- armadilhas/ (os 54 itens)\n- dominio/ (glossário, métricas, MR12)\n- historico/ (timeline, handoff, ferramentas, prototipos)\n- agents/ (sprints.md, plano-2026-09-26.json, licoes.md, pm-playbook.md, ideias.md)\n\nNa raiz: AGENTS.md, CLAUDE.md e .cursor/rules/agentes.md.\nEm .claude/: agents/ (4), skills/ (4) e settings.json (deny/ask para Bash e PowerShell, hook com caminho absoluto).",
+  "board_schema": "ONDE\n- docs/board-cs2/ (gitignored), um .md por card, Board.base com 1 visão (Esteira).\n- Escrita só pelo CLI `C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe -m tools.board`.\n- Carregados: B0/B1 (trilho) + 1 sprint Offline corrente + o próximo. Ordem Offline: H1 → T1 → K1 → V1 → P1.\n- Fora do backlog ativo: H1.10, K1.7, B2 e S8.\n\nFRONTMATTER\n- ID (inserção com letra, ex.: P1.1a), Ordem, Sprint.\n- Status: Backlog · Bloqueada · Pronta para começar · Em andamento · Em testes · PR aberta · Aguardando partida · Concluída.\n- Camada (8).\n- Verificação: Offline | Servidor | Partida.\n- Executor: Agente | Humano | Agente+Humano.\n- Caminho de jogo: bool. Infra: bool (compose, fonte de bind, plugin).\n- Janela: nenhuma | pré | pós | dados.\n- Partida: — | leve | MD3 | MD3-browser.\n- Depende de, Reprovada, Reprovações, Devoluções, Branch, PR, Candidato, Custo (tokens medidos).\n\nCORPO\n- Origem, Problema, Critérios (intocáveis), Arquivos.\n- Rollback: obrigatório com caminho de jogo.\n- O que observar na partida: até 3 itens.\n- Histórico carimbado pelo CLI.\n\nCICLO\n1. reclassificar: 0 pendentes = Pronta; 1 = Bloqueada; 2 ou mais = Backlog.\n2. Em andamento → Em testes → PR aberta.\n3. Depois do merge:\n   - sem caminho de jogo → Concluída;\n   - com caminho de jogo → Aguardando partida.\n4. G7 ok → Concluída + jogavel.\n5. Evidência ruim → Pronta com Reprovada=true, revert e voltar.\n6. Sem evidência → continua esperando.\n\nFREIOS\n- 2 reprovações → pauta do Victor.\n- 3 devoluções → o card sai do sprint.\n- Fila: Reprovada primeiro, depois Ordem. Com o Victor jogando, só Offline. Com o trilho ocupado, esconde o caminho de jogo.",
+  "gates_and_dod": "GATES\n- G0 · Preflight: 3 = só Offline; 4 = só o servidor.\n- G1 · pytest hermético em clone limpo, com no máximo 30 s.\n- G2 · ruff no CI (a .venv do jogo não tem ruff).\n- G3 · CI (compose, plugin, testes, CRLF, PII).\n- G4 · Smoke da TUI e integração TUI → run_match (argv do compose e loadmatch). Obrigatório quando o card toca wizard_core, start_match, watcher, config, identity ou cs2tracker/server.\n- G5 · Plugin de SHA exato e sha256; licença checada; download com OK.\n- G6 · Servidor, em janela:\n  - mesmo volume e mounts; linhas de load de MatchZy e captura;\n  - assinaturas esperadas; zero segfault;\n  - build antes e depois;\n  - sha256 DENTRO do container (cfg, pre.sh, match_config, DLL, deps.json) = checkout;\n  - pre.sh sem CRLF;\n  - hashes de core.json e configs de plugin em upgrade;\n  - fechamento: MatchZy sem partida carregada, mp_ignore_round_win_conditions 0, sv_hibernate_when_empty e bot_quota normais.\n- G7 · Partida (QA sobre o coletar):\n  - ingerida, placar MR12 e 5x5; JSONL arquivado;\n  - zero segfault; nenhum overflow depois de SIGNONSTATE_FULL + 60 s;\n  - config-hash e sha montados iguais aos da janela;\n  - sem colisão não tratada; sem current.jsonl com rounds não arquivado;\n  - critérios do card.\n\nDOD DO CARD\n1. Critérios com evidência no Histórico.\n2. G1–G3, e G4/G5 quando aplicáveis. PR de uma intenção, até ~400 linhas.\n3. Diff restrito ao card; sem arquivo necessário ignorado.\n4. Contrato atualiza doc e fixture no mesmo PR.\n5. Poda: veredito confirmado vigente, fora do nao-apagar.md, com link da nota da KB de cada bloco removido.\n6. Caminho de jogo: Concluída só depois do G7.\n7. Infra: só em janela, com --force-recreate, G6 e `voltar --seco` mostrado.\n8. Sem dependência instalada; sem PII; pt-BR; merge commit.\n9. Custo do card registrado.\n\nDOD DO SPRINT\n- Tag jogavel em que o Victor jogou.\n- board validar sai 0; KB e lições atualizadas; checar_fontes verde.\n- Custo dentro do teto ou explicado.\n- Métricas a partir do S1.",
+  "risks": [
+    {
+      "risk": "Mudança em arquivo montado validada na partida errada (cfg, pre.sh ou DLL antigo no container).",
+      "mitigation": "Infra só em janela com --force-recreate; sha256 dentro do container em G6, G7 e coletar; atualizar recusa fonte de bind sem janela."
+    },
+    {
+      "risk": "Captura quebrada por update do CS2 trava o jogo.",
+      "mitigation": "P1.4 avisa e deixa jogar; abortar só por opt-in (Q19); vanilla e voltar."
+    },
+    {
+      "risk": "Partida descartada em silêncio por colisão de demo_name (inclusive depois de restaurar snapshot).",
+      "mitigation": "Restauração exclui o estado de matchid da MatchZy; P1.1a arquiva com sufixo; evidencia_partida acusa colisão."
+    },
+    {
+      "risk": "Órfão falso em toda partida trava o trilho.",
+      "mitigation": "Órfão definido pela presença de round_start, player_death ou player_hurt; a cauda real vira fixture."
+    },
+    {
+      "risk": "Janela colide com o Victor querendo jogar, ou a MatchZy fica com partida carregada.",
+      "mitigation": "Vigilância a cada ≤30 s com aborto; container parado no máximo ~5 min; checklist de fechamento; 'terminei' = TUI e jogo fechados."
+    },
+    {
+      "risk": "Hook falha aberto na worktree, ou o Cursor ignora as regras.",
+      "mitigation": "Python absoluto, falha fechada, teste dentro de worktree, deny e ask para Bash e PowerShell, .cursor/rules."
+    },
+    {
+      "risk": "Perder o volume de 73 GB ou a auditoria no %TEMP%.",
+      "mitigation": "B0.2 primeiro; external; hook bloqueia compose run e compose fora do checkout; snapshot --pull=never; C:/cs2server intocável."
+    },
+    {
+      "risk": "Upgrade do CSSharp ou do Metamod sobrescreve configs no volume, ou o rollback fica misto.",
+      "mitigation": "Snapshot imediatamente antes; hashes antes e depois; rollback por tgz da pasta, sem o estado da MatchZy; download com OK."
+    },
+    {
+      "risk": "voltar recusa na emergência, ou grava o pre.sh em CRLF.",
+      "mitigation": "Recusa só com partida em curso; --agora; .gitattributes no B0.7 e checagem de '\\r' antes do recreate."
+    },
+    {
+      "risk": "Watcher morre por erro de import dos geradores estáticos.",
+      "mitigation": "Import tardio com teste de módulo quebrado (P1.3) antes de tirá-los do caminho de jogo."
+    },
+    {
+      "risk": "Migração ou rollback do banco perde partidas.",
+      "mitigation": "Migrações só aditivas, compatibilidade para trás testada, arquivamento independente do schema, rollback por reingestão."
+    },
+    {
+      "risk": "PII ou segredo no repo público.",
+      "mitigation": "pii.py no hook de Write e no CI; fixtures anonimizadas; plano versionado com o check."
+    },
+    {
+      "risk": "Processo pesado como no kalendas.",
+      "mitigation": "Custo medido por card desde o início; board curto; H1.10, K1.7, B2 e S8 fora do backlog ativo; servidor.py fundido no jogavel.py."
+    },
+    {
+      "risk": "Concluir a partir de uma observação só.",
+      "mitigation": "Uma variável por partida; evidencia_partida com frequência de overflow; linha de base do events_60."
+    }
+  ],
+  "open_questions_for_owner": [
+    "Q1 · Merge. Mesclar feat/stats-web-e-captura-por-api na main por fast-forward (é a mesma árvore com que você joga hoje), criar a tag jogavel-2026-09-26 e você passar a jogar da main? (A) sim (recomendado) (B) ainda não: a tag vai no efcaa42 e você continua na branch.",
+    "Q2 · Sessão paralela dos bots (5a2af0df). Posso copiar para o backup os clones que ela deixou no %TEMP% (junto com os relatórios da auditoria)? Você confirma que não vai retomá-la em paralelo, e que a trilha de bots passa a ser o B1? (A) sim (recomendado) (B) quero terminar lá primeiro, e o programa espera.",
+    "Q3 · Travas dos agentes. (A) AGENTS.md, bloqueios no .claude/settings.json e hook de guarda contra down -v, git clean, pip install, compose fora do seu checkout, escrita no banco/.env/events-live e a porta 8000 (recomendado) (B) só os bloqueios, sem hook: comando perigoso pede sua aprovação na tela, e os agentes trabalham um de cada vez (C) só o AGENTS.md: nenhum agente trabalha em worktree, só com você acompanhando. Vale também para as SUAS sessões do Claude Code neste projeto (ex.: pedir pip install ou uvicorn na 8000 a um agente). No seu terminal, nada muda.",
+    "Q4 · Como abrir uma janela de manutenção. (A) você escreve 'pode mexer no servidor'; no máximo 45 min, sempre devolve o jogo jogável, e se você abrir o jogo ou a TUI no meio ele aborta e volta na hora (recomendado) (B) janela fixa combinada (C) as duas.",
+    "Q5 · Janela pós-partida na trilha de bots. Quando você disser 'terminei' (= fechei a TUI e o jogo), o servidor pode usar 15–30 min para aplicar o próximo passo dos bots e deixar tudo pronto, voltando sozinho se o boot falhar? (A) sim, como OK permanente só para a trilha de bots (recomendado) (B) peço OK a cada vez.",
+    "Q6 · Jogar sobre uma versão candidata. Você aceita jogar com UMA mudança ainda não validada, sabendo que `jogavel voltar` desfaz em um comando? O aviso chega por mensagem aqui, notificação no celular e `jogavel status`; depois do P1.1, também numa linha no log da TUI. Com A, eu atualizo seu checkout quando nada estiver rodando, e mudança de servidor continua só em janela. (A) sim, sempre (recomendado) (B) só quando eu disser 'pode testar' (C) não; só versões validadas.",
+    "Q7 · Partidas só de bots. Dentro da janela, o servidor pode rodar uma partida só de bots (10–25 min) antes de expor um plugin arriscado a você? (A) sim (recomendado) (B) não; NadeSystem e BotRandomizer ficam mascarados (C) não; eles vão direto para a sua partida, aceitando o risco de crash no meio.",
+    "Q8 · Ritmo. Quantas partidas você joga por semana, em média? (A) ~1 (B) 2–3 (C) 4+. E topa 3 MD3 no programa inteiro (P1, S5 e a do browser no S6)? O plano assume B e 3 MD3.",
+    "Q9 · Dificuldade durante a trilha. (A) VPK High fixo até o fim da B1, e depois a troca vira opção no .env (recomendado) (B) voltar para Low já.",
+    "Q10 · Partidas órfãs (prazo: V1.4). events_50_map0.jsonl (21/09) e partida_23set.jsonl (23/09) não estão no banco; eu te mostro mapa e placar a partir de uma cópia. (A) ingerir as que você reconhecer (recomendado) (B) só arquivar (C) apagar. Sem resposta, nada é movido.",
+    "Q11 · Partidas 1 e 2, de 02/09, vindas de demo (prazo: S1.4). (A) manter as linhas e remover o caminho de demo e o awpy: perde-se o reprocessamento, e a partida 1 fica com a duração divergente (17 × 19 min) que só ele corrigiria; C:/cs2server fica intocado (recomendado) (B) manter o caminho de demo (C) apagar as duas.",
+    "Q12 · GOTV (prazo: S1.2). Não grava demo útil desde 21/09 e ocupa uma vaga. (A) desligar em dois passos, cada um validado numa partida sua (recomendado) (B) manter e investigar.",
+    "Q13 · report.html e index.html estáticos (prazo: S4.4). Sem eles, ver as estatísticas exige o uvicorn rodando. (A) aposentar só depois da MD3 pelo browser (S6.4), quando o web já é o seu ponto de entrada único, e depois de você confirmar a paridade no 8000 (recomendado) (B) manter.",
+    "Q14 · Tiles da home e o protótipo home.html (prazo: S4.5). (A) manter os tiles como pendência e mover o protótipo para a KB (recomendado) (B) implementar a F3.5.2 (C) remover os tiles.",
+    "Q15 · CLI ou TUI (prazo: S5). Você joga pelo start_match.py com --map/--side/--mine/--enemy? (A) só pela TUI (B) uso o CLI também, e ele entra na verificação.",
+    "Q16 · Etapa 2 dos bots (prazo: fim da B1). Metamod 1469+ com BotHider, BotVision e BotController, o tipo de mudança que já derrubou tudo uma vez. (A) fazer depois de B1 e P1 estáveis (recomendado) (B) não agora.",
+    "Q17 · O que sobrar quebrado, provavelmente o BotAI (prazo: fim da B1). (A) aceitar degradado e esperar o upstream (recomendado) (B) caçar assinaturas à mão, o que leva dias (C) A e, com tempo, abrir uma PR simples no repo do plugin na sua conta do GitHub.",
+    "Q18 · Próximo marco (prazo: S6). (A) launcher web antes do plugin v1 (recomendado) (B) plugin v1 primeiro.",
+    "Q19 · Captura não carregou (prazo: P1.4). Se o plugin de estatísticas não subir (ex.: depois de um update do CS2): (A) aviso bem visível e você joga normalmente, só que a partida não entra nas estatísticas (recomendado) (B) a partida aborta antes de começar.",
+    "Q20 · Proteger a main no GitHub (prazo: T1.8). Exigir PR e os 3 checks, valendo também para você? (A) sim (recomendado) (B) não.",
+    "Q21 · Onde fica o vault do Obsidian (prazo: H1.4). (A) o board é um vault próprio em docs/board-cs2, fora do git, como no kalendas; a KB em docs/ você lê pelo GitHub ou abre como segundo vault, só leitura (recomendado) (B) docs/ inteiro como vault, com o board dentro; suas edições em notas versionadas viram commit feito por um agente quando você pedir."
+  ],
+  "plan_markdown": "# Programa cs2-tracker: saneamento com o jogo sempre jogável\n\n*Versão final revisada, 26/09/2026.*\n\n**Em uma frase:** primeiro, voltar ao jogo com um comando e trazer os bots de volta, um plugin por partida sua. Em paralelo, sem encostar no jogo, montar board, agentes, testes e a base de conhecimento. Depois, corrigir os bugs que atrapalham o jogo. No fim, simplificar.\n\n---\n\n## 1. Perguntas para você\n\nResponda no formato **Q1 - A, Q2 - A…**. A opção recomendada está marcada.\n\n### Agora (destravam B0 e B1)\n\n**Q1 · Merge.** Posso mesclar `feat/stats-web-e-captura-por-api` na `main` por fast-forward (é a mesma árvore com que você joga hoje), criar a tag `jogavel-2026-09-26` e você passar a jogar da `main`?\n- (A) sim **(recomendado)**\n- (B) ainda não: a tag vai no efcaa42 e você continua na branch\n\n**Q2 · Sessão paralela dos bots (5a2af0df).** Posso copiar para o backup os clones que ela deixou no %TEMP%, junto com os relatórios da auditoria? Você confirma que não vai retomá-la em paralelo, e que a trilha de bots passa a ser o B1?\n- (A) sim **(recomendado)**\n- (B) quero terminar lá primeiro, e o programa espera\n\n**Q3 · Travas dos agentes.**\n- (A) AGENTS.md, bloqueios no `.claude/settings.json` e um hook de guarda contra `down -v`, `git clean`, `pip install`, compose fora do seu checkout, escrita no banco, `.env` ou events-live, e a porta 8000 **(recomendado)**\n- (B) só os bloqueios, sem hook: comando perigoso pede sua aprovação na tela, e os agentes trabalham um de cada vez\n- (C) só o AGENTS.md: nenhum agente trabalha em worktree, só com você acompanhando\n\n*Obs.:* as travas também valem para as SUAS sessões do Claude Code neste projeto (por exemplo, pedir `pip install` ou uvicorn na 8000 a um agente). No seu terminal, nada muda.\n\n**Q4 · Como abrir uma janela de manutenção.**\n- (A) você escreve “pode mexer no servidor”. A janela dura no máximo 45 min e sempre devolve o jogo jogável. Se você abrir o jogo ou a TUI no meio, ela aborta e volta na hora **(recomendado)**\n- (B) janela fixa combinada\n- (C) as duas\n\n**Q5 · Janela pós-partida na trilha de bots.** Quando você disser **“terminei” (= fechei a TUI e o jogo)**, o servidor pode usar 15–30 min para aplicar o próximo passo dos bots e deixar tudo pronto, voltando sozinho se o boot falhar?\n- (A) sim, como OK permanente só para a trilha de bots **(recomendado)**\n- (B) peço OK a cada vez\n\n**Q6 · Jogar sobre uma versão candidata.** Você aceita jogar com UMA mudança ainda não validada, sabendo que `jogavel voltar` desfaz em um comando?\n- O aviso chega por mensagem aqui, por notificação no celular e em `jogavel status`. Depois do P1.1, aparece também numa linha no log da TUI.\n- Com A, eu atualizo seu checkout quando nada estiver rodando. Mudança de servidor continua só em janela.\n\nOpções:\n- (A) sim, sempre **(recomendado)**\n- (B) só quando eu disser “pode testar”\n- (C) não; só versões validadas\n\n**Q7 · Partidas só de bots.** Dentro da janela, o servidor pode rodar uma partida só de bots (10–25 min) antes de expor um plugin arriscado a você?\n- (A) sim **(recomendado)**\n- (B) não; NadeSystem e BotRandomizer ficam mascarados\n- (C) não; eles vão direto para a sua partida, aceitando o risco de crash no meio\n\n**Q8 · Ritmo.** Quantas partidas você joga por semana, em média? (A) ~1 (B) 2–3 (C) 4+. E topa 3 MD3 no programa inteiro (P1, S5 e a do browser no S6)? O plano assume B e 3 MD3.\n\n**Q9 · Dificuldade durante a trilha.**\n- (A) VPK High fixo até o fim da B1; depois, a troca vira opção no `.env` **(recomendado)**\n- (B) voltar para Low já\n\n### Depois (cada uma com prazo; o card que depende dela espera)\n\n**Q10 · Partidas órfãs.** *Prazo: V1.4.* `events_50_map0.jsonl` (21/09) e `partida_23set.jsonl` (23/09) não estão no banco. Eu te mostro mapa e placar a partir de uma cópia.\n- (A) ingerir as que você reconhecer **(recomendado)**\n- (B) só arquivar\n- (C) apagar\n\nSem resposta, nada é movido.\n\n**Q11 · Partidas 1 e 2 (02/09, vindas de demo).** *Prazo: S1.4.*\n- (A) manter as linhas e remover o caminho de demo e o awpy **(recomendado)**. Perde-se o reprocessamento, e a partida 1 fica com a duração divergente (17 × 19 min), que só ele corrigiria. C:/cs2server fica intocado.\n- (B) manter o caminho de demo\n- (C) apagar as duas\n\n**Q12 · GOTV.** *Prazo: S1.2.* Não grava demo útil desde 21/09 e ocupa uma vaga do servidor.\n- (A) desligar em dois passos, cada um validado numa partida sua **(recomendado)**\n- (B) manter e investigar\n\n**Q13 · report.html e index.html estáticos.** *Prazo: S4.4.* Sem eles, ver as estatísticas exige o uvicorn rodando.\n- (A) aposentar só depois da MD3 pelo browser (S6.4), quando o web já é o seu ponto de entrada único, e depois de você confirmar a paridade no 8000 **(recomendado)**\n- (B) manter\n\n**Q14 · Tiles da home e o protótipo `home.html`.** *Prazo: S4.5.*\n- (A) manter os tiles como pendência e mover o protótipo para a KB **(recomendado)**\n- (B) implementar a F3.5.2\n- (C) remover os tiles\n\n**Q15 · CLI ou TUI.** *Prazo: S5.* Você joga pelo `start_match.py` com `--map/--side/--mine/--enemy`?\n- (A) só pela TUI\n- (B) uso o CLI também, e ele entra na verificação\n\n**Q16 · Etapa 2 dos bots.** *Prazo: fim da B1.* Metamod 1469+ com BotHider, BotVision e BotController, o tipo de mudança que já derrubou tudo uma vez.\n- (A) fazer depois que B1 e P1 estiverem estáveis **(recomendado)**\n- (B) não agora\n\n**Q17 · O que sobrar quebrado (provavelmente o BotAI).** *Prazo: fim da B1.*\n- (A) aceitar degradado e esperar o upstream **(recomendado)**\n- (B) caçar assinaturas à mão, o que leva dias\n- (C) A e, quando sobrar tempo, abrir uma PR simples no repo do plugin na sua conta do GitHub\n\n**Q18 · Próximo marco.** *Prazo: S6.*\n- (A) launcher web antes do plugin v1 **(recomendado)**\n- (B) plugin v1 primeiro\n\n**Q19 · Captura não carregou (NOVA).** *Prazo: P1.4.* Se o plugin de estatísticas não subir (por exemplo, depois de um update do CS2):\n- (A) aparece um aviso bem visível e você joga normalmente; só que a partida não entra nas estatísticas **(recomendado)**\n- (B) a partida aborta antes de começar\n\n**Q20 · Proteger a main no GitHub.** *Prazo: T1.8.* Exigir PR e os 3 checks, valendo também para você?\n- (A) sim **(recomendado)**\n- (B) não\n\n**Q21 · Onde fica o vault do Obsidian (NOVA).** *Prazo: H1.4.*\n- (A) o board é um vault próprio em `docs/board-cs2`, fora do git, como no kalendas. A KB em `docs/` você lê pelo GitHub ou abre como segundo vault, só para leitura **(recomendado)**\n- (B) `docs/` inteiro como vault, com o board dentro; suas edições em notas versionadas viram commit feito por um agente quando você pedir\n\n### O que mudou na pauta\n- **Q19 agora é sobre a captura.** A antiga Q19 (carência antes de remover a TUI) virou informativa: vale a D13 como você decidiu (MD3 completa pelo browser mais o seu OK).\n- **Downloads** (artefato do BotRandomizer, o CSSharp que a imagem baixa no boot, re-clone) são pedidos um por um, na hora.\n- **ruff** roda só no CI; nada é instalado na sua `.venv`.\n\n---\n\n## 2. Como o jogo continua jogável\n\n- **A main é sempre jogável.** Cada partida sua que dá certo vira a tag `jogavel-AAAA-MM-DD`. O registro guarda versões, plugins e o sha256 dos arquivos **dentro do container**.\n- **Voltar é um comando:** `.venv/Scripts/python.exe tools/jogavel.py voltar`.\n  - Só recusa se houver partida em curso; com o jogo ou a TUI abertos, avisa o que fechar. Tem `--agora`.\n  - Restaura o código, a pasta do plugin de captura pelo sha256 e o `match_config`.\n  - Confere que o `pre.sh` está em LF e recria o container se a infra mudou.\n- **Mudança de servidor só em janela**, com recriação forçada. O servidor prova, dentro do container, que o cfg, o `pre.sh` e o plugin são os novos, porque o compose sozinho não percebe mudança nesses arquivos.\n- **Durante a janela, o servidor te vigia a cada 30 s.** Se você abrir o jogo ou a TUI, ele aborta e volta na hora. O container nunca fica parado mais de ~5 min.\n- **Ao fechar a janela,** a MatchZy fica sem partida carregada e as cvars voltam ao normal. Isso evita o “cannot load a new match” na sua próxima partida.\n- **Nenhuma partida some.**\n  - Partida interrompida vira `orphan_*`. A sobra normal de toda partida (snapshots depois do fim) não conta como órfã.\n  - Nome repetido vira arquivo com sufixo, nunca é descartado.\n  - Restaurar snapshot não mexe no contador de partidas da MatchZy.\n- **Se a captura não carregar,** você é avisado e joga do mesmo jeito (Q19).\n- **Válvula vanilla:** `voltar --tag jogavel-2026-09-26` hoje; `jogavel vanilla on` a partir do P1.2.\n- **Nada se perde:**\n  - a auditoria e este plano vão para o backup antes de tudo;\n  - volume `external`;\n  - C:/cs2server intocável;\n  - snapshot antes de qualquer escrita no volume, inclusive no upgrade do CSSharp.\n\n## 3. Sequência\n\n| Fase | Sprint | Entrega | Suas partidas |\n|---|---|---|---|\n| 1 | **B0** | backup da auditoria, tag, voltar, hook, volume external, Janela 0 | Janela 0 + a próxima que você jogar |\n| 1 | **B1** | CSSharp 1.0.375 + 6 plugins, um por partida | ~7 + janelas |\n| paralelo (1 por vez) | **H1 → T1 → K1 → V1** | evidência por ferramenta, board, testes herméticos, G4, KB (54 armadilhas), órfãs | 0 + 1 janela de dados |\n| 2 | **P1** | órfão real, colisão sem descarte, vanilla, aviso de captura, MD3 automática, 0.4.1, overflow no signon | 1 MD3 + ~6 |\n| 3 | **S1–S4** | poda verificada (depois da KB), schema aditivo, ingestão única, apresentação | ~10 |\n| 4 | **S5–S7** | MatchRunner (TUI sem diff), launcher web com a MD3 no browser, plugin v1 | ~8 |\n| fora do backlog ativo | **B2, S8**, H1.10, K1.7 | só quando decidido | — |\n\n**Caminho crítico dos bots:** B0.2 → B0.1 → B0.4 → B0.5 → B0.6 → B0.7 (parte 1) → Janela 0 → sua próxima partida → B1.3 na pós-partida. A pasta do plugin por sha256, o `marcar` e os comandos do servidor (B0.7b, que absorveu o antigo servidor.py) andam em paralelo.\n\n**Custo:** a referência inicial é ~1M tokens por card. O custo real é medido nos 3 primeiros cards (get_usage ou explain-usage) e registrado; acima de 1,5× o teto, paro e te consulto. O board só carrega B0/B1 + 1 sprint Offline + o próximo.\n\n## 4. O que mudou nesta revisão\n\n1. Arquivo montado muda só com recriação forçada, e o sha256 é provado dentro do container (G6/G7, registro de versões).\n2. Captura ausente gera **aviso**, não aborto (P1.4, Q19). O carregamento é conferido também pelo log, e há teste com resposta RCON vazia.\n3. Órfão = arquivo com round, morte ou dano depois do último arquivamento (P1.1, P1.10, H1.1). A cauda real vira fixture.\n4. Colisão de nome: P1.1a novo; a restauração exclui o estado de matchid da MatchZy; a evidência acusa colisão.\n5. B0.2 é o primeiro card e salva a auditoria e o plano.\n6. Hook com Python absoluto, falha fechada, bloqueios para Bash e PowerShell, teste dentro de uma worktree, e regras para o Cursor.\n7. S1 depende de K1.4, K1.5 e K1.6; o PR de poda linka a nota de cada bloco removido.\n8. Janela vigiada, limite de 5 min parado, checklist de fechamento e “terminei” definido.\n\nTambém entraram:\n- voltar tolerante; `.gitattributes` e `.gitignore` já no B0;\n- import tardio no watcher;\n- migrações aditivas com rollback por reingestão;\n- `config.compose_files()` único, com teste de integração da TUI;\n- snapshot e hashes antes do CSSharp, com licença checada;\n- `--since` incremental; card do overflow no signon (P1.13);\n- check de PII; métrica de linhas com base 8.028;\n- S4.4 depois do S6.4.\n\n## 5. Papéis e ferramentas\n\n| Papel | Faz | Nunca faz |\n|---|---|---|\n| **PM** (sessão principal) | fala com você, faz a pauta, abre janela com o seu OK, mede o custo | código, merge, servidor |\n| **tech-manager** (sonnet) | 1 card por vez, PR, merge, tags | docker |\n| **dev** (opus) | implementa no worktree, com o Python absoluto | docker, banco real, porta 8000, pip install, TUI |\n| **qa** (sonnet; opus em captura, dados e poda) | julga pela ferramenta; modo cético antes de podar | editar código, docker |\n| **servidor** (opus) | único que opera o jogo, via `jogavel.py`, com vigilância | down -v, escrever no volume sem snapshot, download sem OK |\n\n**Skills:** board-cs2, cs2-servidor, cs2-partida, cs2-web e grilling.\n\n## 6. Base de conhecimento e board\n\n- **KB:** `docs/`, versionada: adr, arquitetura, runbooks, armadilhas, domínio, histórico, agents.\n- **Board:** `docs/board-cs2/`, fora do git (Q21), 1 visão (Esteira), operado pelo CLI.\n- **Status:** Backlog · Bloqueada · Pronta · Em andamento · Em testes · PR aberta · **Aguardando partida** · Concluída.\n\n## 7. Gates\n\n- **G0** preflight.\n- **G1** testes herméticos.\n- **G2** ruff no CI.\n- **G3** CI com CRLF e PII.\n- **G4** TUI e integração com run_match.\n- **G5** plugin de SHA exato, com licença.\n- **G6** boot com sha no container e checklist de fechamento.\n- **G7** evidência da sua partida.\n\nUm card do caminho de jogo só conclui depois do G7. Um sprint só fecha com uma tag em que você jogou.\n\n## 8. Próximo passo\n\n1. Você responde Q1–Q9.\n2. Faço o B0.2 (backup da auditoria e do plano), depois B0.1 e B0.3–B0.8, sem tocar no jogo.\n3. Você abre a Janela 0 (~40 min) e depois joga normalmente.\n4. Na pós-partida seguinte, CSSharp 1.0.375."
+}
