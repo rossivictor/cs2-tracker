@@ -13,7 +13,8 @@ fontes:
   - "AGENTS.md:82-89"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (princípios 1 a 6; playability_protocol §1 a §11; gates G6 e G7)"
   - "backup:temp-artifacts/eb5adec0/audit/critic.json (gaps[2] e gaps[7]; top_risks[1] e top_risks[2])"
-atualizado: 2026-09-27
+  - "docker-compose.yml:196-205 (cs2-data external, name cs2-tracker_cs2-data; B0.8)"
+atualizado: 2026-10-03
 ---
 
 # ADR-0004: O jogo está sempre jogável
@@ -37,7 +38,7 @@ O único caminho que joga (TUI → `start_match` → `watcher` → plugin → `p
 ## Alternativas consideradas
 
 - **Congelar o jogo durante o saneamento**: o Victor recusou ("não quero ser travado por etapas do desenvolvimento").
-- **Servidor de homologação separado**: há uma máquina só e um volume de ~73 GB que não se reproduz (SteamCMD 0x602). Um compose de worktree cria um volume vazio (critic, risco 2).
+- **Servidor de homologação separado**: há uma máquina só e um volume de ~73 GB que não se reproduz (SteamCMD 0x602). Um compose de worktree criava um volume vazio (critic, risco 2); com o volume external (B0.8), ele monta o volume vivo e, com o container removido, sobe com os binds da worktree ([reconstruir-volume](../runbooks/reconstruir-volume.md)).
 - **Várias mudanças por partida**: quando a partida quebra, ninguém sabe qual mudança causou. Uma variável por experimento ([ADR-0005](0005-trilha-de-bots-uma-variavel-por-vez.md)).
 - **Validar só com partida de bots**: não cobre o caminho humano (entrada, `.ready`, TUI, post_mortem). Ela fica como pré-teste em janela (Q7=A).
 

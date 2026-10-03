@@ -32,7 +32,7 @@ Aqui fica só o que vale para todo mundo, inclusive para a sessão que conversa 
 | tocar no volume `cs2-tracker_cs2-data` ou em `C:/cs2server` | nada: o volume não é reproduzível e o `C:/cs2server` é a única semente de recuperação | critic, infra |
 | `docker compose down` (com ou sem `-v`), `docker volume rm`/`prune`, `docker system prune` | nada disso; parar o jogo é do papel servidor, em janela | deny B0.4 |
 | `docker compose run` | build do plugin só pelo papel servidor, em janela | deny B0.4 |
-| `docker compose` fora do checkout principal | sem `name:`, o compose cria projeto e volume novos, vazios: só o servidor, de `C:/Users/Victor/Projetos/cs2-tracker` | critic, risco 2 |
+| `docker compose` fora do checkout principal | o volume é external: de outra pasta, o compose monta o volume VIVO e, sem o `cs2-spike`, sobe com os binds dela ([reconstruir-volume](docs/runbooks/reconstruir-volume.md)): só o servidor, de `C:/Users/Victor/Projetos/cs2-tracker` | critic, risco 2; B0.8 |
 | `git clean` (qualquer flag, inclusive com `-C`) | apague só o que você criou, pelo nome: os ignorados incluem banco, events-live, `.env` e a DLL | critic, risco 1 |
 | usar a porta 8000 | é do Victor; use a 8010 com banco de fixture | Q3=A; protocolo 9 |
 | trocar VPK ou DLL com o servidor vivo | só em janela, com o servidor parado (dá FATAL/segfault) | bafe2b4 |

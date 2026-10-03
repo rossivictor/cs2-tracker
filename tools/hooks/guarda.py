@@ -15,7 +15,9 @@ Bloqueia:
   - docker compose / docker-compose com diretório de projeto, -f ou
     --project-directory fora do checkout principal (inclusive de uma
     worktree de agente) ou com projeto (-p, COMPOSE_PROJECT_NAME) que não
-    seja cs2-tracker: sem `name:`, o compose cria projeto e volume vazios;
+    seja cs2-tracker: o volume é external, e esse compose monta o volume
+    vivo fora do projeto do jogo, com os binds da pasta de onde roda
+    (docs/runbooks/reconstruir-volume.md);
   - compose run e compose down (com ou sem -v/--volumes);
   - compose config sem -q (e afins) e docker inspect sem --format: imprimem
     os valores do .env na conversa;
@@ -1643,7 +1645,8 @@ def _abrir_listas_ps(prog, brutos, args):
 def _bloquear_compose_fora(lugar):
     raise Bloqueio(
         f"docker compose fora do checkout principal ({lugar or 'diretório desconhecido'}): "
-        "sem `name:`, o compose cria projeto e volume novos e vazios",
+        "o volume é external e o compose monta o volume VIVO; com o cs2-spike removido, sobe "
+        "com os binds desta pasta (docs/runbooks/reconstruir-volume.md)",
         f"só o papel servidor, em janela, de {PRINCIPAL}")
 
 
@@ -1689,7 +1692,9 @@ def _h_compose(prog, args, dialeto, ctx, env):
                        "nada disso; parar o jogo é do papel servidor, em janela, com stop")
     projeto = projeto or env.get("COMPOSE_PROJECT_NAME") or os.environ.get("COMPOSE_PROJECT_NAME")
     if projeto is not None and projeto.lower() != PROJETO_COMPOSE:
-        raise Bloqueio(f"docker compose com projeto {projeto!r}: cria volume novo e vazio",
+        raise Bloqueio(f"docker compose com projeto {projeto!r}: monta o volume VIVO (external) "
+                       "em outro projeto; com o cs2-spike removido, sobe outro container sobre ele "
+                       "(docs/runbooks/reconstruir-volume.md)",
                        f"sem -p nem COMPOSE_PROJECT_NAME, do checkout principal {PRINCIPAL}")
     if not arquivos and env.get("COMPOSE_FILE"):
         arquivos = [f for f in env["COMPOSE_FILE"].split(";") if f]
