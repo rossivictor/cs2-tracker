@@ -339,7 +339,7 @@ se vier (não bloqueia).
 
 - **1 · B1.3r:** nenhuma assinatura falhou. RoundDamageRecap (ed0ard) carregado e sem máscara. O container reiniciou às 13:48 sem recreate (config-hash igual). Jogo "liso" na impressão do Victor.
 - **2 · B1.4:** o BotAimImprover do volume (05/09) não carrega na build atual; a correção veio do upstream (B1.4b). Bots da partida 27 (com B1.4b + Medium): 14 utility + 19 flash, 63 cegueiras. Impressão do Victor: "bem desafiador e bem maneiro de jogar".
-- **3 · B1.5:** Victor: K/D 0,41, ADR 46 na partida 28 (média até 26/09: K/D 2,93, ADR 130) — "beeem mais desafiador". BotController nativo não disponível (Metamod 1469 recusa plugins da interface 17): recursos do Smarter-Bot que dependem dele ficam desligados até a B2. No smoke, depois do `changelevel` a quota volta a zero no load: é preciso readicionar os bots para testar a entrada deles no mapa novo ([smoke só de bots](smoke-partida-de-bots.md#armadilhas), armadilha 2).
+- **3 · B1.5:** Victor: K/D 0,41, ADR 46 na partida 28 (média até 26/09: K/D 2,93, ADR 130) — "beeem mais desafiador". BotController não disponível: do volume só consta a API compartilhada (`counterstrikesharp/shared/BotControllerApi/BotControllerApi.dll`), sem o plugin nem o nativo (ver [Sobras](#sobras), 2): recursos do Smarter-Bot que dependem dele ficam desligados até a B2. No smoke, depois do `changelevel` a quota volta a zero no load: é preciso readicionar os bots para testar a entrada deles no mapa novo ([smoke só de bots](smoke-partida-de-bots.md#armadilhas), armadilha 2).
 - **4 · B1.6:** CTs trocaram a AUG pela M4A1 (146 vs 30 hits); entropia de armas 3,18 bits (ref. 2,54). Com BotState + BotBuy os bots deixaram de usar granada (0 dano/cegueira nas partidas 28 e 29).
 - **5 · B1.7:** pulado. Religar só com correção upstream do offset `m_gameState` do CCSBot, ou após verificação do offset na build atual.
 - **6 · B1.8:** granadas voltaram (324 replays na partida 30). Aviso do engine "Grenade has no weapon info" nas granadas replayed: a contagem de utility do motor não credita o bot. Victor: 9/13, K/D 0,69, primeira derrota da trilha.
@@ -363,7 +363,7 @@ recreate ou da troca. Para as estatísticas (coluna `bot_suite`, S2.4), a fronte
 | 4 · B1.6 | 27/09 20:10 (candidato-5) | BotBuy (BotBuyPatch 1.0.12) | + BotBuy | Medium | 2000918 | 29 (`events_66_map0`) | jogavel-2026-09-27-4 |
 | 6 · B1.8 | 27/09 21:17 (candidato-6) | NadeSystem 1.2.1 | + NadeSystem | Medium | 2000918 | 30 (`events_67_map0`) | jogavel-2026-09-27-5 |
 | 7 · B1.9 | 27/09 22:30 (candidato-7) | BotRandomizer 1.3.2 | + BotRandomizer | Medium | 2000918 | 31 (`events_68_map0`) | jogavel-2026-09-28 |
-| VPK Low | 28/09 19:54:52 (VPK) e 19:59:26 (build 2000919); build 2000922 em 30/09 23:10 | VPK Medium → Low, a pedido do Victor; no mesmo boot, o steamcmd da imagem atualizou o CS2 sem OK prévio (G5); o restart da janela de 30/09 levou à 2000922 | os mesmos da 7 | Low | 2000919 → 2000922 | 36 (matchid 71, `events_71_map0`, de_ancient 13x7, 01/10, G7 OK na 2000922). Ressalva: a `events_70` (MD3, 30/09, antes da janela) já jogou o Low na 2000919, sem G7 | **validada**: jogavel-2026-10-01; em vigor na jogavel-2026-10-03 (B0.8, só o volume external, matchid 74) |
+| VPK Low | 28/09 19:54:52 (VPK) e 19:59:26 (build 2000919); build 2000922 em 30/09 23:10 | VPK Medium → Low, a pedido do Victor; no mesmo boot, o steamcmd da imagem atualizou o CS2 sem OK prévio (G5); o restart da janela de 30/09 levou à 2000922 | os mesmos da 7 | Low | 2000919 → 2000922 | 36 (matchid 71, `events_71_map0`, de_ancient 13x7, 01/10, G7 OK na 2000922). Ressalva: a `events_69` (partida 32, de_dust2 13x6, 30/09 15:59) e a `events_70` (MD3, 30/09, antes da janela) já jogaram o Low na 2000919, sem G7 | **validada**: jogavel-2026-10-01; em vigor na jogavel-2026-10-03 (B0.8, só o volume external, matchid 74) |
 
 - O B1.7 não abriu época: foi pulado, e o BotAI segue mascarado.
 - Na partida, a época do VPK se confere pelo chat: o RoundDamageRecap compara o sha256 do
@@ -386,7 +386,7 @@ Card B1.10, em 28/09, offline. Fontes: o registro acima, os registros das janela
 | NadeSystem | 6 · B1.8 | religado | 1.2.1, do volume |
 | BotRandomizer | 7 · B1.9 | religado | 1.3.2, upstream `276f1ce`, bind mount |
 | RayTrace/RayTraceImpl, BotHider/BotHiderImpl | fora da B1 | mascarado | — |
-| BotVision, BotController | fora da B1 | ausentes do volume | — |
+| BotVision, BotController | fora da B1 | ausentes do volume (do BotController, só a API compartilhada) | — |
 
 Nenhum plugin que ficou no ar tem assinatura falhando, nem na janela nem na partida. A única
 falha da trilha foi a `PickNewAimSpot` do BotAimImprover do volume (B1.4), trocado pelo do
@@ -396,20 +396,25 @@ upstream. O BotAI não chegou a ser testado, então as 43 assinaturas dele ficam
 
 1. **BotAI:** mascarado. Escreve Int32 zero em `CCSBot+0x5100+0x0C` a cada spawn, num offset
    da build 14172 que o update de 23/09 deslocou. O upstream não tem commit desde 27/08, e o
-   PR #7 dele segue aberto. O card B1.7a confere o offset na build atual, que desde 28/09 é a
-   2000919.
+   PR #7 dele segue aberto. O card B1.7a confere o offset na build atual, que desde 30/09 é a
+   2000922.
 2. **Nativos do Metamod, para a B2:** RayTrace/RayTraceImpl e BotHider/BotHiderImpl seguem
    mascarados (no boot, `[META] Failed to load plugin ... File not found`, efeito da máscara).
-   BotVision e BotController nem estão no volume: o snapshot `volume-addons-0144`, de 27/09,
-   não tem pasta deles. Efeitos: o Smarter-Bot loga `BotController API not available` e
-   desliga o que depende dele, e `Unknown command 'bv_reveal'` é ruído.
-3. **BotBuyPatch:** 3 `Error invoking callback` (`BotBuyPatch.cs:258`, `ArgumentNullException`
-   em `get_PlayerPawn` no `OnRoundStart`) no warmup do changelevel. Foram iguais nas partidas
-   30, 31 e 36 (esta no warmup do 1º mapa, build 2000922), sem efeito visto: ruído conhecido.
+   O BotVision não está no volume, e o BotController só em parte: o snapshot
+   `volume-addons-0144`, de 27/09, tem
+   `counterstrikesharp/shared/BotControllerApi/BotControllerApi.dll`; faltam só o plugin e o
+   nativo. Efeitos: o Smarter-Bot loga `BotController API not available` e desliga o que
+   depende dele, e `Unknown command 'bv_reveal'` é ruído.
+3. **BotBuyPatch:** 3 `Error invoking callback` (`ArgumentNullException` em `get_PlayerPawn`,
+   nos 3 callbacks do `OnRoundStart`: `BotBuy.cs:258`, `:231` e `:213`, em
+   `docker-logs.txt:538`, 550 e 562 da coleta da partida 31) no warmup do changelevel. Foram
+   iguais nas partidas 30, 31 e 36 (esta no warmup do 1º mapa, build 2000922), sem efeito visto:
+   ruído conhecido.
 4. **NadeSystem:** "Grenade has no weapon info" nas granadas replayed (141 avisos na partida
    30, 68 na 31). A contagem de utility do motor não credita o bot. É o card B1.8b.
 5. **Época VPK Low:** validada em 01/10 (partida 36, `jogavel-2026-10-01`, build 2000922). O
-   Low e a build entraram juntos (confundidor 3); a `events_70` já jogou o Low na 2000919, sem G7.
+   Low e a build entraram juntos (confundidor 3); a `events_69` e a `events_70` já jogaram o Low
+   na 2000919, sem G7.
 6. **Fora da trilha:** o GOTV não grava `.dem` desde 21/09
    (`CDemoFile::Open: couldn't open file ... for writing`). Já é a Q12, no S1.2.
 
@@ -423,8 +428,11 @@ estiver estável. Duas coisas mudaram desde o plano:
   BotVision v0.3.0, BotController v0.7.0) contra o par atual. Sobra o B2.3, um nativo por
   partida.
 - O BotAimImprover do upstream traça a visada com o `Trace` da própria CSSharp
-  (`BotAimImprover.cs:407-417` em `c3d10f5`), não com o RayTrace. Nenhum plugin ativo
-  conhecido depende do RayTrace, então o B2.5 segue condicional.
+  (`BotAimImprover.cs:407-417` em `c3d10f5`), não com o RayTrace. Já o NadeSystem 1.2.1
+  referencia o RayTrace, mas de forma opcional: o `NadeSystem.dll` do volume pede a capability
+  dele (`RayTraceAPI`, `raytrace:craytraceinterface`) para o `FlashHasLoS` e, sem ela, loga
+  `FlashHasLoS: RayTrace not loaded, skipping`. Ele roda com o RayTrace mascarado desde o B1.8.
+  É o caso que o B2.5, condicional, testaria.
 
 O ganho mais visível é o BotController, que o Smarter-Bot já espera. Mas cada nativo muda o
 comportamento dos bots de novo, e a dificuldade acabou de mudar duas vezes a pedido do Victor:
