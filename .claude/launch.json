@@ -6,6 +6,12 @@
       "runtimeExecutable": ".venv\\Scripts\\python.exe",
       "runtimeArgs": ["-m", "uvicorn", "web.app:app", "--host", "127.0.0.1", "--port", "8000"],
       "port": 8000
+    },
+    {
+      "name": "web-golden",
+      "runtimeExecutable": "C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe",
+      "runtimeArgs": ["tools/web_golden.py", "--porta", "8010"],
+      "port": 8010
     }
   ]
 }
