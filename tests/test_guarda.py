@@ -882,6 +882,94 @@ def test_forma_indireta_que_nao_alcanca_o_banco_nem_o_env_passa(repo, ferramenta
                     preflight=lambda: preflight_do_jogo) == (0, "", "")
 
 
+# Card B0.5e: cópia ou movimentação para uma PASTA do checkout principal com
+# o nome de origem do banco ou do .env. A guarda junta o nome da origem à pasta.
+COPIA_PARA_PASTA_BLOQUEADA = [
+    # Os 2 do Problema.
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db -Destination {P}", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db -Destination {P}/", BANCO),
+    # Os lados do banco e o .env.
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db-wal -Destination {P}", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db-shm -Destination {P}", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db-journal -Destination {P}/", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/.env -Destination {P}", ENV),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/.env -Destination {P}/", ENV),
+    # Abreviações de -Destination e -Destination:<valor>.
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db -Des {P}", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db -Dest {P}/", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/.env -destinat {P}", ENV),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db -Destination:{P}", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Path:{F}/.env -Dest:{P}/", ENV),
+    # Parâmetros em qualquer ordem, origem posicional com destino nomeado.
+    ("PowerShell", "wt", "Copy-Item -Destination {P} -Path {F}/cs2_tracker.db", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Destination {P}/ {F}/.env", ENV),
+    ("PowerShell", "wt", "Copy-Item -Force -Destination:{P} -LiteralPath {F}/cs2_tracker.db",
+     BANCO),
+    # -LiteralPath e o alias -LP.
+    ("PowerShell", "wt", "Copy-Item -LiteralPath {F}/cs2_tracker.db -Destination {P}", BANCO),
+    ("PowerShell", "wt", "Copy-Item -LP {F}/.env -Destination {P}", ENV),
+    # Os aliases.
+    ("PowerShell", "wt", "cpi -Path {F}/cs2_tracker.db -Destination {P}", BANCO),
+    ("PowerShell", "wt", "copy -Path {F}/.env -Destination {P}/", ENV),
+    ("PowerShell", "wt", "cp -Path {F}/cs2_tracker.db -Destination {P}", BANCO),
+    ("PowerShell", "wt", "Move-Item -Path {F}/cs2_tracker.db -Destination {P}", BANCO),
+    ("PowerShell", "wt", "mi -Path {F}/.env -Destination {P}/", ENV),
+    ("PowerShell", "wt", "move -LiteralPath {F}/cs2_tracker.db-wal -Destination {P}/docs", BANCO),
+    ("PowerShell", "wt", "mv -Path {F}/.env -Destination:{P}", ENV),
+    # Lista nua na origem: com @(...) e com vírgula.
+    ("PowerShell", "wt", "Copy-Item -Path @('{F}/a.txt', '{F}/cs2_tracker.db') -Destination {P}",
+     BANCO),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/a.txt,{F}/.env -Destination {P}/", ENV),
+    # Subpasta do principal, destino relativo a partir dele e pasta que não se resolve.
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db -Destination {P}/docs", BANCO),
+    ("PowerShell", "principal", "Copy-Item -Path {F}/cs2_tracker.db -Destination .", BANCO),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db -Destination $sem_valor", BANCO),
+    # Forma GNU cuja origem a guarda lia como valor de opção (cp -u x <R>).
+    ("Bash", "wt", "cp -u {F}/cs2_tracker.db {P}", BANCO)]
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("ferramenta,lugar,comando,tipo", COPIA_PARA_PASTA_BLOQUEADA)
+def test_copia_para_pasta_do_principal_com_o_nome_do_banco_ou_do_env_e_bloqueada(
+        repo, ferramenta, lugar, comando, tipo, preflight_do_jogo):
+    codigo, erro, _ = _comando(repo, ferramenta, lugar, comando,
+                               preflight=lambda: preflight_do_jogo)
+    assert codigo == 2, (comando, erro)
+    assert erro.startswith("guarda (B0.5) bloqueou:") and "Em vez disso:" in erro
+    motivo = "é o banco cs2_tracker.db" if tipo == BANCO else "é o .env"
+    assert motivo in erro, (comando, erro)
+    for trecho in ALTERNATIVA[tipo]:
+        assert trecho in erro, (comando, erro)
+
+
+def test_copia_para_pasta_nomeia_o_arquivo_que_seria_sobrescrito(repo):
+    _, erro, _ = _comando(repo, "PowerShell", "wt",
+                          "Copy-Item -Path {F}/cs2_tracker.db -Destination {P}/")
+    assert f"em {repo.principal.as_posix()}/cs2_tracker.db:" in erro, erro
+
+
+@pytest.mark.parametrize("preflight_do_jogo", [0, 3])
+@pytest.mark.parametrize("ferramenta,lugar,comando", [
+    # Os 4 do critério 2.
+    ("PowerShell", "wt", "Copy-Item -Path {F}/a.txt -Destination {P}"),
+    ("PowerShell", "wt", "Copy-Item docs/README.md {F}"),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db -Destination {F}/outra/"),
+    ("PowerShell", "wt", "Remove-Item cs2_tracker.db"),
+    # Vizinhos: outras formas dos mesmos 4.
+    ("PowerShell", "wt", "Copy-Item -Path docs/README.md -Destination {F}"),
+    ("PowerShell", "wt", "Copy-Item -Destination:{P}/docs -LiteralPath {F}/a.txt"),
+    ("PowerShell", "wt", "Copy-Item {F}/cs2_tracker.db {F}/outra/"),
+    ("PowerShell", "wt", "Copy-Item -Path {F}/cs2_tracker.db -Destination ."),
+    ("Bash", "wt", "cp {F}/cs2_tracker.db {F}/outra/"),
+    ("Bash", "wt", "rm cs2_tracker.db"),
+    ("Bash", "wt", "rm {P}/.claude/worktrees/agente/cs2_tracker.db"),
+])
+def test_copia_que_nao_sobrescreve_o_banco_nem_o_env_do_principal_passa(
+        repo, ferramenta, lugar, comando, preflight_do_jogo):
+    assert _comando(repo, ferramenta, lugar, comando,
+                    preflight=lambda: preflight_do_jogo) == (0, "", "")
+
+
 def test_copia_da_raiz_explica_o_que_vai_junto_e_a_alternativa(repo):
     _, erro, _ = _comando(repo, "Bash", "wt", "cp -r {P} {F}/")
     assert "raiz do checkout principal" in erro and ".env" in erro
