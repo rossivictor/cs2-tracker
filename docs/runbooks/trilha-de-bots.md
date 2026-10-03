@@ -363,7 +363,7 @@ recreate ou da troca. Para as estatísticas (coluna `bot_suite`, S2.4), a fronte
 | 4 · B1.6 | 27/09 20:10 (candidato-5) | BotBuy (BotBuyPatch 1.0.12) | + BotBuy | Medium | 2000918 | 29 (`events_66_map0`) | jogavel-2026-09-27-4 |
 | 6 · B1.8 | 27/09 21:17 (candidato-6) | NadeSystem 1.2.1 | + NadeSystem | Medium | 2000918 | 30 (`events_67_map0`) | jogavel-2026-09-27-5 |
 | 7 · B1.9 | 27/09 22:30 (candidato-7) | BotRandomizer 1.3.2 | + BotRandomizer | Medium | 2000918 | 31 (`events_68_map0`) | jogavel-2026-09-28 |
-| VPK Low | 28/09 19:54:52 (VPK) e 19:59:26 (build 2000919); build 2000922 em 30/09 23:10 | VPK Medium → Low, a pedido do Victor; no mesmo boot, o steamcmd da imagem atualizou o CS2 sem OK prévio (G5); o restart da janela de 30/09 levou à 2000922 | os mesmos da 7 | Low | 2000919 → 2000922 | 36 (matchid 71, `events_71_map0`, de_ancient 13x7, 01/10, G7 OK na 2000922). Ressalva: a `events_70` (MD3, 30/09, antes da janela) já jogou o Low na 2000919, sem G7 | **validada**: jogavel-2026-10-01 |
+| VPK Low | 28/09 19:54:52 (VPK) e 19:59:26 (build 2000919); build 2000922 em 30/09 23:10 | VPK Medium → Low, a pedido do Victor; no mesmo boot, o steamcmd da imagem atualizou o CS2 sem OK prévio (G5); o restart da janela de 30/09 levou à 2000922 | os mesmos da 7 | Low | 2000919 → 2000922 | 36 (matchid 71, `events_71_map0`, de_ancient 13x7, 01/10, G7 OK na 2000922). Ressalva: a `events_70` (MD3, 30/09, antes da janela) já jogou o Low na 2000919, sem G7 | **validada**: jogavel-2026-10-01; em vigor na jogavel-2026-10-03 (B0.8, só o volume external, matchid 74) |
 
 - O B1.7 não abriu época: foi pulado, e o BotAI segue mascarado.
 - Na partida, a época do VPK se confere pelo chat: o RoundDamageRecap compara o sha256 do
