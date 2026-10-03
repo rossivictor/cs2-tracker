@@ -1,0 +1,1194 @@
+2026-09-19T17:33:12.376575000Z [MatchZy] [LOADMATCH] MinPlayersToReady: 2 SeriesClinch: True
+2026-09-19T17:33:12.376575000Z [MatchZy] [LOADMATCH] MapsPool: de_nuke, de_dust2, de_ancient MapsLeftInVetoPool: de_nuke, de_dust2, de_ancient
+2026-09-19T17:33:12.376575000Z [MatchZy] [ChangeMap] Changing map to de_nuke with delay 0
+2026-09-19T17:33:12.376575000Z [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+2026-09-19T17:33:12.376575000Z [MatchZy] [UpdatePlayersMap] CCSPlayerController count: 11 matchModeOnly: False
+2026-09-19T17:33:12.376575000Z [MatchZy] [UpdatePlayersMap] CCSPlayerController count: 11, RealPlayersCount: 0
+2026-09-19T17:33:12.376575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:33:12.376575000Z [MatchZy] [LoadMatchFromJSON] Success with matchid: -1!
+2026-09-19T17:33:12.676575000Z "Jogador<0><STEAM_ID_PENDING><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 7686.88
+2026-09-19T17:33:12.676575000Z "Novembro2<1><STEAM_ID_PENDING><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 7686.88
+2026-09-19T17:33:12.676575000Z "India2<2><STEAM_ID_PENDING><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 7686.88
+2026-09-19T17:33:12.776575000Z "Eco<3><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 7686.88
+2026-09-19T17:33:12.776575000Z "Hotel2<4><STEAM_ID_PENDING><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 7686.88
+2026-09-19T17:33:12.776575000Z "Eco2<5><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 7686.88
+2026-09-19T17:33:12.876575000Z "Foxtrot2<6><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 7686.88
+2026-09-19T17:33:12.876575000Z "Alfa<7><STEAM_ID_PENDING><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 7686.88
+2026-09-19T17:33:12.876575000Z "Delta2<8><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 7686.88
+2026-09-19T17:33:12.976575000Z "Lima2<9><STEAM_ID_PENDING><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 7686.88
+2026-09-19T17:33:12.976575000Z "Charlie<10><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 7686.88
+2026-09-19T17:33:23.476575000Z [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+2026-09-19T17:33:23.476575000Z execing MatchZy/warmup.cfg
+2026-09-19T17:33:23.476575000Z "CS2 Tracker - Spike MatchZy CSTV<0><BOT><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 2.36
+2026-09-19T17:34:10.276575000Z [MatchZy] [FULL CONNECT] Player ID: 1, Name: Jogador has connected!
+2026-09-19T17:34:10.276575000Z [MatchZy] [FULL CONNECT] First player has connected, starting warmup!
+2026-09-19T17:34:10.276575000Z [MatchZy] [AutoStart] autoStartMode: 1
+2026-09-19T17:34:10.276575000Z [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+2026-09-19T17:34:10.276575000Z execing MatchZy/warmup.cfg
+2026-09-19T17:34:10.276575000Z "CS2 Tracker - Spike MatchZy CSTV<0><BOT><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 49.19
+2026-09-19T17:34:10.276575000Z "Jogador<1><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 49.19
+2026-09-19T17:34:13.476575000Z "CS2 Tracker - Spike MatchZy CSTV<0><BOT><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 52.33
+2026-09-19T17:34:13.476575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 52.33
+2026-09-19T17:34:17.176575000Z [MatchZy] [!ready command] Sent by: 1 readyAvailable: True matchStarted: False
+2026-09-19T17:34:17.176575000Z [MatchZy] [IsTeamReady] team: 3 minPlayers:5 minReady:2 playerCount:0 readyCount:0
+2026-09-19T17:34:32.976575000Z autokick is disabled for CS2 Tracker - Spike MatchZy CSTV
+2026-09-19T17:34:33.076575000Z autokick is disabled for CS2 Tracker - Spike MatchZy CSTV
+2026-09-19T17:34:34.176575000Z autokick is disabled for CS2 Tracker - Spike MatchZy CSTV
+2026-09-19T17:34:34.476575000Z autokick is disabled for CS2 Tracker - Spike MatchZy CSTV
+2026-09-19T17:34:34.676575000Z CS2 Tracker - Spike MatchZy CSTV kicked by Console (NETWORK_DISCONNECT_KICKED)
+2026-09-19T17:34:52.576575000Z [MatchZy] [InsertMatchData] Data inserted into matchzy_stats_matches with match_id: 45
+2026-09-19T17:34:52.576575000Z [MatchZy] [GetCoachSpawns] Loaded 2 coach spawns
+2026-09-19T17:34:52.576575000Z [MatchZy] [StartDemoRecoding] Starting demo recording, path: MatchZy/2026-09-19_17-34-52_45_de_nuke_Jogador_vs_Bots.dem
+2026-09-19T17:34:52.576575000Z [MatchZy] [StartLive] Starting Live! Executing Live CFG from MatchZy/live.cfg
+2026-09-19T17:34:52.576575000Z [MatchZy] [StartDemoRecording] Demo recording is already in progress.
+2026-09-19T17:34:52.776575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:34:52.876575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:34:52.876575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round00.json fileUplo
+2026-09-19T17:34:52.876575000Z execing MatchZy/live_override.cfg
+2026-09-19T17:34:56.476575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 88.70
+2026-09-19T17:34:56.476575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 88.70
+2026-09-19T17:34:56.476575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 88.70
+2026-09-19T17:34:56.476575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 88.70
+2026-09-19T17:34:56.476575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 88.70
+2026-09-19T17:34:56.476575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 88.70
+2026-09-19T17:34:56.476575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 88.70
+2026-09-19T17:34:56.476575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 88.70
+2026-09-19T17:34:56.476575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 88.70
+2026-09-19T17:34:56.476575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 88.70
+2026-09-19T17:34:56.476575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 88.70
+2026-09-19T17:34:56.576575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:34:56.576575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round00.json fileUplo
+2026-09-19T17:34:56.576575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:36:10.976575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round01.txt and lastMatchZyBackupFileName to matchzy_45_0_round01.json
+2026-09-19T17:36:10.976575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:36:10.976575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:36:15.976575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 166.88
+2026-09-19T17:36:15.976575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 166.88
+2026-09-19T17:36:15.976575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 166.88
+2026-09-19T17:36:15.976575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 166.88
+2026-09-19T17:36:15.976575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 166.88
+2026-09-19T17:36:15.976575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 166.88
+2026-09-19T17:36:15.976575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 166.88
+2026-09-19T17:36:15.976575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 166.88
+2026-09-19T17:36:15.976575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 166.88
+2026-09-19T17:36:15.976575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 166.88
+2026-09-19T17:36:15.976575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 166.88
+2026-09-19T17:36:16.076575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:36:16.076575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round01.json fileUplo
+2026-09-19T17:36:16.076575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:38:00.876575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round02.txt and lastMatchZyBackupFileName to matchzy_45_0_round02.json
+2026-09-19T17:38:00.876575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:38:00.876575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:38:06.076575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 277.02
+2026-09-19T17:38:06.076575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 277.02
+2026-09-19T17:38:06.076575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 277.02
+2026-09-19T17:38:06.076575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 277.02
+2026-09-19T17:38:06.076575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 277.02
+2026-09-19T17:38:06.076575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 277.02
+2026-09-19T17:38:06.076575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 277.02
+2026-09-19T17:38:06.076575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 277.02
+2026-09-19T17:38:06.076575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 277.02
+2026-09-19T17:38:06.076575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 277.02
+2026-09-19T17:38:06.076575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 277.02
+2026-09-19T17:38:06.176575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:38:06.176575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round02.json fileUplo
+2026-09-19T17:38:06.176575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:38:51.676575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:38:51.676575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round03.txt and lastMatchZyBackupFileName to matchzy_45_0_round03.json
+2026-09-19T17:38:51.676575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:38:56.676575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 327.55
+2026-09-19T17:38:56.676575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 327.55
+2026-09-19T17:38:56.676575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 327.55
+2026-09-19T17:38:56.676575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 327.55
+2026-09-19T17:38:56.676575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 327.55
+2026-09-19T17:38:56.676575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 327.55
+2026-09-19T17:38:56.676575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 327.55
+2026-09-19T17:38:56.676575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 327.55
+2026-09-19T17:38:56.676575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 327.55
+2026-09-19T17:38:56.676575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 327.55
+2026-09-19T17:38:56.676575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 327.55
+2026-09-19T17:38:56.776575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:38:56.776575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round03.json fileUplo
+2026-09-19T17:38:56.776575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:39:48.976575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:39:48.976575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round04.txt and lastMatchZyBackupFileName to matchzy_45_0_round04.json
+2026-09-19T17:39:48.976575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:39:53.876575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 384.38
+2026-09-19T17:39:53.876575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 384.38
+2026-09-19T17:39:53.876575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 384.38
+2026-09-19T17:39:53.876575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 384.38
+2026-09-19T17:39:53.876575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 384.38
+2026-09-19T17:39:53.876575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 384.38
+2026-09-19T17:39:53.876575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 384.38
+2026-09-19T17:39:53.876575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 384.38
+2026-09-19T17:39:53.876575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 384.38
+2026-09-19T17:39:53.876575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 384.38
+2026-09-19T17:39:53.876575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 384.38
+2026-09-19T17:39:53.976575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:39:53.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round04.json fileUplo
+2026-09-19T17:39:53.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:41:09.876575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round05.txt and lastMatchZyBackupFileName to matchzy_45_0_round05.json
+2026-09-19T17:41:09.976575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:41:10.076575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:41:20.776575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 444.02
+2026-09-19T17:41:20.776575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 444.02
+2026-09-19T17:41:20.776575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 444.02
+2026-09-19T17:41:20.776575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 444.02
+2026-09-19T17:41:20.776575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 444.02
+2026-09-19T17:41:20.776575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 444.02
+2026-09-19T17:41:20.776575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 444.02
+2026-09-19T17:41:20.776575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 444.02
+2026-09-19T17:41:20.776575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 444.02
+2026-09-19T17:41:20.776575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 444.02
+2026-09-19T17:41:20.776575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 444.02
+2026-09-19T17:41:21.676575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:41:21.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round05.json fileUplo
+2026-09-19T17:41:21.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:42:56.176575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:42:56.176575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round06.txt and lastMatchZyBackupFileName to matchzy_45_0_round06.json
+2026-09-19T17:42:56.276575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:43:01.176575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 527.41
+2026-09-19T17:43:01.176575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 527.41
+2026-09-19T17:43:01.176575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 527.41
+2026-09-19T17:43:01.176575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 527.41
+2026-09-19T17:43:01.176575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 527.41
+2026-09-19T17:43:01.176575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 527.41
+2026-09-19T17:43:01.176575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 527.41
+2026-09-19T17:43:01.176575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 527.41
+2026-09-19T17:43:01.176575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 527.41
+2026-09-19T17:43:01.176575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 527.41
+2026-09-19T17:43:01.176575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 527.41
+2026-09-19T17:43:01.276575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:43:01.276575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round06.json fileUplo
+2026-09-19T17:43:01.276575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:44:58.176575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:44:58.176575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round07.txt and lastMatchZyBackupFileName to matchzy_45_0_round07.json
+2026-09-19T17:44:58.176575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:45:03.176575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 649.30
+2026-09-19T17:45:03.176575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 649.30
+2026-09-19T17:45:03.176575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 649.30
+2026-09-19T17:45:03.176575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 649.30
+2026-09-19T17:45:03.176575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 649.30
+2026-09-19T17:45:03.176575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 649.30
+2026-09-19T17:45:03.176575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 649.30
+2026-09-19T17:45:03.176575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 649.30
+2026-09-19T17:45:03.176575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 649.30
+2026-09-19T17:45:03.176575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 649.30
+2026-09-19T17:45:03.176575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 649.30
+2026-09-19T17:45:03.176575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:45:03.176575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round07.json fileUplo
+2026-09-19T17:45:03.176575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:46:17.376575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:46:17.376575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round08.txt and lastMatchZyBackupFileName to matchzy_45_0_round08.json
+2026-09-19T17:46:17.376575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:46:22.276575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 728.45
+2026-09-19T17:46:22.276575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 728.45
+2026-09-19T17:46:22.276575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 728.45
+2026-09-19T17:46:22.276575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 728.45
+2026-09-19T17:46:22.276575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 728.45
+2026-09-19T17:46:22.276575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 728.45
+2026-09-19T17:46:22.276575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 728.45
+2026-09-19T17:46:22.276575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 728.45
+2026-09-19T17:46:22.276575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 728.45
+2026-09-19T17:46:22.276575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 728.45
+2026-09-19T17:46:22.276575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 728.45
+2026-09-19T17:46:22.376575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:46:22.376575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round08.json fileUplo
+2026-09-19T17:46:22.376575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:47:15.676575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:47:15.676575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round09.txt and lastMatchZyBackupFileName to matchzy_45_0_round09.json
+2026-09-19T17:47:15.676575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:47:20.576575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 786.70
+2026-09-19T17:47:20.576575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 786.70
+2026-09-19T17:47:20.576575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 786.70
+2026-09-19T17:47:20.576575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 786.70
+2026-09-19T17:47:20.576575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 786.70
+2026-09-19T17:47:20.576575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 786.70
+2026-09-19T17:47:20.576575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 786.70
+2026-09-19T17:47:20.576575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 786.70
+2026-09-19T17:47:20.576575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 786.70
+2026-09-19T17:47:20.576575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 786.70
+2026-09-19T17:47:20.576575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 786.70
+2026-09-19T17:47:20.676575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:47:20.676575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round09.json fileUplo
+2026-09-19T17:47:20.676575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:48:27.776575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round10.txt and lastMatchZyBackupFileName to matchzy_45_0_round10.json
+2026-09-19T17:48:27.776575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:48:27.776575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:48:32.676575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 858.81
+2026-09-19T17:48:32.676575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 858.81
+2026-09-19T17:48:32.676575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 858.81
+2026-09-19T17:48:32.676575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 858.81
+2026-09-19T17:48:32.676575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 858.81
+2026-09-19T17:48:32.676575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 858.81
+2026-09-19T17:48:32.676575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 858.81
+2026-09-19T17:48:32.676575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 858.81
+2026-09-19T17:48:32.676575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 858.81
+2026-09-19T17:48:32.676575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 858.81
+2026-09-19T17:48:32.676575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 858.81
+2026-09-19T17:48:32.776575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:48:32.876575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round10.json fileUplo
+2026-09-19T17:48:32.876575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:49:48.076575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:49:48.076575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round11.txt and lastMatchZyBackupFileName to matchzy_45_0_round11.json
+2026-09-19T17:49:48.076575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:49:52.976575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 938.98
+2026-09-19T17:49:52.976575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 938.98
+2026-09-19T17:49:52.976575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 938.98
+2026-09-19T17:49:52.976575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 938.98
+2026-09-19T17:49:52.976575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 938.98
+2026-09-19T17:49:52.976575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 938.98
+2026-09-19T17:49:52.976575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 938.98
+2026-09-19T17:49:52.976575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 938.98
+2026-09-19T17:49:52.976575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 938.98
+2026-09-19T17:49:52.976575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 938.98
+2026-09-19T17:49:52.976575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 938.98
+2026-09-19T17:49:53.076575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:49:53.076575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round11.json fileUplo
+2026-09-19T17:49:53.076575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:50:42.776575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:50:42.776575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round12.txt and lastMatchZyBackupFileName to matchzy_45_0_round12.json
+2026-09-19T17:50:43.076575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:50:57.676575000Z "Delta<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1003.55
+2026-09-19T17:50:57.676575000Z "Jogador<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 1003.55
+2026-09-19T17:50:57.676575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1003.55
+2026-09-19T17:50:57.676575000Z "Golfe<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 1003.55
+2026-09-19T17:50:57.676575000Z "Hotel<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1003.55
+2026-09-19T17:50:57.676575000Z "Eco2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 1003.55
+2026-09-19T17:50:57.676575000Z "Foxtrot<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1003.55
+2026-09-19T17:50:57.676575000Z "Julieta<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1003.55
+2026-09-19T17:50:57.676575000Z "Bravo<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 1003.55
+2026-09-19T17:50:57.676575000Z "Foxtrot2<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1003.55
+2026-09-19T17:50:57.676575000Z "Eco<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 1003.55
+2026-09-19T17:50:57.776575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:50:57.776575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round12.json fileUplo
+2026-09-19T17:50:57.776575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:52:06.276575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:52:06.276575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round13.txt and lastMatchZyBackupFileName to matchzy_45_0_round13.json
+2026-09-19T17:52:06.376575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:52:11.576575000Z "Delta<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1077.36
+2026-09-19T17:52:11.576575000Z "Jogador<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1077.36
+2026-09-19T17:52:11.576575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1077.36
+2026-09-19T17:52:11.576575000Z "Golfe<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1077.36
+2026-09-19T17:52:11.576575000Z "Hotel<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1077.36
+2026-09-19T17:52:11.576575000Z "Eco2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1077.36
+2026-09-19T17:52:11.576575000Z "Foxtrot<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1077.36
+2026-09-19T17:52:11.576575000Z "Julieta<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1077.36
+2026-09-19T17:52:11.576575000Z "Bravo<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1077.36
+2026-09-19T17:52:11.576575000Z "Foxtrot2<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1077.36
+2026-09-19T17:52:11.576575000Z "Eco<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1077.36
+2026-09-19T17:52:11.676575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:52:11.676575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round13.json fileUplo
+2026-09-19T17:52:11.776575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:53:00.276575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:53:00.276575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round14.txt and lastMatchZyBackupFileName to matchzy_45_0_round14.json
+2026-09-19T17:53:00.276575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:53:05.976575000Z "Delta<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1131.42
+2026-09-19T17:53:05.976575000Z "Jogador<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1131.42
+2026-09-19T17:53:05.976575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1131.42
+2026-09-19T17:53:05.976575000Z "Golfe<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1131.42
+2026-09-19T17:53:05.976575000Z "Hotel<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1131.42
+2026-09-19T17:53:05.976575000Z "Eco2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1131.42
+2026-09-19T17:53:05.976575000Z "Foxtrot<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1131.42
+2026-09-19T17:53:05.976575000Z "Julieta<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1131.42
+2026-09-19T17:53:05.976575000Z "Bravo<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1131.42
+2026-09-19T17:53:05.976575000Z "Foxtrot2<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1131.42
+2026-09-19T17:53:05.976575000Z "Eco<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1131.42
+2026-09-19T17:53:05.976575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:53:05.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round14.json fileUplo
+2026-09-19T17:53:05.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:54:40.176575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:54:40.176575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round15.txt and lastMatchZyBackupFileName to matchzy_45_0_round15.json
+2026-09-19T17:54:40.176575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:54:45.676575000Z "Delta<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1231.11
+2026-09-19T17:54:45.676575000Z "Jogador<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1231.11
+2026-09-19T17:54:45.676575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1231.11
+2026-09-19T17:54:45.676575000Z "Golfe<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1231.11
+2026-09-19T17:54:45.676575000Z "Hotel<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1231.11
+2026-09-19T17:54:45.676575000Z "Eco2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1231.11
+2026-09-19T17:54:45.676575000Z "Foxtrot<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1231.11
+2026-09-19T17:54:45.676575000Z "Julieta<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1231.11
+2026-09-19T17:54:45.676575000Z "Bravo<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1231.11
+2026-09-19T17:54:45.676575000Z "Foxtrot2<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1231.11
+2026-09-19T17:54:45.676575000Z "Eco<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1231.11
+2026-09-19T17:54:45.676575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:54:45.676575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round15.json fileUplo
+2026-09-19T17:54:45.676575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:55:35.176575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:55:35.176575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round16.txt and lastMatchZyBackupFileName to matchzy_45_0_round16.json
+2026-09-19T17:55:35.176575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:55:40.676575000Z "Delta<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1286.14
+2026-09-19T17:55:40.676575000Z "Jogador<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1286.14
+2026-09-19T17:55:40.676575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1286.14
+2026-09-19T17:55:40.676575000Z "Golfe<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1286.14
+2026-09-19T17:55:40.676575000Z "Hotel<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1286.14
+2026-09-19T17:55:40.676575000Z "Eco2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1286.14
+2026-09-19T17:55:40.676575000Z "Foxtrot<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1286.14
+2026-09-19T17:55:40.676575000Z "Julieta<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1286.14
+2026-09-19T17:55:40.676575000Z "Bravo<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1286.14
+2026-09-19T17:55:40.676575000Z "Foxtrot2<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1286.14
+2026-09-19T17:55:40.676575000Z "Eco<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1286.14
+2026-09-19T17:55:40.776575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:55:40.776575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round16.json fileUplo
+2026-09-19T17:55:40.776575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:56:47.076575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:56:47.076575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round17.txt and lastMatchZyBackupFileName to matchzy_45_0_round17.json
+2026-09-19T17:56:47.076575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:56:51.976575000Z "Delta<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1357.48
+2026-09-19T17:56:51.976575000Z "Jogador<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1357.48
+2026-09-19T17:56:51.976575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1357.48
+2026-09-19T17:56:51.976575000Z "Golfe<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1357.48
+2026-09-19T17:56:51.976575000Z "Hotel<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1357.48
+2026-09-19T17:56:51.976575000Z "Eco2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1357.48
+2026-09-19T17:56:51.976575000Z "Foxtrot<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1357.48
+2026-09-19T17:56:51.976575000Z "Julieta<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1357.48
+2026-09-19T17:56:51.976575000Z "Bravo<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1357.48
+2026-09-19T17:56:51.976575000Z "Foxtrot2<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1357.48
+2026-09-19T17:56:51.976575000Z "Eco<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1357.48
+2026-09-19T17:56:52.076575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:56:52.076575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round17.json fileUplo
+2026-09-19T17:56:52.076575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:58:16.776575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:58:16.776575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round18.txt and lastMatchZyBackupFileName to matchzy_45_0_round18.json
+2026-09-19T17:58:16.776575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:58:21.776575000Z "Delta<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1447.12
+2026-09-19T17:58:21.776575000Z "Jogador<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1447.12
+2026-09-19T17:58:21.776575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1447.12
+2026-09-19T17:58:21.776575000Z "Golfe<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1447.12
+2026-09-19T17:58:21.776575000Z "Hotel<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1447.12
+2026-09-19T17:58:21.776575000Z "Eco2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1447.12
+2026-09-19T17:58:21.776575000Z "Foxtrot<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1447.12
+2026-09-19T17:58:21.776575000Z "Julieta<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1447.12
+2026-09-19T17:58:21.776575000Z "Bravo<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1447.12
+2026-09-19T17:58:21.776575000Z "Foxtrot2<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1447.12
+2026-09-19T17:58:21.776575000Z "Eco<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1447.12
+2026-09-19T17:58:21.776575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T17:58:21.776575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_0_round18.json fileUplo
+2026-09-19T17:58:21.776575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T17:59:53.676575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 0, Player: 76561190000000001
+2026-09-19T17:59:53.676575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_0_round19.txt and lastMatchZyBackupFileName to matchzy_45_0_round19.json
+2026-09-19T17:59:53.676575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T17:59:56.676575000Z [MatchZy] [HandleMatchEnd] MAP ENDED, isMatchSetup: True matchid: 45 currentMapNumber: 0 tvFlushDelay: 15
+2026-09-19T17:59:56.676575000Z [MatchZy] [StopDemoRecording] Going to stop demorecording in 14.5s
+2026-09-19T17:59:56.676575000Z [MatchZy] [HandleMatchEnd] MATCH ENDED, remainingMaps: 2, NumMaps: 3, Team1SeriesScore: 0, Team2SeriesScore: 1
+2026-09-19T17:59:56.676575000Z [MatchZy] [SetMapEndData] Data updated for matchId: 45 mapNumber: 0 winnerName: Bots
+2026-09-19T17:59:56.776575000Z [MatchZy] [WritePlayerStatsToCsv] Match stats for ID: 45 written successfully at: /home/steam/cs2-dedicated/game/csgo/MatchZy_Stats/45/match_data_map0_45.csv
+2026-09-19T18:00:17.676575000Z [MatchZy] [ChangeMap] Changing map to de_dust2 with delay 3
+2026-09-19T18:00:17.676575000Z [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+2026-09-19T18:00:17.676575000Z execing MatchZy/warmup.cfg
+2026-09-19T18:00:17.976575000Z "Delta<0><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1563.05
+2026-09-19T18:00:17.976575000Z "Jogador<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1563.05
+2026-09-19T18:00:17.976575000Z "Delta2<2><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1563.05
+2026-09-19T18:00:18.076575000Z "Golfe<3><STEAM_ID_PENDING><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1563.05
+2026-09-19T18:00:18.076575000Z "Hotel<4><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1563.05
+2026-09-19T18:00:18.076575000Z "Eco2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1563.05
+2026-09-19T18:00:18.076575000Z "Foxtrot<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1563.05
+2026-09-19T18:00:18.076575000Z "Julieta<7><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1563.05
+2026-09-19T18:00:18.076575000Z "Bravo<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1563.05
+2026-09-19T18:00:18.076575000Z "Foxtrot2<9><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1563.05
+2026-09-19T18:00:18.076575000Z "Eco<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1563.05
+2026-09-19T18:00:22.276575000Z playdemo MatchZy/2026-09-19_17-34-52_45_de_nuke_Jogador_vs_Bots.dem
+2026-09-19T18:00:22.376575000Z Completed SourceTV demo "MatchZy/2026-09-19_17-34-52_45_de_nuke_Jogador_vs_Bots.dem":
+2026-09-19T18:00:26.876575000Z [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+2026-09-19T18:00:26.876575000Z execing MatchZy/warmup.cfg
+2026-09-19T18:00:26.876575000Z "Jogador<0><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 2.47
+2026-09-19T18:00:26.876575000Z "CS2 Tracker - Spike MatchZy CSTV<1><BOT><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 2.47
+2026-09-19T18:00:30.076575000Z [MatchZy] [FULL CONNECT] Player ID: 0, Name: Jogador has connected!
+2026-09-19T18:00:30.076575000Z [MatchZy] [FULL CONNECT] First player has connected, starting warmup!
+2026-09-19T18:00:30.076575000Z [MatchZy] [AutoStart] autoStartMode: 1
+2026-09-19T18:00:30.076575000Z [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+2026-09-19T18:00:30.076575000Z execing MatchZy/warmup.cfg
+2026-09-19T18:00:30.076575000Z "Jogador<0><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 5.67
+2026-09-19T18:00:30.076575000Z "CS2 Tracker - Spike MatchZy CSTV<1><BOT><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 5.67
+2026-09-19T18:00:31.376575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZy/2026-09-19_17-34-52_45_de_nuke_Jogador_vs_Bot
+2026-09-19T18:00:37.576575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 13.16
+2026-09-19T18:00:37.576575000Z "CS2 Tracker - Spike MatchZy CSTV<1><BOT><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 13.16
+2026-09-19T18:00:41.876575000Z [MatchZy] [!ready command] Sent by: 0 readyAvailable: True matchStarted: False
+2026-09-19T18:00:41.876575000Z [MatchZy] [IsTeamReady] team: 3 minPlayers:5 minReady:2 playerCount:1 readyCount:1
+2026-09-19T18:00:52.876575000Z CS2 Tracker - Spike MatchZy CSTV kicked by Console (NETWORK_DISCONNECT_KICKED)
+2026-09-19T18:01:08.276575000Z [MatchZy] [GetCoachSpawns] Loaded 2 coach spawns
+2026-09-19T18:01:08.276575000Z [MatchZy] [StartDemoRecoding] Starting demo recording, path: MatchZy/2026-09-19_18-01-08_45_de_dust2_Jogador_vs_Bots.dem
+2026-09-19T18:01:08.276575000Z [MatchZy] [StartLive] Starting Live! Executing Live CFG from MatchZy/live.cfg
+2026-09-19T18:01:08.276575000Z [MatchZy] [StartDemoRecording] Demo recording is already in progress.
+2026-09-19T18:01:08.376575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:01:08.376575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round00.json fileUplo
+2026-09-19T18:01:08.376575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:01:08.376575000Z execing MatchZy/live_override.cfg
+2026-09-19T18:01:09.976575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 45.14
+2026-09-19T18:01:09.976575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 45.14
+2026-09-19T18:01:09.976575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 45.14
+2026-09-19T18:01:09.976575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 45.14
+2026-09-19T18:01:09.976575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 45.14
+2026-09-19T18:01:09.976575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 45.14
+2026-09-19T18:01:09.976575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 45.14
+2026-09-19T18:01:09.976575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 45.14
+2026-09-19T18:01:09.976575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 45.14
+2026-09-19T18:01:09.976575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 45.14
+2026-09-19T18:01:09.976575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 45.14
+2026-09-19T18:01:09.976575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:01:09.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round00.json fileUplo
+2026-09-19T18:01:09.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:02:07.876575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:02:07.876575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round01.txt and lastMatchZyBackupFileName to matchzy_45_1_round01.json
+2026-09-19T18:02:07.876575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:02:12.776575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 108.00
+2026-09-19T18:02:12.776575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 108.00
+2026-09-19T18:02:12.776575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 108.00
+2026-09-19T18:02:12.776575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 108.00
+2026-09-19T18:02:12.776575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 108.00
+2026-09-19T18:02:12.776575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 108.00
+2026-09-19T18:02:12.776575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 108.00
+2026-09-19T18:02:12.776575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 108.00
+2026-09-19T18:02:12.776575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 108.00
+2026-09-19T18:02:12.776575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 108.00
+2026-09-19T18:02:12.776575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 108.00
+2026-09-19T18:02:12.876575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:02:12.876575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round01.json fileUplo
+2026-09-19T18:02:12.876575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:03:49.276575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:03:49.276575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round02.txt and lastMatchZyBackupFileName to matchzy_45_1_round02.json
+2026-09-19T18:03:49.276575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:03:54.176575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 209.31
+2026-09-19T18:03:54.176575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 209.31
+2026-09-19T18:03:54.176575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 209.31
+2026-09-19T18:03:54.176575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 209.31
+2026-09-19T18:03:54.176575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 209.31
+2026-09-19T18:03:54.176575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 209.31
+2026-09-19T18:03:54.176575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 209.31
+2026-09-19T18:03:54.176575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 209.31
+2026-09-19T18:03:54.176575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 209.31
+2026-09-19T18:03:54.176575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 209.31
+2026-09-19T18:03:54.176575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 209.31
+2026-09-19T18:03:54.376575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:03:54.376575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round02.json fileUplo
+2026-09-19T18:03:54.376575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:05:03.776575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:05:03.776575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round03.txt and lastMatchZyBackupFileName to matchzy_45_1_round03.json
+2026-09-19T18:05:03.876575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:05:08.776575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 283.38
+2026-09-19T18:05:08.776575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 283.38
+2026-09-19T18:05:08.776575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 283.38
+2026-09-19T18:05:08.776575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 283.38
+2026-09-19T18:05:08.776575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 283.38
+2026-09-19T18:05:08.776575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 283.38
+2026-09-19T18:05:08.776575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 283.38
+2026-09-19T18:05:08.776575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 283.38
+2026-09-19T18:05:08.776575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 283.38
+2026-09-19T18:05:08.776575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 283.38
+2026-09-19T18:05:08.776575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 283.38
+2026-09-19T18:05:08.976575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:05:08.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round03.json fileUplo
+2026-09-19T18:05:08.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:07:00.576575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:07:00.576575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round04.txt and lastMatchZyBackupFileName to matchzy_45_1_round04.json
+2026-09-19T18:07:00.576575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:07:05.576575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 400.06
+2026-09-19T18:07:05.576575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 400.06
+2026-09-19T18:07:05.576575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 400.06
+2026-09-19T18:07:05.576575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 400.06
+2026-09-19T18:07:05.576575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 400.06
+2026-09-19T18:07:05.576575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 400.06
+2026-09-19T18:07:05.576575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 400.06
+2026-09-19T18:07:05.576575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 400.06
+2026-09-19T18:07:05.576575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 400.06
+2026-09-19T18:07:05.576575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 400.06
+2026-09-19T18:07:05.576575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 400.06
+2026-09-19T18:07:05.676575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:07:05.676575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round04.json fileUplo
+2026-09-19T18:07:05.676575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:08:29.876575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:08:29.876575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round05.txt and lastMatchZyBackupFileName to matchzy_45_1_round05.json
+2026-09-19T18:08:29.976575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:08:34.876575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 489.38
+2026-09-19T18:08:34.876575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 489.38
+2026-09-19T18:08:34.876575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 489.38
+2026-09-19T18:08:34.876575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 489.38
+2026-09-19T18:08:34.876575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 489.38
+2026-09-19T18:08:34.876575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 489.38
+2026-09-19T18:08:34.876575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 489.38
+2026-09-19T18:08:34.876575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 489.38
+2026-09-19T18:08:34.876575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 489.38
+2026-09-19T18:08:34.876575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 489.38
+2026-09-19T18:08:34.876575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 489.38
+2026-09-19T18:08:34.876575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:08:34.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round05.json fileUplo
+2026-09-19T18:08:34.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:09:58.476575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:09:58.476575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round06.txt and lastMatchZyBackupFileName to matchzy_45_1_round06.json
+2026-09-19T18:09:58.576575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:10:03.576575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 576.67
+2026-09-19T18:10:03.676575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 576.67
+2026-09-19T18:10:03.676575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 576.67
+2026-09-19T18:10:03.676575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 576.67
+2026-09-19T18:10:03.676575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 576.67
+2026-09-19T18:10:03.676575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 576.67
+2026-09-19T18:10:03.676575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 576.67
+2026-09-19T18:10:03.676575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 576.67
+2026-09-19T18:10:03.676575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 576.67
+2026-09-19T18:10:03.676575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 576.67
+2026-09-19T18:10:03.676575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 576.67
+2026-09-19T18:10:03.876575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:10:03.876575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round06.json fileUplo
+2026-09-19T18:10:03.876575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:11:42.976575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:11:42.976575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round07.txt and lastMatchZyBackupFileName to matchzy_45_1_round07.json
+2026-09-19T18:11:42.976575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:11:47.976575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 679.12
+2026-09-19T18:11:47.976575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 679.12
+2026-09-19T18:11:47.976575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 679.12
+2026-09-19T18:11:47.976575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 679.12
+2026-09-19T18:11:47.976575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 679.12
+2026-09-19T18:11:47.976575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 679.12
+2026-09-19T18:11:47.976575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 679.12
+2026-09-19T18:11:47.976575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 679.12
+2026-09-19T18:11:47.976575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 679.12
+2026-09-19T18:11:47.976575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 679.12
+2026-09-19T18:11:47.976575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 679.12
+2026-09-19T18:11:48.076575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:11:48.076575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round07.json fileUplo
+2026-09-19T18:11:48.076575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:14:08.776575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round08.txt and lastMatchZyBackupFileName to matchzy_45_1_round08.json
+2026-09-19T18:14:08.776575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:14:08.776575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:14:17.176575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 817.12
+2026-09-19T18:14:17.176575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 817.12
+2026-09-19T18:14:17.176575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 817.12
+2026-09-19T18:14:17.176575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 817.12
+2026-09-19T18:14:17.176575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 817.12
+2026-09-19T18:14:17.176575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 817.12
+2026-09-19T18:14:17.176575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 817.12
+2026-09-19T18:14:17.176575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 817.12
+2026-09-19T18:14:17.176575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 817.12
+2026-09-19T18:14:17.176575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 817.12
+2026-09-19T18:14:17.176575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 817.12
+2026-09-19T18:14:19.076575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:14:19.376575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round08.json fileUplo
+2026-09-19T18:14:19.376575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:16:12.176575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round09.txt and lastMatchZyBackupFileName to matchzy_45_1_round09.json
+2026-09-19T18:16:12.176575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:16:12.276575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:16:17.176575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 931.03
+2026-09-19T18:16:17.176575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 931.03
+2026-09-19T18:16:17.176575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 931.03
+2026-09-19T18:16:17.176575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 931.03
+2026-09-19T18:16:17.176575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 931.03
+2026-09-19T18:16:17.176575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 931.03
+2026-09-19T18:16:17.176575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 931.03
+2026-09-19T18:16:17.176575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 931.03
+2026-09-19T18:16:17.176575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 931.03
+2026-09-19T18:16:17.176575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 931.03
+2026-09-19T18:16:17.176575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 931.03
+2026-09-19T18:16:17.376575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:16:17.476575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round09.json fileUplo
+2026-09-19T18:16:17.476575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:18:13.876575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round10.txt and lastMatchZyBackupFileName to matchzy_45_1_round10.json
+2026-09-19T18:18:13.876575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:18:13.876575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:18:18.676575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1038.86
+2026-09-19T18:18:18.676575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1038.86
+2026-09-19T18:18:18.676575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1038.86
+2026-09-19T18:18:18.676575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1038.86
+2026-09-19T18:18:18.676575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1038.86
+2026-09-19T18:18:18.676575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1038.86
+2026-09-19T18:18:18.676575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1038.86
+2026-09-19T18:18:18.676575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1038.86
+2026-09-19T18:18:18.676575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1038.86
+2026-09-19T18:18:18.676575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1038.86
+2026-09-19T18:18:18.676575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1038.86
+2026-09-19T18:18:18.876575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:18:18.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round10.json fileUplo
+2026-09-19T18:18:18.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:19:44.376575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round11.txt and lastMatchZyBackupFileName to matchzy_45_1_round11.json
+2026-09-19T18:19:44.376575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:19:44.376575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:19:49.276575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1129.33
+2026-09-19T18:19:49.276575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1129.33
+2026-09-19T18:19:49.276575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1129.33
+2026-09-19T18:19:49.276575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1129.33
+2026-09-19T18:19:49.276575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1129.33
+2026-09-19T18:19:49.276575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1129.33
+2026-09-19T18:19:49.276575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1129.33
+2026-09-19T18:19:49.276575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1129.33
+2026-09-19T18:19:49.276575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1129.33
+2026-09-19T18:19:49.276575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1129.33
+2026-09-19T18:19:49.276575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1129.33
+2026-09-19T18:19:49.376575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:19:49.376575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round11.json fileUplo
+2026-09-19T18:19:49.376575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:21:11.076575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:21:11.076575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round12.txt and lastMatchZyBackupFileName to matchzy_45_1_round12.json
+2026-09-19T18:21:11.076575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:21:26.076575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1226.08
+2026-09-19T18:21:26.076575000Z "Hotel2<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1226.08
+2026-09-19T18:21:26.076575000Z "Delta2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1226.08
+2026-09-19T18:21:26.076575000Z "Oscar2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 1226.08
+2026-09-19T18:21:26.076575000Z "Kilo2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 1226.08
+2026-09-19T18:21:26.076575000Z "Mike2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 1226.08
+2026-09-19T18:21:26.076575000Z "India2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1226.08
+2026-09-19T18:21:26.076575000Z "Golfe<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1226.08
+2026-09-19T18:21:26.076575000Z "Eco2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 1226.08
+2026-09-19T18:21:26.076575000Z "Charlie<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 1226.08
+2026-09-19T18:21:26.076575000Z "India<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 1226.08
+2026-09-19T18:21:26.176575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:21:26.176575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round12.json fileUplo
+2026-09-19T18:21:26.176575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:22:56.076575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:22:56.076575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round13.txt and lastMatchZyBackupFileName to matchzy_45_1_round13.json
+2026-09-19T18:22:56.176575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:23:01.076575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1321.08
+2026-09-19T18:23:01.076575000Z "Hotel2<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1321.08
+2026-09-19T18:23:01.076575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1321.08
+2026-09-19T18:23:01.076575000Z "Oscar2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1321.08
+2026-09-19T18:23:01.076575000Z "Kilo2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1321.08
+2026-09-19T18:23:01.076575000Z "Mike2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1321.08
+2026-09-19T18:23:01.076575000Z "India2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1321.08
+2026-09-19T18:23:01.076575000Z "Golfe<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1321.08
+2026-09-19T18:23:01.076575000Z "Eco2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1321.08
+2026-09-19T18:23:01.076575000Z "Charlie<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1321.08
+2026-09-19T18:23:01.076575000Z "India<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1321.08
+2026-09-19T18:23:01.176575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:23:01.176575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round13.json fileUplo
+2026-09-19T18:23:01.176575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:23:47.576575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:23:47.576575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round14.txt and lastMatchZyBackupFileName to matchzy_45_1_round14.json
+2026-09-19T18:23:47.576575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:23:52.576575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1372.53
+2026-09-19T18:23:52.576575000Z "Hotel2<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1372.53
+2026-09-19T18:23:52.576575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1372.53
+2026-09-19T18:23:52.576575000Z "Oscar2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1372.53
+2026-09-19T18:23:52.576575000Z "Kilo2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1372.53
+2026-09-19T18:23:52.576575000Z "Mike2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1372.53
+2026-09-19T18:23:52.576575000Z "India2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1372.53
+2026-09-19T18:23:52.576575000Z "Golfe<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1372.53
+2026-09-19T18:23:52.576575000Z "Eco2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1372.53
+2026-09-19T18:23:52.576575000Z "Charlie<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1372.53
+2026-09-19T18:23:52.576575000Z "India<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1372.53
+2026-09-19T18:23:52.576575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:23:52.576575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round14.json fileUplo
+2026-09-19T18:23:52.576575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:25:47.576575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:25:47.576575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round15.txt and lastMatchZyBackupFileName to matchzy_45_1_round15.json
+2026-09-19T18:25:47.576575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:25:52.576575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1492.58
+2026-09-19T18:25:52.576575000Z "Hotel2<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1492.58
+2026-09-19T18:25:52.576575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1492.58
+2026-09-19T18:25:52.576575000Z "Oscar2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1492.58
+2026-09-19T18:25:52.576575000Z "Kilo2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1492.58
+2026-09-19T18:25:52.576575000Z "Mike2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1492.58
+2026-09-19T18:25:52.576575000Z "India2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1492.58
+2026-09-19T18:25:52.576575000Z "Golfe<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1492.58
+2026-09-19T18:25:52.576575000Z "Eco2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1492.58
+2026-09-19T18:25:52.576575000Z "Charlie<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1492.58
+2026-09-19T18:25:52.576575000Z "India<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1492.58
+2026-09-19T18:25:52.576575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:25:52.576575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round15.json fileUplo
+2026-09-19T18:25:52.576575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:27:25.976575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round16.txt and lastMatchZyBackupFileName to matchzy_45_1_round16.json
+2026-09-19T18:27:25.976575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:27:25.976575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:27:30.976575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1590.89
+2026-09-19T18:27:30.976575000Z "Hotel2<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1590.89
+2026-09-19T18:27:30.976575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1590.89
+2026-09-19T18:27:30.976575000Z "Oscar2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1590.89
+2026-09-19T18:27:30.976575000Z "Kilo2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1590.89
+2026-09-19T18:27:30.976575000Z "Mike2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1590.89
+2026-09-19T18:27:30.976575000Z "India2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1590.89
+2026-09-19T18:27:30.976575000Z "Golfe<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1590.89
+2026-09-19T18:27:30.976575000Z "Eco2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1590.89
+2026-09-19T18:27:30.976575000Z "Charlie<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1590.89
+2026-09-19T18:27:30.976575000Z "India<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1590.89
+2026-09-19T18:27:31.076575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:27:31.076575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round16.json fileUplo
+2026-09-19T18:27:31.076575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:29:19.776575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:29:19.776575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round17.txt and lastMatchZyBackupFileName to matchzy_45_1_round17.json
+2026-09-19T18:29:19.776575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:29:24.776575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1704.69
+2026-09-19T18:29:24.776575000Z "Hotel2<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1704.69
+2026-09-19T18:29:24.776575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1704.69
+2026-09-19T18:29:24.776575000Z "Oscar2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1704.69
+2026-09-19T18:29:24.776575000Z "Kilo2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1704.69
+2026-09-19T18:29:24.776575000Z "Mike2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1704.69
+2026-09-19T18:29:24.776575000Z "India2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1704.69
+2026-09-19T18:29:24.776575000Z "Golfe<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1704.69
+2026-09-19T18:29:24.776575000Z "Eco2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1704.69
+2026-09-19T18:29:24.776575000Z "Charlie<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1704.69
+2026-09-19T18:29:24.776575000Z "India<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1704.69
+2026-09-19T18:29:24.876575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:29:24.876575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round17.json fileUplo
+2026-09-19T18:29:24.876575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:31:18.976575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round18.txt and lastMatchZyBackupFileName to matchzy_45_1_round18.json
+2026-09-19T18:31:18.976575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:31:18.976575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:31:23.876575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1823.62
+2026-09-19T18:31:23.876575000Z "Hotel2<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1823.62
+2026-09-19T18:31:23.876575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1823.62
+2026-09-19T18:31:23.876575000Z "Oscar2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1823.62
+2026-09-19T18:31:23.876575000Z "Kilo2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1823.62
+2026-09-19T18:31:23.876575000Z "Mike2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1823.62
+2026-09-19T18:31:23.876575000Z "India2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1823.62
+2026-09-19T18:31:23.876575000Z "Golfe<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1823.62
+2026-09-19T18:31:23.876575000Z "Eco2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1823.62
+2026-09-19T18:31:23.876575000Z "Charlie<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1823.62
+2026-09-19T18:31:23.876575000Z "India<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1823.62
+2026-09-19T18:31:23.976575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:31:23.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round18.json fileUplo
+2026-09-19T18:31:23.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:32:47.876575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:32:47.876575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round19.txt and lastMatchZyBackupFileName to matchzy_45_1_round19.json
+2026-09-19T18:32:47.976575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:32:52.876575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1912.58
+2026-09-19T18:32:52.876575000Z "Hotel2<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1912.58
+2026-09-19T18:32:52.876575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1912.58
+2026-09-19T18:32:52.876575000Z "Oscar2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1912.58
+2026-09-19T18:32:52.876575000Z "Kilo2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1912.58
+2026-09-19T18:32:52.876575000Z "Mike2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1912.58
+2026-09-19T18:32:52.876575000Z "India2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1912.58
+2026-09-19T18:32:52.876575000Z "Golfe<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1912.58
+2026-09-19T18:32:52.876575000Z "Eco2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1912.58
+2026-09-19T18:32:52.876575000Z "Charlie<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1912.58
+2026-09-19T18:32:52.876575000Z "India<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1912.58
+2026-09-19T18:32:52.976575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:32:52.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round19.json fileUplo
+2026-09-19T18:32:52.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:34:09.276575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:34:09.276575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round20.txt and lastMatchZyBackupFileName to matchzy_45_1_round20.json
+2026-09-19T18:34:09.276575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:34:14.276575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1993.92
+2026-09-19T18:34:14.276575000Z "Hotel2<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1993.92
+2026-09-19T18:34:14.276575000Z "Delta2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1993.92
+2026-09-19T18:34:14.276575000Z "Oscar2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1993.92
+2026-09-19T18:34:14.276575000Z "Kilo2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1993.92
+2026-09-19T18:34:14.276575000Z "Mike2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1993.92
+2026-09-19T18:34:14.276575000Z "India2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1993.92
+2026-09-19T18:34:14.276575000Z "Golfe<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1993.92
+2026-09-19T18:34:14.276575000Z "Eco2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1993.92
+2026-09-19T18:34:14.276575000Z "Charlie<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 1993.92
+2026-09-19T18:34:14.276575000Z "India<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 1993.92
+2026-09-19T18:34:14.376575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T18:34:14.376575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_1_round20.json fileUplo
+2026-09-19T18:34:14.376575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T18:35:26.776575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 1, Player: 76561190000000001
+2026-09-19T18:35:26.776575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_1_round21.txt and lastMatchZyBackupFileName to matchzy_45_1_round21.json
+2026-09-19T18:35:26.776575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T18:35:29.776575000Z [MatchZy] [HandleMatchEnd] MAP ENDED, isMatchSetup: True matchid: 45 currentMapNumber: 1 tvFlushDelay: 15
+2026-09-19T18:35:29.776575000Z [MatchZy] [StopDemoRecording] Going to stop demorecording in 14.5s
+2026-09-19T18:35:29.776575000Z [MatchZy] [HandleMatchEnd] MATCH ENDED, remainingMaps: 1, NumMaps: 3, Team1SeriesScore: 1, Team2SeriesScore: 1
+2026-09-19T18:35:29.876575000Z [MatchZy] [SetMapEndData] Data updated for matchId: 45 mapNumber: 1 winnerName: Jogador
+2026-09-19T18:35:29.876575000Z [MatchZy] [WritePlayerStatsToCsv] Match stats for ID: 45 written successfully at: /home/steam/cs2-dedicated/game/csgo/MatchZy_Stats/45/match_data_map1_45.csv
+2026-09-19T18:35:50.876575000Z [MatchZy] [ChangeMap] Changing map to de_ancient with delay 3
+2026-09-19T18:35:50.876575000Z [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+2026-09-19T18:35:50.876575000Z execing MatchZy/warmup.cfg
+2026-09-19T18:35:50.976575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2090.30
+2026-09-19T18:35:50.976575000Z "Hotel2<1><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2090.30
+2026-09-19T18:35:51.076575000Z "Delta2<2><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2090.30
+2026-09-19T18:35:51.076575000Z "Oscar2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2090.30
+2026-09-19T18:35:51.076575000Z "Kilo2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2090.30
+2026-09-19T18:35:51.076575000Z "Mike2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2090.30
+2026-09-19T18:35:51.076575000Z "India2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2090.30
+2026-09-19T18:35:51.076575000Z "Golfe<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2090.30
+2026-09-19T18:35:51.076575000Z "Eco2<8><STEAM_ID_PENDING><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2090.30
+2026-09-19T18:35:51.076575000Z "Charlie<9><STEAM_ID_PENDING><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2090.30
+2026-09-19T18:35:51.076575000Z "India<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2090.30
+2026-09-19T18:35:55.176575000Z playdemo MatchZy/2026-09-19_18-01-08_45_de_dust2_Jogador_vs_Bots.dem
+2026-09-19T18:35:55.276575000Z Completed SourceTV demo "MatchZy/2026-09-19_18-01-08_45_de_dust2_Jogador_vs_Bots.dem":
+2026-09-19T18:36:00.776575000Z [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+2026-09-19T18:36:00.776575000Z execing MatchZy/warmup.cfg
+2026-09-19T18:36:00.776575000Z "Jogador<0><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 2.47
+2026-09-19T18:36:00.776575000Z "CS2 Tracker - Spike MatchZy CSTV<1><BOT><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 2.47
+2026-09-19T18:36:05.176575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZy/2026-09-19_18-01-08_45_de_dust2_Jogador_vs_Bo
+2026-09-19T18:36:06.076575000Z [MatchZy] [FULL CONNECT] Player ID: 0, Name: Jogador has connected!
+2026-09-19T18:36:06.076575000Z [MatchZy] [FULL CONNECT] First player has connected, starting warmup!
+2026-09-19T18:36:06.076575000Z [MatchZy] [AutoStart] autoStartMode: 1
+2026-09-19T18:36:06.076575000Z [MatchZy] [StartWarmup] Starting warmup! Executing Warmup CFG from MatchZy/warmup.cfg
+2026-09-19T18:36:06.076575000Z execing MatchZy/warmup.cfg
+2026-09-19T18:36:06.076575000Z "Jogador<0><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 7.80
+2026-09-19T18:36:06.076575000Z "CS2 Tracker - Spike MatchZy CSTV<1><BOT><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 7.80
+2026-09-19T18:36:09.976575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 11.45
+2026-09-19T18:36:09.976575000Z "CS2 Tracker - Spike MatchZy CSTV<1><BOT><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 11.45
+2026-09-19T18:36:13.276575000Z [MatchZy] [!ready command] Sent by: 0 readyAvailable: True matchStarted: False
+2026-09-19T18:36:13.276575000Z [MatchZy] [IsTeamReady] team: 3 minPlayers:5 minReady:2 playerCount:0 readyCount:0
+2026-09-19T19:16:09.476575000Z CS2 Tracker - Spike MatchZy CSTV kicked by Console (NETWORK_DISCONNECT_KICKED)
+2026-09-19T19:16:26.276575000Z [MatchZy] [GetCoachSpawns] Loaded 2 coach spawns
+2026-09-19T19:16:26.476575000Z [MatchZy] [StartDemoRecoding] Starting demo recording, path: MatchZy/2026-09-19_19-16-26_45_de_ancient_Jogador_vs_Bots.dem
+2026-09-19T19:16:26.476575000Z [MatchZy] [StartLive] Starting Live! Executing Live CFG from MatchZy/live.cfg
+2026-09-19T19:16:26.476575000Z [MatchZy] [StartDemoRecording] Demo recording is already in progress.
+2026-09-19T19:16:27.276575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:16:27.276575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:16:27.276575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round00.json fileUplo
+2026-09-19T19:16:27.276575000Z execing MatchZy/live_override.cfg
+2026-09-19T19:16:29.976575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2424.75
+2026-09-19T19:16:29.976575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2424.75
+2026-09-19T19:16:29.976575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2424.75
+2026-09-19T19:16:29.976575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2424.75
+2026-09-19T19:16:29.976575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2424.75
+2026-09-19T19:16:29.976575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2424.75
+2026-09-19T19:16:29.976575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2424.75
+2026-09-19T19:16:29.976575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2424.75
+2026-09-19T19:16:29.976575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2424.75
+2026-09-19T19:16:29.976575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2424.75
+2026-09-19T19:16:29.976575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2424.75
+2026-09-19T19:16:30.176575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:16:30.176575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round00.json fileUplo
+2026-09-19T19:16:30.176575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:17:18.276575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round01.txt and lastMatchZyBackupFileName to matchzy_45_2_round01.json
+2026-09-19T19:17:18.276575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:17:18.376575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:17:24.176575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2478.45
+2026-09-19T19:17:24.176575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2478.45
+2026-09-19T19:17:24.276575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2478.45
+2026-09-19T19:17:24.276575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2478.45
+2026-09-19T19:17:24.276575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2478.45
+2026-09-19T19:17:24.276575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2478.45
+2026-09-19T19:17:24.276575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2478.45
+2026-09-19T19:17:24.276575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2478.45
+2026-09-19T19:17:24.276575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2478.45
+2026-09-19T19:17:24.276575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2478.45
+2026-09-19T19:17:24.276575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2478.45
+2026-09-19T19:17:24.376575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:17:24.376575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round01.json fileUplo
+2026-09-19T19:17:24.376575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:18:38.876575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:18:38.876575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round02.txt and lastMatchZyBackupFileName to matchzy_45_2_round02.json
+2026-09-19T19:18:38.876575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:18:43.776575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2557.09
+2026-09-19T19:18:43.776575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2557.09
+2026-09-19T19:18:43.776575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2557.09
+2026-09-19T19:18:43.776575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2557.09
+2026-09-19T19:18:43.776575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2557.09
+2026-09-19T19:18:43.776575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2557.09
+2026-09-19T19:18:43.776575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2557.09
+2026-09-19T19:18:43.776575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2557.09
+2026-09-19T19:18:43.776575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2557.09
+2026-09-19T19:18:43.776575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2557.09
+2026-09-19T19:18:43.776575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2557.09
+2026-09-19T19:18:43.976575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:18:43.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round02.json fileUplo
+2026-09-19T19:18:43.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:20:39.076575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round03.txt and lastMatchZyBackupFileName to matchzy_45_2_round03.json
+2026-09-19T19:20:39.076575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:20:39.076575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:20:44.176575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2677.06
+2026-09-19T19:20:44.176575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2677.06
+2026-09-19T19:20:44.176575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2677.06
+2026-09-19T19:20:44.176575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2677.06
+2026-09-19T19:20:44.176575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2677.06
+2026-09-19T19:20:44.176575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2677.06
+2026-09-19T19:20:44.176575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2677.06
+2026-09-19T19:20:44.176575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2677.06
+2026-09-19T19:20:44.176575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2677.06
+2026-09-19T19:20:44.176575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2677.06
+2026-09-19T19:20:44.176575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2677.06
+2026-09-19T19:20:44.276575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:20:44.276575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round03.json fileUplo
+2026-09-19T19:20:44.276575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:21:40.076575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:21:40.076575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round04.txt and lastMatchZyBackupFileName to matchzy_45_2_round04.json
+2026-09-19T19:21:40.076575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:21:44.976575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2737.64
+2026-09-19T19:21:44.976575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2737.64
+2026-09-19T19:21:44.976575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2737.64
+2026-09-19T19:21:44.976575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2737.64
+2026-09-19T19:21:44.976575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2737.64
+2026-09-19T19:21:44.976575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2737.64
+2026-09-19T19:21:44.976575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2737.64
+2026-09-19T19:21:44.976575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2737.64
+2026-09-19T19:21:44.976575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2737.64
+2026-09-19T19:21:44.976575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2737.64
+2026-09-19T19:21:44.976575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2737.64
+2026-09-19T19:21:44.976575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:21:45.076575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round04.json fileUplo
+2026-09-19T19:21:45.076575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:23:29.376575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:23:29.376575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round05.txt and lastMatchZyBackupFileName to matchzy_45_2_round05.json
+2026-09-19T19:23:29.476575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:23:34.376575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2846.91
+2026-09-19T19:23:34.376575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2846.91
+2026-09-19T19:23:34.376575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2846.91
+2026-09-19T19:23:34.376575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2846.91
+2026-09-19T19:23:34.376575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2846.91
+2026-09-19T19:23:34.376575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2846.91
+2026-09-19T19:23:34.376575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2846.91
+2026-09-19T19:23:34.376575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2846.91
+2026-09-19T19:23:34.376575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2846.91
+2026-09-19T19:23:34.376575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2846.91
+2026-09-19T19:23:34.376575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2846.91
+2026-09-19T19:23:34.376575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:23:34.376575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round05.json fileUplo
+2026-09-19T19:23:34.376575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:24:58.776575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:24:58.776575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round06.txt and lastMatchZyBackupFileName to matchzy_45_2_round06.json
+2026-09-19T19:24:58.776575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:25:03.776575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2936.30
+2026-09-19T19:25:03.776575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2936.30
+2026-09-19T19:25:03.776575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2936.30
+2026-09-19T19:25:03.776575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2936.30
+2026-09-19T19:25:03.776575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2936.30
+2026-09-19T19:25:03.776575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2936.30
+2026-09-19T19:25:03.776575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2936.30
+2026-09-19T19:25:03.776575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2936.30
+2026-09-19T19:25:03.776575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2936.30
+2026-09-19T19:25:03.776575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 2936.30
+2026-09-19T19:25:03.776575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 2936.30
+2026-09-19T19:25:03.776575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:25:03.776575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round06.json fileUplo
+2026-09-19T19:25:03.776575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:26:34.876575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:26:34.876575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round07.txt and lastMatchZyBackupFileName to matchzy_45_2_round07.json
+2026-09-19T19:26:34.876575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:26:39.876575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3032.42
+2026-09-19T19:26:39.876575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3032.42
+2026-09-19T19:26:39.876575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3032.42
+2026-09-19T19:26:39.876575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3032.42
+2026-09-19T19:26:39.876575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3032.42
+2026-09-19T19:26:39.876575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3032.42
+2026-09-19T19:26:39.876575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3032.42
+2026-09-19T19:26:39.876575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3032.42
+2026-09-19T19:26:39.876575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3032.42
+2026-09-19T19:26:39.876575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3032.42
+2026-09-19T19:26:39.876575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3032.42
+2026-09-19T19:26:39.876575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:26:39.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round07.json fileUplo
+2026-09-19T19:26:39.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:28:04.476575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:28:04.476575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round08.txt and lastMatchZyBackupFileName to matchzy_45_2_round08.json
+2026-09-19T19:28:04.476575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:28:09.476575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3122.02
+2026-09-19T19:28:09.476575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3122.02
+2026-09-19T19:28:09.476575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3122.02
+2026-09-19T19:28:09.476575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3122.02
+2026-09-19T19:28:09.476575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3122.02
+2026-09-19T19:28:09.476575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3122.02
+2026-09-19T19:28:09.476575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3122.02
+2026-09-19T19:28:09.476575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3122.02
+2026-09-19T19:28:09.476575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3122.02
+2026-09-19T19:28:09.476575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3122.02
+2026-09-19T19:28:09.476575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3122.02
+2026-09-19T19:28:09.576575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:28:09.576575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round08.json fileUplo
+2026-09-19T19:28:09.576575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:29:30.076575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:29:30.076575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round09.txt and lastMatchZyBackupFileName to matchzy_45_2_round09.json
+2026-09-19T19:29:30.076575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:29:35.076575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3207.48
+2026-09-19T19:29:35.076575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3207.48
+2026-09-19T19:29:35.076575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3207.48
+2026-09-19T19:29:35.076575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3207.48
+2026-09-19T19:29:35.076575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3207.48
+2026-09-19T19:29:35.076575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3207.48
+2026-09-19T19:29:35.076575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3207.48
+2026-09-19T19:29:35.076575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3207.48
+2026-09-19T19:29:35.076575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3207.48
+2026-09-19T19:29:35.076575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3207.48
+2026-09-19T19:29:35.076575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3207.48
+2026-09-19T19:29:35.176575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:29:35.176575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:29:35.176575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round09.json fileUplo
+2026-09-19T19:30:43.576575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round10.txt and lastMatchZyBackupFileName to matchzy_45_2_round10.json
+2026-09-19T19:30:43.576575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:30:43.576575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:30:48.476575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3280.91
+2026-09-19T19:30:48.476575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3280.91
+2026-09-19T19:30:48.476575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3280.91
+2026-09-19T19:30:48.476575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3280.91
+2026-09-19T19:30:48.476575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3280.91
+2026-09-19T19:30:48.476575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3280.91
+2026-09-19T19:30:48.476575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3280.91
+2026-09-19T19:30:48.476575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3280.91
+2026-09-19T19:30:48.476575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3280.91
+2026-09-19T19:30:48.476575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3280.91
+2026-09-19T19:30:48.476575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3280.91
+2026-09-19T19:30:48.576575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:30:48.576575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round10.json fileUplo
+2026-09-19T19:30:48.576575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:32:20.676575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:32:20.676575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round11.txt and lastMatchZyBackupFileName to matchzy_45_2_round11.json
+2026-09-19T19:32:20.676575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:32:25.576575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3378.00
+2026-09-19T19:32:25.576575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3378.00
+2026-09-19T19:32:25.576575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3378.00
+2026-09-19T19:32:25.576575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3378.00
+2026-09-19T19:32:25.576575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3378.00
+2026-09-19T19:32:25.576575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3378.00
+2026-09-19T19:32:25.576575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3378.00
+2026-09-19T19:32:25.576575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3378.00
+2026-09-19T19:32:25.576575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3378.00
+2026-09-19T19:32:25.576575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3378.00
+2026-09-19T19:32:25.576575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3378.00
+2026-09-19T19:32:25.676575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:32:25.676575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round11.json fileUplo
+2026-09-19T19:32:25.676575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:33:59.976575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:33:59.976575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round12.txt and lastMatchZyBackupFileName to matchzy_45_2_round12.json
+2026-09-19T19:33:59.976575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:34:14.876575000Z "Jogador<0><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 3487.33
+2026-09-19T19:34:14.976575000Z "Alfa<1><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 3487.33
+2026-09-19T19:34:14.976575000Z "Eco2<2><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 3487.33
+2026-09-19T19:34:14.976575000Z "Golfe2<3><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 3487.33
+2026-09-19T19:34:14.976575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 3487.33
+2026-09-19T19:34:14.976575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 3487.33
+2026-09-19T19:34:14.976575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 3487.33
+2026-09-19T19:34:14.976575000Z "Kilo2<7><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 3487.33
+2026-09-19T19:34:14.976575000Z "Lima2<8><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 3487.33
+2026-09-19T19:34:14.976575000Z "Hotel<9><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 1 3487.33
+2026-09-19T19:34:14.976575000Z "Charlie<10><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 1 3487.33
+2026-09-19T19:34:14.976575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:34:14.976575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round12.json fileUplo
+2026-09-19T19:34:14.976575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:35:48.176575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:35:48.176575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round13.txt and lastMatchZyBackupFileName to matchzy_45_2_round13.json
+2026-09-19T19:35:48.176575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:35:53.176575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3585.50
+2026-09-19T19:35:53.176575000Z "Alfa<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3585.50
+2026-09-19T19:35:53.176575000Z "Eco2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3585.50
+2026-09-19T19:35:53.176575000Z "Golfe2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3585.50
+2026-09-19T19:35:53.176575000Z "Julieta2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3585.50
+2026-09-19T19:35:53.176575000Z "India2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3585.50
+2026-09-19T19:35:53.176575000Z "Hotel2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3585.50
+2026-09-19T19:35:53.176575000Z "Kilo2<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3585.50
+2026-09-19T19:35:53.176575000Z "Lima2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3585.50
+2026-09-19T19:35:53.176575000Z "Hotel<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3585.50
+2026-09-19T19:35:53.176575000Z "Charlie<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3585.50
+2026-09-19T19:35:53.176575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:35:53.176575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round13.json fileUplo
+2026-09-19T19:35:53.176575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:37:33.576575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:37:33.576575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round14.txt and lastMatchZyBackupFileName to matchzy_45_2_round14.json
+2026-09-19T19:37:33.576575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:37:38.576575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3690.91
+2026-09-19T19:37:38.576575000Z "Alfa<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3690.91
+2026-09-19T19:37:38.576575000Z "Eco2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3690.91
+2026-09-19T19:37:38.576575000Z "Golfe2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3690.91
+2026-09-19T19:37:38.576575000Z "Julieta2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3690.91
+2026-09-19T19:37:38.576575000Z "India2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3690.91
+2026-09-19T19:37:38.576575000Z "Hotel2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3690.91
+2026-09-19T19:37:38.576575000Z "Kilo2<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3690.91
+2026-09-19T19:37:38.576575000Z "Lima2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3690.91
+2026-09-19T19:37:38.576575000Z "Hotel<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3690.91
+2026-09-19T19:37:38.576575000Z "Charlie<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3690.91
+2026-09-19T19:37:38.576575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:37:38.576575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round14.json fileUplo
+2026-09-19T19:37:38.576575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:39:35.176575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:39:35.176575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round15.txt and lastMatchZyBackupFileName to matchzy_45_2_round15.json
+2026-09-19T19:39:35.276575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:39:40.176575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3812.55
+2026-09-19T19:39:40.176575000Z "Alfa<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3812.55
+2026-09-19T19:39:40.176575000Z "Eco2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3812.55
+2026-09-19T19:39:40.176575000Z "Golfe2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3812.55
+2026-09-19T19:39:40.176575000Z "Julieta2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3812.55
+2026-09-19T19:39:40.176575000Z "India2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3812.55
+2026-09-19T19:39:40.176575000Z "Hotel2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3812.55
+2026-09-19T19:39:40.176575000Z "Kilo2<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3812.55
+2026-09-19T19:39:40.176575000Z "Lima2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3812.55
+2026-09-19T19:39:40.176575000Z "Hotel<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3812.55
+2026-09-19T19:39:40.176575000Z "Charlie<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3812.55
+2026-09-19T19:39:40.176575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:39:40.176575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round15.json fileUplo
+2026-09-19T19:39:40.176575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:40:35.976575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round16.txt and lastMatchZyBackupFileName to matchzy_45_2_round16.json
+2026-09-19T19:40:35.976575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:40:36.076575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:40:40.976575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3873.38
+2026-09-19T19:40:40.976575000Z "Alfa<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3873.38
+2026-09-19T19:40:40.976575000Z "Eco2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3873.38
+2026-09-19T19:40:40.976575000Z "Golfe2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3873.38
+2026-09-19T19:40:40.976575000Z "Julieta2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3873.38
+2026-09-19T19:40:40.976575000Z "India2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3873.38
+2026-09-19T19:40:40.976575000Z "Hotel2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3873.38
+2026-09-19T19:40:40.976575000Z "Kilo2<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3873.38
+2026-09-19T19:40:40.976575000Z "Lima2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3873.38
+2026-09-19T19:40:40.976575000Z "Hotel<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3873.38
+2026-09-19T19:40:40.976575000Z "Charlie<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3873.38
+2026-09-19T19:40:41.076575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:40:41.076575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round16.json fileUplo
+2026-09-19T19:40:41.076575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:41:45.076575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round17.txt and lastMatchZyBackupFileName to matchzy_45_2_round17.json
+2026-09-19T19:41:45.076575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:41:45.076575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:41:50.076575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3942.44
+2026-09-19T19:41:50.076575000Z "Alfa<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3942.44
+2026-09-19T19:41:50.076575000Z "Eco2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3942.44
+2026-09-19T19:41:50.076575000Z "Golfe2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3942.44
+2026-09-19T19:41:50.076575000Z "Julieta2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3942.44
+2026-09-19T19:41:50.076575000Z "India2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3942.44
+2026-09-19T19:41:50.076575000Z "Hotel2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3942.44
+2026-09-19T19:41:50.076575000Z "Kilo2<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3942.44
+2026-09-19T19:41:50.076575000Z "Lima2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3942.44
+2026-09-19T19:41:50.076575000Z "Hotel<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 3942.44
+2026-09-19T19:41:50.076575000Z "Charlie<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 3942.44
+2026-09-19T19:41:50.076575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:41:50.076575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round17.json fileUplo
+2026-09-19T19:41:50.076575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:43:28.276575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round18.txt and lastMatchZyBackupFileName to matchzy_45_2_round18.json
+2026-09-19T19:43:28.276575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:43:28.276575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:43:33.176575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4045.61
+2026-09-19T19:43:33.176575000Z "Alfa<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4045.61
+2026-09-19T19:43:33.176575000Z "Eco2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4045.61
+2026-09-19T19:43:33.176575000Z "Golfe2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4045.61
+2026-09-19T19:43:33.176575000Z "Julieta2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4045.61
+2026-09-19T19:43:33.176575000Z "India2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4045.61
+2026-09-19T19:43:33.176575000Z "Hotel2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4045.61
+2026-09-19T19:43:33.176575000Z "Kilo2<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4045.61
+2026-09-19T19:43:33.176575000Z "Lima2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4045.61
+2026-09-19T19:43:33.176575000Z "Hotel<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4045.61
+2026-09-19T19:43:33.176575000Z "Charlie<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4045.61
+2026-09-19T19:43:33.276575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:43:33.276575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round18.json fileUplo
+2026-09-19T19:43:33.276575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:44:54.076575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:44:54.076575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round19.txt and lastMatchZyBackupFileName to matchzy_45_2_round19.json
+2026-09-19T19:44:54.076575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:44:58.976575000Z "Jogador<0><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4131.39
+2026-09-19T19:44:58.976575000Z "Alfa<1><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4131.39
+2026-09-19T19:44:58.976575000Z "Eco2<2><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4131.39
+2026-09-19T19:44:58.976575000Z "Golfe2<3><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4131.39
+2026-09-19T19:44:58.976575000Z "Julieta2<4><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4131.39
+2026-09-19T19:44:58.976575000Z "India2<5><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4131.39
+2026-09-19T19:44:58.976575000Z "Hotel2<6><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4131.39
+2026-09-19T19:44:58.976575000Z "Kilo2<7><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4131.39
+2026-09-19T19:44:58.976575000Z "Lima2<8><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4131.39
+2026-09-19T19:44:58.976575000Z "Hotel<9><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4131.39
+2026-09-19T19:44:58.976575000Z "Charlie<10><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4131.39
+2026-09-19T19:44:59.076575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: True
+2026-09-19T19:44:59.076575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZyDataBackup/matchzy_45_2_round19.json fileUplo
+2026-09-19T19:44:59.076575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:46:45.376575000Z [MatchZy] [UpdatePlayerStats] Going to update data for Match: 45, MapNumber: 2, Player: 76561190000000001
+2026-09-19T19:46:45.376575000Z [MatchZy] [HandlePostRoundEndEvent] Setting lastBackupFileName to matchzy_45_2_round20.txt and lastMatchZyBackupFileName to matchzy_45_2_round20.json
+2026-09-19T19:46:45.376575000Z [MatchZy] [UpdatePlayerStats] Data inserted/updated for player 76561190000000001 in match 45
+2026-09-19T19:46:48.376575000Z [MatchZy] [HandleMatchEnd] MAP ENDED, isMatchSetup: True matchid: 45 currentMapNumber: 2 tvFlushDelay: 15
+2026-09-19T19:46:48.376575000Z [MatchZy] [StopDemoRecording] Going to stop demorecording in 14.5s
+2026-09-19T19:46:48.376575000Z [MatchZy] [HandleMatchEnd] MATCH ENDED, remainingMaps: 0, NumMaps: 3, Team1SeriesScore: 1, Team2SeriesScore: 2
+2026-09-19T19:46:48.376575000Z [MatchZy] [SetMapEndData] Data updated for matchId: 45 mapNumber: 2 winnerName: Bots
+2026-09-19T19:46:48.376575000Z [MatchZy] [SetMatchEndData] Data updated for matchId: 45 winnerName: Bots
+2026-09-19T19:46:48.376575000Z [MatchZy] [WritePlayerStatsToCsv] Match stats for ID: 45 written successfully at: /home/steam/cs2-dedicated/game/csgo/MatchZy_Stats/45/match_data_map2_45.csv
+2026-09-19T19:47:10.476575000Z "Jogador<0><STEAM_ID_PENDING><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+2026-09-19T19:47:10.476575000Z "Alfa<1><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+2026-09-19T19:47:10.476575000Z "Eco2<2><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+2026-09-19T19:47:10.476575000Z "Golfe2<3><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+2026-09-19T19:47:10.476575000Z "Julieta2<4><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+2026-09-19T19:47:10.476575000Z "India2<5><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+2026-09-19T19:47:10.476575000Z "Hotel2<6><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+2026-09-19T19:47:10.476575000Z "Kilo2<7><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+2026-09-19T19:47:10.476575000Z "Lima2<8><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+2026-09-19T19:47:10.476575000Z "Hotel<9><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+2026-09-19T19:47:10.476575000Z "Charlie<10><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.77
+2026-09-19T19:47:10.676575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: False
+2026-09-19T19:47:10.676575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:47:10.776575000Z "Jogador<0><STEAM_ID_PENDING><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.78
+2026-09-19T19:47:10.776575000Z "Alfa<1><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.78
+2026-09-19T19:47:10.776575000Z "Eco2<2><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.78
+2026-09-19T19:47:10.776575000Z "Golfe2<3><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.78
+2026-09-19T19:47:10.776575000Z "Julieta2<4><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4262.78
+2026-09-19T19:47:10.776575000Z "India2<5><[U:1:0]><TERRORIST>" OnPreResetRound => CTMDBG, team 2  will switch 0 4262.78
+2026-09-19T19:47:10.776575000Z "Hotel2<6><[U:1:0]><CT>" OnPreResetRound => CTMDBG, team 3  will switch 0 4262.78
+2026-09-19T19:47:10.776575000Z "Kilo2<7><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.78
+2026-09-19T19:47:10.776575000Z "Lima2<8><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.78
+2026-09-19T19:47:10.776575000Z "Hotel<9><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.78
+2026-09-19T19:47:10.776575000Z "Charlie<10><[U:1:0]><Unassigned>" OnPreResetRound => CTMDBG, team 0  will switch 0 4262.78
+2026-09-19T19:47:10.776575000Z [MatchZy] [CreateMatchZyRoundDataBackup] isRoundRestoring: False isMatchLive: False
+2026-09-19T19:47:10.776575000Z [MatchZy] UPDATING HOSTNAME TO: MatchZy | Jogador vs Bots
+2026-09-19T19:47:12.576575000Z [MatchZy] [UpdatePlayersMap] CCSPlayerController count: 11 matchModeOnly: False
+2026-09-19T19:47:12.576575000Z [MatchZy] [UpdatePlayersMap] CCSPlayerController count: 11, RealPlayersCount: 0
+2026-09-19T19:47:18.076575000Z [MatchZy] [UploadFileAsync] Not able to upload the file, either filePath or fileUploadURL is not set. filePath: /home/steam/cs2-dedicated/game/csgo/MatchZy/2026-09-19_19-16-26_45_de_ancient_Jogador_vs_
