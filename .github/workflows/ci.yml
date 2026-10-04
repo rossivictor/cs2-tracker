@@ -5,6 +5,13 @@
 # Nada aqui toca o jogo: roda só no runner do GitHub, sem segredos, sem
 # subir container do CS2 e sem gravar em docker/plugins/.
 # Rollback: apagar este arquivo.
+#
+# CI completo (card T1.6) acrescenta quatro checks, sem mexer nos dois acima:
+#   ruff    - G2, só erros graves (sintaxe e nome indefinido), em windows-latest
+#   pytest  - a suíte hermética (T1.4) em windows-latest, como na máquina do jogo
+#   crlf-sh - nenhum *.sh com CRLF no que foi commitado
+#   pii     - tools/hooks/pii.py sobre docs/ e tests/fixtures/ (repo público)
+# Rollback do T1.6: reverter o commit dele; compose e plugin continuam.
 
 name: CI
 
@@ -62,3 +69,136 @@ jobs:
 
       - name: Conferir que a DLL saiu
         run: test -s "$RUNNER_TEMP/Cs2TrackerEvents/Cs2TrackerEvents.dll"
+
+  # G2 (card T1.6). O ruff não está na .venv do jogo e não se instala lá: só
+  # roda aqui. Regras só de erro grave, para estilo nunca derrubar o PR:
+  #   E9  - arquivo que não lê ou não parseia (erro de sintaxe)
+  #   F63 - comparação inválida (`is` com literal, tupla sempre verdadeira)
+  #   F7  - erro de sintaxe que o parser aceita (break fora de laço etc.)
+  #   F82 - nome indefinido (F821/F822/F823)
+  # Python 3.13, o mesmo do requires-python do pyproject.toml.
+  ruff:
+    name: ruff
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Só a linha do ruff do requirements-dev.txt: a faixa de versão fica
+      # num lugar só, e o lint não espera a instalação do lock inteiro.
+      - name: Instalar o ruff do requirements-dev.txt
+        shell: bash
+        run: |
+          grep -E '^ruff' requirements-dev.txt > "$RUNNER_TEMP/ruff.txt"
+          python -m pip install -r "$RUNNER_TEMP/ruff.txt"
+
+      - name: ruff check (só erros graves)
+        run: >
+          ruff check --no-cache --target-version py313
+          --select E9,F63,F7,F82 --output-format github .
+
+  # A suíte inteira no Windows com 3.13, como na máquina do Victor. Ela é
+  # hermética (T1.4): o conftest recusa docker, rede e o banco real, então o
+  # docker do runner nunca é chamado. O checkout no Windows usa autocrlf,
+  # igual ao da máquina.
+  pytest:
+    name: pytest
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements.lock
+            requirements-dev.txt
+
+      # No runner pode: é ambiente novo, não a .venv do jogo.
+      - name: Instalar requirements-dev.txt (lock + testes + lint)
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: pytest
+        run: python -m pytest -q -p no:cacheprovider
+
+  # Script shell roda no container Linux: com CRLF o bash quebra com $'\r'.
+  # Confere o conteúdo do ÍNDICE (i/...), não a árvore de trabalho, que o
+  # checkout pode converter. i/crlf ou i/mixed reprova.
+  crlf-sh:
+    name: crlf-sh
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Nenhum *.sh com CRLF no commit
+        shell: bash
+        run: |
+          git ls-files --eol -- '*.sh'
+          ruins="$(git ls-files --eol -- '*.sh' | grep -E '^i/(crlf|mixed)' | cut -f2 || true)"
+          if [ -n "$ruins" ]; then
+            echo "::error::*.sh com CRLF no índice (rode com LF; ver .gitattributes):"
+            printf '%s\n' "$ruins"
+            exit 1
+          fi
+          echo "ok: nenhum *.sh com CRLF"
+
+  # Repo público: SteamID64 acima da base, SteamID3 e IPv4 em docs/ e
+  # tests/fixtures/ pelos mesmos padrões do hook de guarda (pii.achar). O
+  # .env não existe aqui, então a parte de segredo do .env fica de fora.
+  # A saída traz só arquivo:linha e o tipo, nunca o valor achado: o log
+  # do CI também é público.
+  pii:
+    name: pii
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: PII em docs/ e tests/fixtures/
+        shell: bash
+        run: |
+          python - <<'PY'
+          import re
+          import subprocess
+          import sys
+
+          sys.path.insert(0, "tools/hooks")
+          import pii
+
+          saida = subprocess.run(
+              ["git", "ls-files", "-z", "--", "docs", "tests/fixtures"],
+              check=True, capture_output=True,
+          ).stdout.decode("utf-8")
+          caminhos = [c for c in saida.split("\0") if c]
+          lidos = binarios = 0
+          problemas = []
+          for caminho in caminhos:
+              with open(caminho, "rb") as arq:
+                  bruto = arq.read()
+              # Binário (imagem etc.): byte nulo no começo, como o git decide.
+              if b"\0" in bruto[:8192]:
+                  binarios += 1
+                  continue
+              lidos += 1
+              texto = bruto.decode("utf-8", errors="replace")
+              for desc in pii.achar(texto):
+                  m = re.fullmatch(r"(.*) na linha (\d+)", desc)
+                  problemas.append(f"{caminho}:{m[2]}: {m[1]}" if m else f"{caminho}: {desc}")
+          print(f"{lidos} arquivos de texto lidos, {binarios} binários pulados")
+          if problemas:
+              print("::error::PII em arquivo versionado (só arquivo:linha e tipo; o valor não é impresso):")
+              print("\n".join(problemas))
+              sys.exit(1)
+          print("ok: nenhum SteamID64, SteamID3 ou IPv4 fora da allowlist")
+          PY

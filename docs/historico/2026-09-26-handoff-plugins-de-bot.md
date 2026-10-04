@@ -58,8 +58,8 @@ mensagens de erro mais frequentes no nosso log vêm dele, não deles:
 A segunda precedeu diretamente um dos dois segfaults, num round em que o NadeSystem estava
 reproduzindo uma granada.
 
-Estamos no CSSharp **v1.0.373**. A **v1.0.375**, de 2026-09-24, traz `fix: for update 1.41.8.2`
-e `chore: Update Schema Definitions to 1.41.8.2`.
+Estamos no CSSharp **v1.0.373**. A **v1.0.375**, de 2026-09-24, traz `fix: for update v1.41.8.2`
+e `chore: Update Schema Definitions to v1.41.8.2`.
 
 Se a hipótese estiver certa, parte dos plugins volta a funcionar **sem recompilar nada**.
 
