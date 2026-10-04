@@ -9,7 +9,12 @@ Partida —, ele também funciona como smoke test da TUI: se algum seletor ou
 alguma tela quebrar, ele falha em vez de gerar imagem errada.
 
 Nada de Docker/RCON acontece aqui: wizard_core.launch é substituído por um
-log falso, então o match_config real nunca é reescrito.
+log falso, então o match_config real nunca é reescrito. A troca vale só
+durante o main() e é desfeita no fim, para quem importa o módulo (o
+tests/test_tui_smoke.py roda o main() numa pasta temporária).
+
+O estado do veto e dos lados mora na WizardSession (app.session, F2.1), não
+nas telas: ler step_index/index da tela era o que quebrava o script.
 
 Uso:
     .venv\\Scripts\\python.exe tools/make_screenshots.py
@@ -76,11 +81,19 @@ async def wait_until(app, predicate, timeout=30.0, step=0.1):
     raise TimeoutError(f"condição não satisfeita em {timeout}s (tela: {app.screen!r})")
 
 
-async def main():
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+async def main(out_dir: Path = OUT_DIR):
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     random.seed(VETO_SEED)
+    launch_original = core.launch
     core.launch = fake_launch
+    try:
+        return await _percorrer(out_dir)
+    finally:
+        core.launch = launch_original
 
+
+async def _percorrer(out_dir: Path):
     app = WizardApp(rcon_password="dummy")
     saved = []
 
@@ -89,7 +102,7 @@ async def main():
         # logo depois de um clique pegaria o botão aceso, e a cor variaria
         # entre execuções.
         await asyncio.sleep(0.3)
-        path = Path(app.save_screenshot(name, path=str(OUT_DIR)))
+        path = Path(app.save_screenshot(name, path=str(out_dir)))
         # O Rich gera um id aleatório por export ("terminal-<n>-r1", ...), o que
         # faria cada regeração aparecer no git diff mesmo sem a UI ter mudado.
         # Cada SVG é referenciado como <img> no README, isolado, então um id
@@ -137,7 +150,7 @@ async def main():
             if not buttons:  # turno do bot, com countdown visível
                 await asyncio.sleep(0.2)
                 continue
-            if not shot_taken and veto.step_index >= 2:
+            if not shot_taken and app.session.veto_step_index >= 2:
                 # Já tem histórico na tela (seu ban + o do bot) e é sua vez.
                 await shot("04-veto.svg")
                 shot_taken = True
@@ -153,7 +166,7 @@ async def main():
             await wait_until(app, lambda: bool(side.query("#side_radio")))
             await pilot.click("#ct")
             await pilot.pause()
-            if side.index == 0:
+            if app.session.side_index == 0:
                 await shot("05-lados.svg")
             await pilot.click("#confirm")
             # Button ignora um clique dentro do efeito -active (0.2s), e o
@@ -175,8 +188,9 @@ async def main():
         await pilot.pause()
 
     for name in saved:
-        print(f"[SHOT] docs/img/{name}")
-    print(f"[OK] {len(saved)} screenshot(s) em {OUT_DIR}")
+        print(f"[SHOT] {out_dir / name}")
+    print(f"[OK] {len(saved)} screenshot(s) em {out_dir}")
+    return saved
 
 
 if __name__ == "__main__":
