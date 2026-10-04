@@ -1,0 +1,66 @@
+# Lock da .venv do jogo (card T1.2): uma linha nome==versão por distribuição
+# instalada, lida SOMENTE LEITURA de importlib.metadata, sem instalar nada.
+# Fica de fora só o próprio pip (ferramenta, não dependência).
+# Gerado no Windows com Python 3.13: colorama, tzdata e win32_setctime são
+# transitivas de Windows; são wheels puros e também instalam no Linux.
+# Para regenerar, troque as linhas abaixo pela saída (só leitura) de
+#   .venv/Scripts/python.exe -m pip freeze
+# que lista o mesmo conjunto, já sem o pip.
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+awpy==2.0.2
+certifi==2026.7.22
+charset-normalizer==3.5.1
+click==8.5.0
+colorama==0.4.6
+contourpy==1.3.3
+cycler==0.12.1
+demoparser2==0.42.0
+fastapi==0.141.1
+fonttools==4.64.0
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.19
+iniconfig==2.3.0
+Jinja2==3.1.6
+kiwisolver==1.5.1
+linkify-it-py==2.2.0
+loguru==0.7.3
+markdown-it-py==4.2.0
+MarkupSafe==3.0.3
+matplotlib==3.11.1
+mdit-py-plugins==0.6.1
+mdurl==0.1.2
+networkx==3.6.1
+numpy==2.5.2
+packaging==26.3
+pandas==3.0.5
+pillow==12.3.0
+platformdirs==4.11.7
+pluggy==1.6.0
+polars==1.44.1
+polars-runtime-32==1.44.1
+pyarrow==25.0.1
+pydantic==2.13.5
+pydantic_core==2.46.5
+Pygments==2.21.0
+pyparsing==3.3.2
+pytest==9.1.1
+python-dateutil==2.9.0.post0
+python-multipart==0.0.32
+rcon==2.4.9
+requests==2.34.2
+rich==15.0.0
+scipy==1.18.1
+six==1.17.0
+starlette==1.6.0
+textual==8.2.8
+tqdm==4.70.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+tzdata==2026.3
+urllib3==2.7.0
+uvicorn==0.53.0
+win32_setctime==1.2.0
