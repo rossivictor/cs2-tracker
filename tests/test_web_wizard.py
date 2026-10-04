@@ -59,7 +59,7 @@ def test_setup_is_the_wizard_entry_point_when_no_saved_profile(client):
 
 
 def test_direct_path_full_flow(client):
-    resp = client.post("/setup", data={"player": "can1sh", "fmt": "bo1", "team_size": "5"})
+    resp = client.post("/setup", data={"player": "cobaia", "fmt": "bo1", "team_size": "5"})
     assert resp.url.path == "/lineups", resp.text
 
     resp = _skip_lineups(client)
@@ -75,14 +75,14 @@ def test_direct_path_full_flow(client):
 
     resp = client.post("/sides", data={"side": "ct"})
     assert resp.url.path == "/summary", resp.text
-    assert "can1sh" in resp.text
+    assert "cobaia" in resp.text
     assert "BO1" in resp.text
     assert "DE_DUST2" not in resp.text  # não maiúscula o nome do mapa
     assert "de_dust2" in resp.text
 
 
 def test_direct_path_wrong_map_count_shows_error(client):
-    client.post("/setup", data={"player": "can1sh", "fmt": "bo3", "team_size": "5"})
+    client.post("/setup", data={"player": "cobaia", "fmt": "bo3", "team_size": "5"})
     _skip_lineups(client)
     client.post("/maps/toggle", data={"map_name": "de_dust2"})
 
@@ -92,7 +92,7 @@ def test_direct_path_wrong_map_count_shows_error(client):
 
 
 def test_veto_path_full_flow(client):
-    client.post("/setup", data={"player": "can1sh", "fmt": "bo1", "team_size": "5"})
+    client.post("/setup", data={"player": "cobaia", "fmt": "bo1", "team_size": "5"})
     _skip_lineups(client)
     resp = client.post("/maps/veto/start")
     assert resp.url.path == "/veto", resp.text
@@ -128,7 +128,7 @@ def test_veto_path_full_flow(client):
 
 
 def test_back_navigation_through_all_steps(client):
-    client.post("/setup", data={"player": "can1sh", "fmt": "bo1", "team_size": "5"})
+    client.post("/setup", data={"player": "cobaia", "fmt": "bo1", "team_size": "5"})
     _skip_lineups(client)
     client.post("/maps/toggle", data={"map_name": "de_dust2"})
     client.post("/maps/confirm")
@@ -158,7 +158,7 @@ def test_back_navigation_through_all_steps(client):
 
 
 def test_saved_profile_skips_identity_on_next_visit(client, tmp_path):
-    client.post("/setup", data={"player": "can1sh", "fmt": "bo1", "team_size": "5"})
+    client.post("/setup", data={"player": "cobaia", "fmt": "bo1", "team_size": "5"})
     assert (webapp.PROFILE_PATH).exists()
 
     # Nova sessão (processo reiniciado, na prática) — profile.json continua lá.
@@ -169,7 +169,7 @@ def test_saved_profile_skips_identity_on_next_visit(client, tmp_path):
 
 
 def test_reset_clears_session(client):
-    client.post("/setup", data={"player": "can1sh", "fmt": "bo1", "team_size": "5"})
+    client.post("/setup", data={"player": "cobaia", "fmt": "bo1", "team_size": "5"})
     assert webapp._session.step != core.STEP_IDENTITY
 
     # follow_redirects=False de propósito: seguir o redirect até "/" ativaria

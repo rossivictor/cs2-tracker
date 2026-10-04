@@ -26,7 +26,7 @@ from __future__ import annotations
 import os
 import re
 
-# Só abaixo da base (T1.3): o 76561198000000001, acima dela, saiu com OK do
+# Só abaixo da base (T1.3): o ID fictício antigo, acima dela, saiu com OK do
 # Victor em 28/09, porque pode ser conta real.
 IDS_FICTICIOS = frozenset({"76561190000000001"})
 # SteamID64 = BASE + ID da conta; o SteamID3 é [U:1:<ID da conta>].

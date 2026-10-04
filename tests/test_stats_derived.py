@@ -26,7 +26,7 @@ def _conn(tmp_path):
     conn = init_db(str(tmp_path / "t.db"))
     conn.execute(
         "INSERT INTO matches (id, demo_name, map, played_at, player_name, source) "
-        "VALUES (?, 'd.dem', 'de_mirage', '2026-09-20T20:00:00', 'can1sh', 'demo')",
+        "VALUES (?, 'd.dem', 'de_mirage', '2026-09-20T20:00:00', 'cobaia', 'demo')",
         (MID,),
     )
     conn.row_factory = sqlite3.Row
@@ -118,7 +118,7 @@ def test_hitgroups_ignoram_dano_que_nao_e_seu(tmp_path):
 def test_kast_conta_round_com_kill(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
-    _kill(conn, 1, 100, "can1sh", "bot1", "t", "ct", a_human=1)
+    _kill(conn, 1, 100, "cobaia", "bot1", "t", "ct", a_human=1)
     s = _all(conn)
     assert s["kast_rounds"] == 1
     assert s["kast_pct"] == 100.0
@@ -134,7 +134,7 @@ def test_kast_conta_round_em_que_voce_sobreviveu_sem_matar(tmp_path):
 def test_kast_nao_conta_round_em_que_voce_morreu_sem_trade(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
-    _kill(conn, 1, 100, "algoz", "can1sh", "ct", "t", v_human=1)
+    _kill(conn, 1, 100, "algoz", "cobaia", "ct", "t", v_human=1)
     s = _all(conn)
     assert s["kast_rounds"] == 0
     assert s["kast_pct"] == 0.0
@@ -143,7 +143,7 @@ def test_kast_nao_conta_round_em_que_voce_morreu_sem_trade(tmp_path):
 def test_kast_conta_round_em_que_voce_foi_trocado(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
-    _kill(conn, 1, 100, "algoz", "can1sh", "ct", "t", v_human=1)
+    _kill(conn, 1, 100, "algoz", "cobaia", "ct", "t", v_human=1)
     # Aliado (mesmo lado que você no round) vinga dentro da janela.
     _kill(conn, 1, 100 + TRADE_WINDOW_TICKS - 1, "aliado", "algoz", "t", "ct")
     s = _all(conn)
@@ -154,7 +154,7 @@ def test_kast_conta_round_em_que_voce_foi_trocado(tmp_path):
 def test_vinganca_fora_da_janela_nao_e_trade(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
-    _kill(conn, 1, 100, "algoz", "can1sh", "ct", "t", v_human=1)
+    _kill(conn, 1, 100, "algoz", "cobaia", "ct", "t", v_human=1)
     _kill(conn, 1, 100 + TRADE_WINDOW_TICKS + 1, "aliado", "algoz", "t", "ct")
     s = _all(conn)
     assert s["traded_deaths"] == 0
@@ -164,7 +164,7 @@ def test_vinganca_fora_da_janela_nao_e_trade(tmp_path):
 def test_kast_sem_assists_sempre_sinalizado(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
-    _kill(conn, 1, 100, "can1sh", "bot1", "t", "ct", a_human=1)
+    _kill(conn, 1, 100, "cobaia", "bot1", "t", "ct", a_human=1)
     assert _all(conn)["kast_has_assists"] is False
 
 
@@ -176,14 +176,14 @@ def test_trade_kill_quando_voce_vinga_um_aliado(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
     _kill(conn, 1, 100, "algoz", "aliado", "ct", "t")          # aliado seu morre
-    _kill(conn, 1, 150, "can1sh", "algoz", "t", "ct", a_human=1)  # você vinga
+    _kill(conn, 1, 150, "cobaia", "algoz", "t", "ct", a_human=1)  # você vinga
     assert _all(conn)["trade_kills"] == 1
 
 
 def test_kill_normal_nao_vira_trade(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
-    _kill(conn, 1, 150, "can1sh", "inimigo", "t", "ct", a_human=1)
+    _kill(conn, 1, 150, "cobaia", "inimigo", "t", "ct", a_human=1)
     assert _all(conn)["trade_kills"] == 0
 
 
@@ -192,7 +192,7 @@ def test_vingar_morte_de_inimigo_nao_e_trade(tmp_path):
     _round(conn, 1)
     # Quem morreu antes era do lado CT, não do seu: matar o algoz não é trade.
     _kill(conn, 1, 100, "outro_t", "bot_ct", "t", "ct")
-    _kill(conn, 1, 150, "can1sh", "outro_t", "t", "t", a_human=1)
+    _kill(conn, 1, 150, "cobaia", "outro_t", "t", "t", a_human=1)
     assert _all(conn)["trade_kills"] == 0
 
 
@@ -204,7 +204,7 @@ def test_sem_lado_trades_e_clutches_saem_none(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
     # É o caso real das partidas ingeridas de .dem: kills sem lado.
-    _kill(conn, 1, 100, "algoz", "can1sh", None, None, v_human=1)
+    _kill(conn, 1, 100, "algoz", "cobaia", None, None, v_human=1)
     _kill(conn, 1, 150, "aliado", "algoz", None, None)
     s = _all(conn)
     assert s["trade_kills"] is None
@@ -225,7 +225,7 @@ def test_multi_kills_por_round(tmp_path):
     for rnd, n in ((1, 1), (2, 2), (3, 3), (4, 5)):
         _round(conn, rnd)
         for i in range(n):
-            _kill(conn, rnd, 100 + i, "can1sh", f"bot{i}", "t", "ct", a_human=1)
+            _kill(conn, rnd, 100 + i, "cobaia", f"bot{i}", "t", "ct", a_human=1)
     mk = _all(conn)["multi_kills"]
     assert mk == {"2k": 1, "3k": 1, "4k": 0, "5k": 1}
 
@@ -234,16 +234,16 @@ def test_seis_kills_num_round_entram_no_balde_de_ace(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
     for i in range(6):
-        _kill(conn, 1, 100 + i, "can1sh", f"bot{i}", "t", "ct", a_human=1)
+        _kill(conn, 1, 100 + i, "cobaia", f"bot{i}", "t", "ct", a_human=1)
     assert _all(conn)["multi_kills"]["5k"] == 1
 
 
 def test_kill_pos_mortem_nao_conta_como_sua(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
-    _kill(conn, 1, 100, "can1sh", "bot1", "t", "ct", a_human=1)
+    _kill(conn, 1, 100, "cobaia", "bot1", "t", "ct", a_human=1)
     # Takeover de bot depois da sua morte: existe no jogo, não é sua.
-    _kill(conn, 1, 200, "can1sh", "bot2", "t", "ct", a_human=1, post_mortem=1)
+    _kill(conn, 1, 200, "cobaia", "bot2", "t", "ct", a_human=1, post_mortem=1)
     s = _all(conn)
     assert s["kills"] == 1
     assert s["multi_kills"]["2k"] == 0
@@ -293,7 +293,7 @@ def test_morrer_antes_de_ficar_sozinho_nao_e_clutch(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1, human_side="t", winner="ct")
     _kill_teammates(conn, 1, 3, start_tick=100)
-    _kill(conn, 1, 200, "inimigo", "can1sh", "ct", "t", v_human=1)  # você morre
+    _kill(conn, 1, 200, "inimigo", "cobaia", "ct", "t", v_human=1)  # você morre
     _kill(conn, 1, 300, "inimigo", "aliado_ultimo", "ct", "t")      # o último cai depois
     assert _all(conn)["clutch_count"] == 0
 
@@ -305,10 +305,10 @@ def test_morrer_antes_de_ficar_sozinho_nao_e_clutch(tmp_path):
 def test_head_to_head_saldo_por_adversario(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
-    _kill(conn, 1, 100, "can1sh", "arT", "t", "ct", a_human=1)
-    _kill(conn, 1, 110, "can1sh", "arT", "t", "ct", a_human=1)
-    _kill(conn, 1, 120, "arT", "can1sh", "ct", "t", v_human=1)
-    _kill(conn, 1, 130, "can1sh", "KSCERATO", "t", "ct", a_human=1)
+    _kill(conn, 1, 100, "cobaia", "arT", "t", "ct", a_human=1)
+    _kill(conn, 1, 110, "cobaia", "arT", "t", "ct", a_human=1)
+    _kill(conn, 1, 120, "arT", "cobaia", "ct", "t", v_human=1)
+    _kill(conn, 1, 130, "cobaia", "KSCERATO", "t", "ct", a_human=1)
     rows = {r["opponent"]: r for r in _build(conn)["head_to_head"]["all"]}
     assert rows["arT"] == {"opponent": "arT", "kills": 2, "deaths": 1, "diff": 1}
     assert rows["KSCERATO"]["diff"] == 1
@@ -317,21 +317,21 @@ def test_head_to_head_saldo_por_adversario(tmp_path):
 def test_head_to_head_ignora_fogo_amigo(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
-    _kill(conn, 1, 100, "can1sh", "aliado", "t", "t", a_human=1)
+    _kill(conn, 1, 100, "cobaia", "aliado", "t", "t", a_human=1)
     assert _build(conn)["head_to_head"]["all"] == []
 
 
 def test_head_to_head_ignora_suicidio(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
-    _kill(conn, 1, 100, "can1sh", "can1sh", "t", "t", a_human=1, v_human=1, weapon="world")
+    _kill(conn, 1, 100, "cobaia", "cobaia", "t", "t", a_human=1, v_human=1, weapon="world")
     assert _build(conn)["head_to_head"]["all"] == []
 
 
 def test_head_to_head_agregado_soma_entre_partidas(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1)
-    _kill(conn, 1, 100, "can1sh", "arT", "t", "ct", a_human=1)
+    _kill(conn, 1, 100, "cobaia", "arT", "t", "ct", a_human=1)
     conn.commit()
     data = stats.load_stats(str(tmp_path / "t.db"))
     rows = {r["opponent"]: r for r in data["head_to_head"]["all"]}
@@ -345,9 +345,9 @@ def test_head_to_head_agregado_soma_entre_partidas(tmp_path):
 def test_round_nao_contado_fica_fora_do_kast(tmp_path):
     conn = _conn(tmp_path)
     _round(conn, 1, counted=1)
-    _kill(conn, 1, 100, "can1sh", "bot1", "t", "ct", a_human=1)
+    _kill(conn, 1, 100, "cobaia", "bot1", "t", "ct", a_human=1)
     _round(conn, 2, counted=0)
-    _kill(conn, 2, 200, "algoz", "can1sh", "ct", "t", v_human=1)
+    _kill(conn, 2, 200, "algoz", "cobaia", "ct", "t", v_human=1)
     s = _all(conn)
     assert s["rounds_played"] == 1
     assert s["kast_pct"] == 100.0

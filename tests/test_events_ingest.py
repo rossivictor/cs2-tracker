@@ -25,7 +25,7 @@ import parser as parser_mod
 import stats
 from identity import PlayerIdentity
 
-HUMANO = "can1sh"
+HUMANO = "cobaia"
 # Identidade COM steamid de propósito: é o modo MatchZy, e é o cenário em que
 # a detecção por nome dos eventos novos precisa funcionar mesmo assim.
 IDENT = PlayerIdentity(name=HUMANO, steamid="76561190000000001")

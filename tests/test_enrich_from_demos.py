@@ -26,11 +26,11 @@ def _db(tmp_path):
     conn = init_db(str(path))
     conn.execute(
         """INSERT INTO matches (id, demo_name, map, played_at, player_name, source)
-           VALUES (1,'events_44_map0','de_dust2','2026-09-19T12:00:00','can1sh','events')"""
+           VALUES (1,'events_44_map0','de_dust2','2026-09-19T12:00:00','cobaia','events')"""
     )
     conn.execute(
         """INSERT INTO matches (id, demo_name, map, played_at, player_name, source)
-           VALUES (2,'events_44_map1','de_ancient','2026-09-19T12:30:00','can1sh','events')"""
+           VALUES (2,'events_44_map1','de_ancient','2026-09-19T12:30:00','cobaia','events')"""
     )
     conn.commit()
     conn.close()
@@ -45,7 +45,7 @@ def _db(tmp_path):
 
 def test_le_matchid_e_mapa_do_nome():
     got = enrich._parse_demo_name(
-        Path("2026-09-19_15-25-11_44_de_inferno_can1sh_vs_Bots.dem")
+        Path("2026-09-19_15-25-11_44_de_inferno_cobaia_vs_Bots.dem")
     )
     assert got == ("44", "de_inferno")
 
@@ -132,7 +132,7 @@ def test_fonte_vazia_nao_alinha():
 def test_demo_ilegivel_nao_escreve_nada(tmp_path):
     conn = _db(tmp_path)
     antes = conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0]
-    fake = tmp_path / "2026-09-19_14-32-54_44_de_dust2_can1sh_vs_Bots.dem"
+    fake = tmp_path / "2026-09-19_14-32-54_44_de_dust2_cobaia_vs_Bots.dem"
     fake.write_bytes(b"nao e uma demo")
 
     row = enrich._find_match(conn, "44", "de_dust2")

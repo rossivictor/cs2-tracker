@@ -18,7 +18,7 @@ from start_match import BotAddError, _resolve_lineup_names
 
 def test_anonymous_fallback_when_no_lineup():
     ct_names, t_names = _resolve_lineup_names(
-        human_side="ct", team_size=5, player="can1sh", my_lineup=None, enemy_lineup=None,
+        human_side="ct", team_size=5, player="cobaia", my_lineup=None, enemy_lineup=None,
     )
     assert ct_names == [None] * 4
     assert t_names == [None] * 5
@@ -30,7 +30,7 @@ def test_anonymous_fallback_when_no_lineup():
 ])
 def test_named_lineup_assigned_to_correct_side(human_side, expected_ct, expected_t):
     ct_names, t_names = _resolve_lineup_names(
-        human_side=human_side, team_size=3, player="can1sh",
+        human_side=human_side, team_size=3, player="cobaia",
         my_lineup=["a", "b"], enemy_lineup=["e1", "e2", "e3"],
     )
     assert ct_names == expected_ct
@@ -40,7 +40,7 @@ def test_named_lineup_assigned_to_correct_side(human_side, expected_ct, expected
 def test_my_lineup_wrong_size_raises():
     with pytest.raises(BotAddError):
         _resolve_lineup_names(
-            human_side="ct", team_size=5, player="can1sh",
+            human_side="ct", team_size=5, player="cobaia",
             my_lineup=["a", "b"],  # precisa de 4 (team_size - 1)
             enemy_lineup=None,
         )
@@ -49,7 +49,7 @@ def test_my_lineup_wrong_size_raises():
 def test_enemy_lineup_wrong_size_raises():
     with pytest.raises(BotAddError):
         _resolve_lineup_names(
-            human_side="ct", team_size=5, player="can1sh",
+            human_side="ct", team_size=5, player="cobaia",
             my_lineup=None,
             enemy_lineup=["a", "b", "c"],  # precisa de 5 (team_size)
         )

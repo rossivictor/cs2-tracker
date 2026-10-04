@@ -759,7 +759,7 @@
           ],
           "acceptance": [
             "events_44 (com BOM), events_59 reduzido, serie_bo3.log e a cauda de current.jsonl pós-partida.",
-            "SteamID64 → 76561198000000001; SteamID3 e IPs trocados; pii.py verde."
+            "SteamID64 → 76561190000000001; SteamID3 e IPs trocados; pii.py verde."
           ],
           "files": [
             "tests/fixtures/"

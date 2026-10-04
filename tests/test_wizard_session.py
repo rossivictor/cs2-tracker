@@ -17,7 +17,7 @@ import wizard_core as core
 
 
 def make_identity() -> PlayerIdentity:
-    return PlayerIdentity(name="can1sh", steamid="76561198100290385")
+    return PlayerIdentity(name="cobaia", steamid="76561190000000001")
 
 
 def new_session() -> core.WizardSession:
@@ -203,10 +203,10 @@ def test_set_lineups_overlap_between_sides_raises():
 
 
 def test_set_lineups_human_nick_collision_raises():
-    session = new_session()  # identity.name == "can1sh"
+    session = new_session()  # identity.name == "cobaia"
     session.set_format("bo1", team_size=2)
     with pytest.raises(core.WizardError):
-        session.set_lineups(my_lineup=["can1sh"], enemy_lineup=["NiKo", "s1mple"])
+        session.set_lineups(my_lineup=["cobaia"], enemy_lineup=["NiKo", "s1mple"])
 
 
 def test_back_from_lineups_returns_to_format():

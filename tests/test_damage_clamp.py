@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from parser import MAX_HEALTH, clamp_damage_health
 
 
-def _dano(round_num, tick, victim, dmg, attacker="can1sh"):
+def _dano(round_num, tick, victim, dmg, attacker="cobaia"):
     """Tupla de damages no formato das duas ingestões (12 campos)."""
     return (round_num, tick, attacker, None, victim, None,
             "ak47", "1", dmg, 0, 1, 0)
@@ -71,7 +71,7 @@ def test_o_acumulado_atravessa_atacantes():
     """Se um bot já tirou 80, o seu tiro de 100 vale 20. Sem isso o ADR
     continuaria inflado nos alvos que o time enfraqueceu antes."""
     linhas = [_dano(1, 100, "alvo", 80, attacker="Bot Kaiser"),
-              _dano(1, 200, "alvo", 100, attacker="can1sh")]
+              _dano(1, 200, "alvo", 100, attacker="cobaia")]
     assert _cortado(linhas) == [80, 20]
 
 
@@ -139,6 +139,6 @@ def test_vitima_desconhecida_nao_contamina_a_conhecida():
 
 def test_steamid_tem_precedencia_sobre_o_nome():
     """Mesmo jogador com nick diferente em duas linhas continua sendo um só."""
-    a = (1, 100, "can1sh", None, "NickVelho", "7656119800", "ak47", "1", 70, 0, 1, 0)
-    b = (1, 200, "can1sh", None, "NickNovo", "7656119800", "ak47", "1", 70, 0, 1, 0)
+    a = (1, 100, "cobaia", None, "NickVelho", "7656119800", "ak47", "1", 70, 0, 1, 0)
+    b = (1, 200, "cobaia", None, "NickNovo", "7656119800", "ak47", "1", 70, 0, 1, 0)
     assert _cortado([a, b]) == [70, 30]

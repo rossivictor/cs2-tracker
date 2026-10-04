@@ -20,7 +20,7 @@ from stats import human_quick_summary
 
 def _insert_match(conn, match_id, demo_name, map_name="de_mirage"):
     conn.execute(
-        "INSERT INTO matches (id, demo_name, map, player_name) VALUES (?, ?, ?, 'can1sh')",
+        "INSERT INTO matches (id, demo_name, map, player_name) VALUES (?, ?, ?, 'cobaia')",
         (match_id, demo_name, map_name),
     )
 
