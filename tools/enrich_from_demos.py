@@ -44,7 +44,7 @@ from config import DB_PATH, DEMOS_LIVE_DIR  # noqa: E402
 from identity import resolve_identity  # noqa: E402
 from parser import PLAYER_PROPS, init_db  # noqa: E402
 
-# 2026-09-19_15-25-11_44_de_inferno_can1sh_vs_Bots.dem
+# 2026-09-19_15-25-11_44_de_inferno_cobaia_vs_Bots.dem
 NAME_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}_[\d-]+_(?P<matchid>\d+)_(?P<map>de_[a-z0-9]+)_"
 )

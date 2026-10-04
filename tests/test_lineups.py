@@ -57,7 +57,7 @@ def client():
 
 
 def _to_lineups(client, team_size=3):
-    client.post("/setup", data={"player": "can1sh", "fmt": "bo1", "team_size": str(team_size)})
+    client.post("/setup", data={"player": "cobaia", "fmt": "bo1", "team_size": str(team_size)})
 
 
 def test_lineups_screen_shows_right_slot_counts(client):
@@ -90,8 +90,8 @@ def test_shared_pool_excludes_name_from_other_side(client):
 
 
 def test_human_nick_cannot_be_picked(client):
-    _to_lineups(client)  # identity.name == "can1sh"
-    resp = client.post("/lineups/pick", data={"side": "mine", "slot": 0, "name": "can1sh"})
+    _to_lineups(client)  # identity.name == "cobaia"
+    resp = client.post("/lineups/pick", data={"side": "mine", "slot": 0, "name": "cobaia"})
     assert "não pode ser escolhido" in resp.text
     assert webapp._lineup_slots["mine"][0] is None
 
@@ -105,7 +105,7 @@ def test_browse_excludes_used_and_human_names(client):
     # o que não pode aparecer é como CARD ESCOLHÍVEL na busca (um form de
     # pick com esse nome no hidden input).
     assert 'name="name" value="b1"' not in resp.text  # já usado do outro lado
-    assert 'name="name" value="can1sh"' not in resp.text  # nick do humano
+    assert 'name="name" value="cobaia"' not in resp.text  # nick do humano
 
 
 def test_random_team_overwrites_side_with_a_full_catalog_team(client):
@@ -134,7 +134,7 @@ def test_random_lineup_overwrites_all_slots_without_collision(client):
     all_names = webapp._lineup_slots["mine"] + webapp._lineup_slots["enemy"]
     assert None not in all_names
     assert len(set(all_names)) == len(all_names)  # sem colisão
-    assert "can1sh" not in all_names
+    assert "cobaia" not in all_names
 
 
 def test_confirm_requires_all_slots_filled(client):
@@ -362,7 +362,7 @@ def test_confirm_competitive_side_does_not_require_slots_filled(client):
 def test_human_row_shows_name_and_no_swap_or_remove_buttons(client):
     _to_lineups(client, team_size=3)
     page = client.get("/lineups").text
-    assert "can1sh (você)" in page
+    assert "cobaia (você)" in page
     # a linha do humano é a única sem forms de troca/remoção associados —
     # não dá pra isolar por posição no HTML puro, então valida indiretamente:
     # o texto "Trocar"/"Limpar" não existe mais em lugar nenhum (item 3),

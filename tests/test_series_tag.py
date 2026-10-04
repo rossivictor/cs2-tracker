@@ -82,7 +82,7 @@ def test_maplist_respeita_o_indice_do_mapa_na_serie(tmp_path):
 
 def test_sem_match_config_cai_pro_nome_da_demo(tmp_path):
     w = _watcher(tmp_path, maplist=None,
-                 demos=("2026-09-22_21-05-25_52_de_nuke_can1sh_vs_Bots.dem",))
+                 demos=("2026-09-22_21-05-25_52_de_nuke_cobaia_vs_Bots.dem",))
     assert w._map_name_for("52", 0) == "de_nuke"
 
 

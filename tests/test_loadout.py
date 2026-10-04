@@ -25,7 +25,7 @@ def _conn(tmp_path):
     conn = init_db(str(tmp_path / "t.db"))
     conn.execute(
         "INSERT INTO matches (id, demo_name, map, played_at, player_name, source) "
-        "VALUES (?, 'd.dem', 'de_mirage', '2026-09-20T20:00:00', 'can1sh', 'demo')",
+        "VALUES (?, 'd.dem', 'de_mirage', '2026-09-20T20:00:00', 'cobaia', 'demo')",
         (MID,),
     )
     return conn
@@ -184,7 +184,7 @@ def _match_with_loadout(tmp_path, equips):
             """INSERT INTO kills (match_id, round_num, tick, attacker_name, victim_name,
                                   attacker_side, victim_side, weapon, headshot,
                                   attacker_is_human, victim_is_human)
-               VALUES (?,?,?,'can1sh','arT','t','ct','ak47',1,1,0)""",
+               VALUES (?,?,?,'cobaia','arT','t','ct','ak47',1,1,0)""",
             (MID, i, i * 1000 + 10),
         )
         conn.execute(
@@ -232,7 +232,7 @@ def test_tela_sem_loadout_nao_mostra_economia(tmp_path):
         """INSERT INTO kills (match_id, round_num, tick, attacker_name, victim_name,
                               attacker_side, victim_side, weapon, headshot,
                               attacker_is_human, victim_is_human)
-           VALUES (?,1,10,'can1sh','arT','t','ct','ak47',1,1,0)""",
+           VALUES (?,1,10,'cobaia','arT','t','ct','ak47',1,1,0)""",
         (MID,),
     )
     conn.commit()

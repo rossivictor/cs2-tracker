@@ -33,7 +33,7 @@ def client():
 
 
 def _to_maps(client, fmt="bo1", team_size=5):
-    client.post("/setup", data={"player": "can1sh", "fmt": fmt, "team_size": str(team_size)})
+    client.post("/setup", data={"player": "cobaia", "fmt": fmt, "team_size": str(team_size)})
     client.post("/lineups/select-competitive", data={"side": "mine"})
     client.post("/lineups/select-competitive", data={"side": "enemy"})
     client.post("/lineups/confirm")

@@ -30,7 +30,7 @@ def _db(tmp_path, n_matches=6, adrs=None):
         conn.execute(
             """INSERT INTO matches (id, demo_name, map, played_at, player_name, source,
                                     score_mine, score_theirs, outcome)
-               VALUES (?,?,?,?,'can1sh','events',13,5,'win')""",
+               VALUES (?,?,?,?,'cobaia','events',13,5,'win')""",
             (mid, f"d{mid}.dem", "de_mirage", f"2026-09-{10 + i:02d}T20:00:00"),
         )
         for rnd in range(1, 11):
@@ -43,7 +43,7 @@ def _db(tmp_path, n_matches=6, adrs=None):
                 """INSERT INTO kills (match_id, round_num, tick, attacker_name, victim_name,
                                       attacker_side, victim_side, weapon, headshot,
                                       attacker_is_human, victim_is_human)
-                   VALUES (?,?,?,'can1sh','arT','t','ct','ak47',1,1,0)""",
+                   VALUES (?,?,?,'cobaia','arT','t','ct','ak47',1,1,0)""",
                 (mid, rnd, rnd * 100),
             )
             conn.execute(
@@ -166,7 +166,7 @@ def test_detalhe_junta_armas_silenciadas_no_rotulo(tmp_path):
         """INSERT INTO kills (match_id, round_num, tick, attacker_name, victim_name,
                               attacker_side, victim_side, weapon, headshot,
                               attacker_is_human, victim_is_human)
-           VALUES (1,1,50,'can1sh','arT','t','ct','m4a1_silencer',0,1,0)"""
+           VALUES (1,1,50,'cobaia','arT','t','ct','m4a1_silencer',0,1,0)"""
     )
     conn.execute(
         """INSERT INTO damages (match_id, round_num, weapon, hitgroup, dmg_health,

@@ -32,14 +32,14 @@ from wizard_tui import (         # noqa: E402
 
 OUT_DIR = ROOT / "docs" / "img"
 SIZE = (100, 34)
-PLAYER = "can1sh"
+PLAYER = "cobaia"
 FORMAT = "bo3"
 VETO_SEED = 7  # turno do bot é random.choice — fixa a sequência entre execuções
 
 FAKE_LOG = [
     "[CONFIG] match_config.spike.json: maplist -> ['de_mirage', 'de_nuke', 'de_inferno']",
     "[DOCKER] Container 'cs2-spike' já está rodando.",
-    "[WATCHER] Subindo watcher.py --mode matchzy --player can1sh em paralelo...",
+    "[WATCHER] Subindo watcher.py --mode matchzy --player cobaia em paralelo...",
     "[RCON] Esperando 127.0.0.1:27015 ficar disponível (timeout 300s)...",
     "[RCON] Conectado.",
     "[WATCHER] [WATCHER] Seguindo docker logs de cs2-spike...",
