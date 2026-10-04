@@ -134,12 +134,14 @@ def test_socketpair_do_proprio_processo_funciona():
 def test_config_e_app_apontam_para_o_golden(hermetico):
     import config
     import home
+    import parser as parser_demos
     import web.app as webapp
 
     golden = str(hermetico.golden)
     assert golden.endswith("golden.db")
     assert config.DB_PATH == golden
     assert home.DB_PATH == golden
+    assert parser_demos.DB_PATH == golden
     assert webapp.DB_PATH == golden
     assert Path(golden).resolve().is_relative_to(Path(tempfile.gettempdir()).resolve())
     for nome in ("EVENTS_LIVE_DIR", "STATS_LIVE_DIR", "DEMOS_LIVE_DIR", "REPORT_PATH", "HOME_PATH"):
@@ -183,6 +185,19 @@ def test_perfil_do_app_fica_fora_do_data(hermetico):
     perfil = Path(webapp.PROFILE_PATH).resolve()
     assert not perfil.is_relative_to((RAIZ / "data").resolve())
     assert perfil.is_relative_to(Path(tempfile.gettempdir()).resolve())
+
+
+def test_travas_valem_rodando_um_teste_sozinho(tmp_path):
+    # Sem depender da ordem: cada teste, num pytest só dele, já acha o perfil
+    # e o banco trocados (antes, o perfil só ia para tmp se outro arquivo
+    # tivesse importado o web.app na coleta).
+    for nome in ("test_perfil_do_app_fica_fora_do_data", "test_config_e_app_apontam_para_o_golden"):
+        feito = subprocess.run(
+            [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+             f"--basetemp={tmp_path / nome}", f"tests/test_hermetico.py::{nome}"],
+            cwd=RAIZ, capture_output=True, text=True, timeout=120)
+        assert feito.returncode == 0, feito.stdout[-2000:]
+        assert "1 passed" in feito.stdout
 
 
 def test_home_do_app_abre_com_o_golden():

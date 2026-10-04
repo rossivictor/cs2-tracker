@@ -7,13 +7,16 @@ Antes da coleta (pytest_configure, antes de qualquer tests/test_*.py importar
 o app), numa pasta temporária da sessão:
 
 - golden.db: o schema do parser.init_db, sem partida (o mesmo banco do
-  tools/web_golden.py), somente leitura. O `config.DB_PATH` aponta para ele;
-  os módulos que fazem `from config import DB_PATH` (home, matches, report,
-  parser, watcher, web.app) já importam o valor trocado. Era a causa das 42
+  tools/web_golden.py), somente leitura. O `config.DB_PATH` aponta para ele
+  antes do primeiro `import parser`; os módulos que fazem `from config import
+  DB_PATH` (home, matches, report, parser, watcher, web.app) já importam o
+  valor trocado. Era a causa das 42
   falhas `no such table: matches`: o "./cs2_tracker.db" relativo abria um
   banco vazio no worktree (ou o banco real, rodando do checkout principal).
 - os outros caminhos do config (report, home, demos e as pastas *-live, o
   docker/events-live incluído) também vão para a pasta da sessão.
+- o `web.app` é importado aqui, e o `web.app.PROFILE_PATH` vai para a pasta da
+  sessão: a troca não depende da ordem em que os testes importam o app.
 
 Travas que valem para a sessão inteira, inclusive na coleta:
 
@@ -31,8 +34,9 @@ Travas que valem para a sessão inteira, inclusive na coleta:
   teste falha no fim mesmo que o código tenha engolido o erro.
 
 Por teste (autouse): o `web.app.PROFILE_PATH` vai para uma pasta temporária
-do teste, nunca o data/profile.json. A fixture `hermetico` dá aos testes as
-classes de erro e a pasta da sessão (tests/test_hermetico.py).
+do teste, nunca o data/profile.json, rodando a suíte inteira ou um teste só.
+A fixture `hermetico` dá aos testes as classes de erro e a pasta da sessão
+(tests/test_hermetico.py).
 """
 from __future__ import annotations
 
@@ -259,13 +263,18 @@ def pytest_configure(config):
         _estado.raizes.append(Path(basetemp))
     _instalar_travas()
 
+    golden = pasta / "golden.db"
+    _apontar_config(pasta, golden)  # antes do import parser (parser.DB_PATH)
+
     import parser as parser_demos
 
-    golden = pasta / "golden.db"
     parser_demos.init_db(str(golden)).close()
     os.chmod(golden, stat.S_IREAD)
     _estado.golden = golden
-    _apontar_config(pasta, golden)
+
+    import web.app as webapp
+
+    _trocar(webapp, "PROFILE_PATH", pasta / "perfil" / "profile.json")
 
 
 def pytest_unconfigure(config):
@@ -290,9 +299,9 @@ def hermetico():
 
 @pytest.fixture(autouse=True)
 def _suite_hermetica(request, monkeypatch, tmp_path_factory):
-    webapp = sys.modules.get("web.app")
-    if webapp is not None:
-        monkeypatch.setattr(webapp, "PROFILE_PATH", tmp_path_factory.mktemp("perfil") / "profile.json")
+    import web.app as webapp
+
+    monkeypatch.setattr(webapp, "PROFILE_PATH", tmp_path_factory.mktemp("perfil") / "profile.json")
     _violacoes_banco.clear()
     yield
     if _violacoes_banco:
