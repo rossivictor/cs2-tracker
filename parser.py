@@ -21,7 +21,7 @@ economia do adversário. Tudo que sai daqui é do jogador, não do time.
 
 Uso standalone (reprocessar uma demo órfã, sem precisar do watcher):
     python parser.py <caminho.dem> --map de_mirage --score-ct 1 \\
-                      --score-t 13 --minutes 19 --player can1sh \\
+                      --score-t 13 --minutes 19 --player cobaia \\
                       --db cs2_tracker.db
 """
 
