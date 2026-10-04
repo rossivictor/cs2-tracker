@@ -1,0 +1,19 @@
+# Dependências de desenvolvimento do cs2-tracker (card T1.2): o ambiente
+# travado da .venv do jogo mais o lint.
+#
+# Para um ambiente NOVO (CI, clone limpo): pip install -r requirements-dev.txt
+# Nunca na .venv do jogo (AGENTS.md): ela já tem tudo do lock, e o ruff fica
+# de fora de propósito.
+
+# Runtime e testes com as versões exatas da .venv do jogo.
+-r requirements.lock
+
+# Testes: já travados no lock, repetidos aqui para deixar explícito o que a
+# suíte usa além do runtime (httpx é o cliente do TestClient do starlette).
+pytest==9.1.1
+httpx==0.28.1
+
+# Lint (G2). O ruff NÃO está na .venv do jogo e não entra no lock: o G2 roda
+# só no CI (card T1.6, windows-latest com 3.13). Faixa em vez de pino porque
+# não há versão local para travar.
+ruff>=0.8,<1.0

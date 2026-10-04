@@ -1,0 +1,28 @@
+# Metadados e dependências diretas do cs2-tracker (card T1.2).
+#
+# Não é pacote instalável (módulos soltos na raiz, sem [build-system]): o
+# arquivo existe para declarar a versão do Python e o que o código importa.
+# As versões exatas da .venv do jogo ficam em requirements.lock; as de
+# desenvolvimento (testes e lint), em requirements-dev.txt.
+#
+# Nunca rode `pip install` na .venv do jogo a partir daqui (AGENTS.md).
+
+[project]
+name = "cs2-tracker"
+version = "0.1.0"
+description = "CS2 single-player contra times pro: wizard, servidor dedicado e estatísticas locais."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+
+# Só o que o código de runtime importa (ou exige) diretamente; as transitivas
+# estão travadas no requirements.lock.
+dependencies = [
+    "awpy==2.0.2",          # parser.py e tools/enrich_from_demos.py (demos)
+    "polars",               # parser.py e tools/enrich_from_demos.py
+    "rcon",                 # start_match.py, watcher.py e tools/live_watch.py
+    "textual",              # wizard_tui.py
+    "jinja2",               # home.py, report.py e os templates do web/
+    "fastapi",              # web/app.py (traz o starlette)
+    "python-multipart",     # web/app.py: Form() do FastAPI exige
+    "uvicorn",              # servidor do web/ e tools/web_golden.py
+]
