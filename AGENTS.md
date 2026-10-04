@@ -67,13 +67,11 @@ C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/preflight.py
 
 ## Testes
 
-- `C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`, no SEU worktree: no checkout principal os testes web leem o banco real. (auditoria harness)
-- Até o T1.4 a suíte não é hermética: testes web chamam `docker cp` (`roster.py`). Rode com o Docker fora do PATH. (T1.4)
-  - Git Bash: `export PATH="$(echo "$PATH" | tr ':' '\n' | grep -vi docker | paste -sd:)"`
-  - PowerShell: `$env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch 'Docker' }) -join ';'`
-- Baseline até o T1.4: num worktree limpo, com o Docker fora do PATH, as mesmas 42 falhas conhecidas (`no such table: matches`; a auditoria mediu 43 antes do efcaa42). Compare a LISTA de falhas antes e depois do card, não o total de aprovados, e não conserte falha fora do card. (T1.4)
-- A suíte cria um `cs2_tracker.db` vazio no worktree: é lixo local ignorado; apague pelo nome. (auditoria harness)
-- Teste novo usa `tmp_path` e `monkeypatch`: nada de processo real, Docker, RCON, rede ou porta 8000. (DoD)
+- `C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`, no SEU worktree. (auditoria harness)
+- A suíte é hermética: o `tests/conftest.py` aponta o app para um golden.db temporário (schema, sem partida) e barra docker, conexão para fora do processo e banco fora da pasta temporária ou de `tests/fixtures/`. Rode com o Docker no PATH, sem mexer no ambiente. (T1.4)
+- Baseline: 0 falhas, com ou sem o Docker no PATH. Compare a LISTA de falhas antes e depois do card, não o total de aprovados, e não conserte falha fora do card. (T1.4)
+- A suíte não cria mais o `cs2_tracker.db` vazio no worktree; se aparecer um, é lixo local ignorado (e sinal de teste furando o conftest): apague pelo nome. (auditoria harness; T1.4)
+- Teste novo usa `tmp_path` e `monkeypatch`: nada de processo real, Docker, RCON, rede ou porta 8000. Docker e rede caem nas travas do conftest; teste que precisa deles usa fake. (DoD; T1.4)
 
 ## Branch, commit e PR
 
