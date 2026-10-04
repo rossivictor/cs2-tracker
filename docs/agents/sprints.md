@@ -74,6 +74,7 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 | 26/09 | Via rápida (Q0=A): a B1 começou antes de a B0 fechar, sem o `jogavel.py` nem a Janela 0 | Victor | a trilha andou com runbooks à mão; a B0 ficou com B0.3, B0.5b, B0.6, B0.7, B0.7b, B0.8, B0.9, B0.9b e B0.11 abertos |
 | 27/09 | Passos da B1 por runbook à mão enquanto o `jogavel.py` não existe | PM | ver `docs/runbooks/trilha-de-bots.md` |
 | 26–28/09 | K1.1, K1.2 e K1.3 feitos antes da T1 | sem registro de decisão | ficam como estão; não abrem precedente |
+| 04/10 | wizard_tui.py com diff antes da D13, só o placeholder do campo de jogador (dado pessoal do Victor) | Victor | T1.3c |
 
 ## Posição em 03/10, fim do dia
 

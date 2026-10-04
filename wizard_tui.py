@@ -184,7 +184,7 @@ class IdentityScreen(WizardScreen):
         return (
             Static(self.INTRO, id="intro"),
             Static("Nick in-game ou SteamID64:", classes="label"),
-            Input(placeholder="ex.: can1sh ou 76561198100290385", id="player_input"),
+            Input(placeholder="ex.: cobaia ou 76561190000000001", id="player_input"),
             Static("", id="error"),
             self.nav_buttons(Button("Continuar", id="continue", variant="primary")),
         )
