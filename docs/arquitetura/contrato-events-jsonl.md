@@ -128,7 +128,7 @@ Na tabela e na lista abaixo, `:N` é linha de `docker/plugins-src/Cs2TrackerEven
   ACUMULADOS na partida (os 30 de `parser.py:927-937`, de `kills` a `kill_reward`), mais `money` e
   `cash_spent_round`, que já são do round (`parser.py:939-941`).
 
-Os três trazem também o bot do GOTV, sem lado e zerado: o parser o descarta (`_participa`, item 45).
+O `freeze_end` e o `round_stats` trazem também o bot do GOTV (nome do servidor terminado em "CSTV", sem lado e zerado); o `snapshot` não, porque pula quem não tem pawn com posição (`:373-377`), e o bot do GOTV não tem pawn (`parser.py:947-949`). Na fixture `events_59_map0.jsonl`: 14 de 14 `freeze_end` e 13 de 13 `round_stats` com ele, 0 de 15 `snapshot`. O parser o descarta nos três (`_participa`, item 45).
 
 ## 5. BOM
 

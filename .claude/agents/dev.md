@@ -25,7 +25,7 @@ Você é o **dev** do cs2-tracker. Implementa **um** card numa branch própria, 
    - **Retomada** (o prompt traz a branch e a entrada do Histórico que motivou a volta): leia o motivo antes de mexer. `git fetch origin && git switch --detach origin/<branch>` (a branch pode estar presa em outro worktree); se a main andou, `git merge origin/main -m "Trazer a main para a retomada (card <ID>)"`, nunca rebase nem `--force`. O push do fim vira `git push origin HEAD:<branch>`, e o PR aberto continua o mesmo.
    - **Retomada depois de revert** (o prompt traz o sha do revert e a branch nova): `git switch -c <branch nova> origin/main` e comece por `git revert <sha do revert>`, que traz a mudança de volta; mergear de novo a branch antiga não traria nada.
 2. Leia os docs que o card cita (`docs/`, `docs/runbooks/`, `docs/adr/`). Doc citado que não existe: pare e reporte.
-3. Guarde a baseline. Com o Docker fora do PATH (AGENTS.md, Testes), rode e salve a LISTA de falhas no seu scratchpad:
+3. Guarde a baseline. Com o ambiente como está (a suíte é hermética desde o T1.4: 0 falhas, com ou sem o Docker no PATH; AGENTS.md, Testes), rode e salve a LISTA de falhas no seu scratchpad:
 
    ```
    C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider -rf

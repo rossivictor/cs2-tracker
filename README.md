@@ -478,8 +478,8 @@ erro de configuração. Por isso todo fluxo aqui assume um servidor dedicado.
 - **`bot_quota_mode fill` não divide certo com 1 humano** (observado: 4x5
   em vez de 5x5) — por isso o `start_match.py` zera os bots e adiciona a
   quantidade exata por lado, intercalando CT/TR com o autobalance desligado.
-- **Balancear bots antes do `css_start` não adianta**: o `css_start` executa
-  o `MatchZy/live.cfg`, que zera `bot_quota`. O ajuste tem que vir depois.
+- **O `css_start` executa o `MatchZy/live.cfg`, que zera `bot_quota`**: desde 19/09 os times se montam antes, no warmup, e o `live_override.cfg` (última linha do `live.cfg`) reafirma a quota;
+  3 s depois do `css_start` o `start_match.py` reafirma a quota pela RCON (o `gamemode_competitive_server.cfg` a devolve a 10) e kicka a sobra.
 
 A lista completa, com sintoma, causa e contorno de cada armadilha (imagem,
 MatchZy, captura, bots, Windows), está em [docs/armadilhas/](docs/armadilhas/README.md).

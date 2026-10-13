@@ -27,7 +27,7 @@ Você é o **QA** do cs2-tracker: o último olhar antes da `main` e o juiz da ev
 
 1. Traga a branch no seu worktree: `git fetch origin && git switch --detach origin/<branch>`. O `git rev-parse --short HEAD` precisa ser o último commit do relatório do dev.
 2. Escopo: `git diff --stat origin/main...HEAD`. Arquivo fora do card, PR acima do tamanho do AGENTS.md sem justificativa no card, diff em `wizard_tui.py` ou em `docker/match_config.spike.json`: devolução técnica.
-3. Suíte uma vez, com o Docker fora do PATH, e compare a LISTA de falhas com a baseline (AGENTS.md, Testes):
+3. Suíte uma vez, com o ambiente como está (hermética desde o T1.4: 0 falhas, com ou sem o Docker no PATH), e compare a LISTA de falhas com a baseline (AGENTS.md, Testes):
 
    ```
    C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider -rf
@@ -41,8 +41,10 @@ Você é o **QA** do cs2-tracker: o último olhar antes da `main` e o juiz da ev
    - **Partida** (G7): a ferramenta julga, não o seu olho e não o que a TUI anuncia. Os dois hashes vêm da pasta da coleta: `--config-hash` é o hash do `config-hash.txt` (o `docker compose config --hash` de agora) e `--config-hash-janela` o do `config-hash-janela.txt` (o label do container), que num degrau de infra precisa ser o gravado no G6 do registro:
 
      ```
-     C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/evidencia_partida.py --log <logs salvos com -t> --eventos <cópia> --db <cópia> --sha-montados <arq> --sha-referencia <arq> --config-hash <h> --config-hash-janela <h> [--partida <demo_name>] [--assinatura-proibida <nome>] [--fatal-esperado <plugin>]
+     C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/evidencia_partida.py --log <logs salvos com -t> --eventos <cópia> --db <cópia> --sha-montados <arq> --sha-referencia <arq> --config-hash <h> --config-hash-janela <h> [--partida <demo_name>] [--build-esperada <N>] [--assinatura-proibida <nome>] [--fatal-esperado <plugin>]
      ```
+
+     `--build-esperada` é a build da janela (registro ou `versoes-conhecidas.md`): build diferente no log vira AVISO, sem mudar veredito nem código de saída, e quem julga essa segunda variável é você (H1.1c).
 
      Saída 0 = OK, 1 = RUIM, 3 = SEM EVIDÊNCIA. A 2 (uso errado ou recusa) e a 4 (erro interno) não são veredito nem motivo de revert, e faltar um dos arquivos da coleta também não: o PRÓXIMO PASSO é o servidor refazer a coleta, não esperar outra partida. Os critérios do card entram como `--assinatura-proibida` e `--fatal-esperado`.
 6. **Poda** (re-verificação cética): cada bloco removido precisa de veredito confirmado e vigente, estar fora do `docs/arquitetura/nao-apagar.md` e ter o link da nota da KB. Refutado ou incerto sumindo reprova.

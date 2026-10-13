@@ -33,7 +33,7 @@ fontes:
   - "backup:../2026-10-12/coleta-g7-candidato-9/config-hash.txt (igual ao config-hash-janela.txt)"
   - "backup:../2026-10-12/coleta-g7-candidato-9/container-inspect.txt (Created 2026-10-02T03:30:20Z)"
   - "backup:../2026-10-12/coleta-g7-candidato-9/head.txt (abd19aa)"
-atualizado: 2026-10-12
+atualizado: 2026-10-13
 ---
 
 # Versões conhecidas
@@ -65,7 +65,7 @@ Convenções:
 
 | Item | Valor | Fonte |
 |---|---|---|
-| Imagem | `xbird/cs2-matchzy`, sem tag no compose (vale a `latest` local). Digest `sha256:1056e003…`, o mesmo de 27/09 01:44 (antes do B1.3r) a 30/09 23:05 (janela da build 2000922). O container de 28/09 não foi recriado desde então: na coleta da partida 36 (01/10) o `Created` segue `2026-09-28T01:30:07Z` | `b1.3r/antes-container.txt`; registros de janela; `2026-10-01/g7-2000922-partida/estado-container.txt` |
+| Imagem | `xbird/cs2-matchzy`, sem tag no compose (vale a `latest` local). Digest `sha256:1056e003…`, o mesmo de 27/09 01:44 (antes do B1.3r) a 30/09 23:05 (janela da build 2000922). O container de 28/09 durou até a partida 36: na coleta dela (01/10) o `Created` segue `2026-09-28T01:30:07Z`. A Janela 0 (02/10, B0.8) o recriou: desde então o `Created` é `2026-10-02T03:30:20Z` (coleta de 12/10) | `b1.3r/antes-container.txt`; registros de janela; `2026-10-01/g7-2000922-partida/estado-container.txt`; `2026-10-12/coleta-g7-candidato-9/container-inspect.txt` |
 | MatchZy | `0.8.15` (`MATCHZY_FIXED_VERSION`) | compose de todas as tags |
 | Captura | CS2 Tracker Events 0.4.0: DLL `697760a7…`, `.deps.json` `137a42f2…`, `.pdb` `ca994b0c…`. A DLL é de 23/09, e o checkout de 26/09 já tinha esse sha | `backup:MANIFESTO.sha256`; [manifesto](#manifesto-do-plugin-de-captura) |
 | `pre.sh` | `233e5aa0…`. Sem diff entre `efcaa42` e `origin/main` | `git diff --stat efcaa42 origin/main -- docker/pre.sh` vazio |
@@ -159,7 +159,7 @@ Low" da [trilha](trilha-de-bots.md#épocas).
 | Build | Desde | Origem | Partida que validou | Tag |
 |---|---|---|---|---|
 | 2000924 | 04/10 17:18Z (14:18 em -03), no boot que seguiu o segfault de 17:15:26Z (B1.12) | update do SteamCMD no boot, sem janela nem OK prévio | partida 78 (05/10, de_cache 13x8, G7 OK). A partida 76 (04/10, matchid 76) já jogou nela antes do `candidato-9`, sem G7 | `jogavel-2026-10-12` |
-| 2000930 | 12/10 21:37:11Z (18:37 em -03), no boot do container; download terminado às 21:37:57Z | update do SteamCMD no boot, sem janela nem OK prévio | partida 79 (12/10, de_mirage 13x2), como confirmação: saída 0 do `evidencia_partida.py` no trecho desse boot. A ferramenta não lê a linha da build e mostra `build ?`; a build sai do log | `jogavel-2026-10-12` |
+| 2000930 | 12/10 21:37:11Z (18:37 em -03), no boot do container; download terminado às 21:37:57Z | update do SteamCMD no boot, sem janela nem OK prévio | partida 79 (12/10, de_mirage 13x2), como confirmação: saída 0 do `evidencia_partida.py` no trecho desse boot. Na época a ferramenta não lia a linha da build e mostrava `build ?`; a build saiu do log. Desde o H1.1c (`8310527`) ela lê a build da linha `GC Connection established for server version`, e o `--build-esperada` avisa build diferente da da janela | `jogavel-2026-10-12` |
 
 Os boots de 05/10 (22:25Z e 23:12Z) dizem `already up to date` e seguem na 2000924. O cliente
 do Victor precisa estar na mesma build do servidor.

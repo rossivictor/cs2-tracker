@@ -1,8 +1,8 @@
 # CS2 Tracker — Spec de Produto
 
 > **Status:** premissa central confirmada · **Data:** 2026-09-20 · **Status real das D1–D22 em 2026-10-13 (K1.6):** §12 e §16; visão vigente no [ADR-0001](adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md)
-> Consolida as decisões da sessão de grilling. Nada do produto foi
-> implementado ainda (§10/Passo 0 é infra de spike, não produto).
+> Consolida as decisões da sessão de grilling. Em 20/09 nada do produto estava implementado; hoje o
+> wizard (TUI e web), a captura e as estatísticas rodam, e o que cada decisão já cumpre está na §12 (K1.6).
 > O Passo 0 (experimento de RCON, §10) rodou: falhou na primeira tentativa,
 > causa raiz identificada e corrigida (search path do `botprofile.vpk`
 > faltando no `gameinfo.gi`) — **D2 confirmado** depois do fix. O fix é

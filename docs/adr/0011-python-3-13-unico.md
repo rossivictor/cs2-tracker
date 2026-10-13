@@ -33,8 +33,8 @@ Até 04/10, as dependências do jogo não estavam declaradas nem travadas, e o C
 
 ## Alternativas consideradas
 
-- **Python do sistema (3.14)**: o awpy não roda nele.
-- **Dependências sem lock**: o CI não reproduziria a `.venv`, e uma atualização silenciosa quebraria o jogo.
+- **Python do sistema (3.14)**: o awpy não roda nele (`5adb8bc`).
+- **Dependências sem lock**: o CI não reproduziria a `.venv` (`d562258`), e uma atualização silenciosa quebraria o jogo (esta segunda parte é dedução do escritor do K1.6: nenhum commit a registra).
 
 ## Consequências
 

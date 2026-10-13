@@ -36,8 +36,8 @@ Decidido no `193cd6c` (25/09):
 
 ## Alternativas consideradas
 
-- **Consertar a demo no Docker**: três tentativas medidas, nenhuma funcionou.
-- **Voltar ao dedicado nativo para ter demo**: desfaria o [ADR-0007](0007-servidor-dedicado-em-docker-com-matchzy.md) e ainda ficaria sem dinheiro.
+- **Consertar a demo no Docker**: três tentativas medidas, nenhuma funcionou (`193cd6c`).
+- **Voltar ao dedicado nativo para ter demo** (dedução do escritor do K1.6: nenhum commit registra esta alternativa): desfaria o [ADR-0007](0007-servidor-dedicado-em-docker-com-matchzy.md) e ainda ficaria sem dinheiro.
 
 ## Consequências
 
