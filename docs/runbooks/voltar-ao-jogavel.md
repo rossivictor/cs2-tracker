@@ -10,14 +10,14 @@ fontes:
   - "tools/jogavel.py:238-305 (partida em curso)"
   - "tools/jogavel.py:310-354 (runtime file e volta do merge falho)"
   - "tools/jogavel.py:385-415 (recreate só do checkout principal)"
-  - "tools/jogavel.py:459-501 (voltar)"
+  - "tools/jogavel.py:563-726 (voltar: pasta do plugin pelo manifesto em 563-618, pre.sh antes dela em 700-708)"
   - "tools/jogavel.py:910-1298 (janela abrir, fechar, vigiar e aborto; timeouts do ciclo no B0.7c)"
   - "tools/jogavel.py:1058-1210 (python sem linha confirmado na releitura e árvore do servidor, B0.7e)"
   - "tools/jogavel.py:1324-1430 (coletar e a conferência do log salvo, B0.7f)"
   - "backup:../2026-10-12/coleta-g7-candidato-9/docker-logs-reconstruido.LEIAME.txt (log vazio e reconstrução por --tail)"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:452-703 (tipos de evento)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:641-670 (a volta à mão que o voltar substitui)"
-  - "docs/runbooks/versoes-conhecidas.md:200-216 (manifesto do plugin de captura)"
+  - "docs/runbooks/versoes-conhecidas.md:323-339 (manifesto do plugin de captura)"
 atualizado: 2026-10-13
 ---
 
@@ -76,12 +76,16 @@ log do container antigo se perde no recreate, e a build "depois" é lida normalm
    rastreado e a tag o rastreia) e, depois da troca, restaura a cópia se a tag o rastreia. Se
    a tag não o rastreia (depois do P1.6), a cópia fica só na pasta. Sem `git stash`.
 3. `git switch --detach <tag>`.
-4. **Pasta do plugin de captura: ainda à mão até o B0.7b.** A `docker/plugins/Cs2TrackerEvents/`
-   é ignorada pelo git e não volta com o switch. Confira o sha256 da DLL com o manifesto em
-   [versoes-conhecidas](versoes-conhecidas.md#manifesto-do-plugin-de-captura) e, se divergir,
-   copie a pasta da cópia de lá com o container parado.
-5. Confere que `docker/pre.sh` não tem `\r`. Se tiver, para antes do recreate (saída 6) e
+4. Confere que `docker/pre.sh` não tem `\r`. Se tiver, para antes do recreate (saída 6) e
    imprime o comando de conserto; depois rode o que ele manda (`voltar --tag X --recriar`).
+5. **Pasta do plugin de captura, pelo manifesto** (B0.7b, `2dee94b`). A
+   `docker/plugins/Cs2TrackerEvents/` é ignorada pelo git e não volta com o switch. O `voltar`
+   lê o sha256 da DLL na mensagem da tag (a linha `plugin Cs2TrackerEvents:` que o `marcar`
+   grava) ou em `--plugin <sha256>` e compara a pasta com o manifesto da cópia em
+   `C:/Users/Victor/cs2-tracker-backups/plugins/Cs2TrackerEvents/<sha256>/`. Se divergir, para
+   o container, guarda o que havia em `plugin-antes/`, copia a da cópia e confere de novo;
+   pasta trocada conta como infra no passo 6. Tag sem essa linha (anterior ao B0.7b): ele avisa,
+   e a conferência é à mão, pelo [manifesto](versoes-conhecidas.md#manifesto-do-plugin-de-captura).
 6. Se a infra difere entre o commit de antes e a tag (compose, `docker/plugins/` ou fonte de
    bind tirada de `docker compose config`), roda `docker compose up -d --force-recreate`,
    espera a linha do GC no log novo (até 10 min) e imprime a build "depois". Se `docker compose
@@ -91,8 +95,8 @@ log do container antigo se perde no recreate, e a build "depois" é lida normalm
 duas variáveis, e o cliente do Victor precisa da mesma build. A build não volta por git.
 
 O recreate só roda do checkout principal, resolvido a partir do próprio `tools/jogavel.py`:
-numa worktree ou num clone avulso passado em `--raiz`, o compose criaria projeto e volume
-novos, vazios, e o `jogavel.py` recusa (saída 5).
+numa worktree ou num clone avulso passado em `--raiz`, o compose montaria o volume vivo com os
+binds de lá ([reconstruir-volume](reconstruir-volume.md)), e o `jogavel.py` recusa (saída 5).
 
 ## atualizar e status
 

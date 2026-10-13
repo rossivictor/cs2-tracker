@@ -61,8 +61,8 @@ py -3.13 -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.lock
 ```
 
-Todo comando daqui pra frente roda por esse `.venv`, não pelo Python do
-sistema. O `requirements.lock` tem as versões exatas que o jogo usa.
+Quem roda esses dois comandos é só o Victor, ao criar a `.venv`; agente nenhum instala nada nela ([AGENTS.md](AGENTS.md)).
+Todo comando daqui pra frente roda por esse `.venv`, não pelo Python do sistema, com as versões exatas do `requirements.lock`.
 
 ### 2. Variáveis de ambiente (uma vez)
 
@@ -152,9 +152,9 @@ Já dentro do servidor, digite `.ready` no chat do jogo e volte pro wizard.
 
 ### 6. Iniciar
 
-Clique em **Já conectei e dei .ready — iniciar partida**. O wizard força o
-início (`css_start`), enche os times com a quantidade exata de bots por lado
-e devolve o controle pra você. Daí é jogar.
+Clique em **Já conectei e dei .ready — iniciar partida**. O wizard monta os
+times ainda no warmup, com a quantidade exata de bots por lado, força o início
+(`css_start`), reafirma a quota e devolve o controle pra você. Daí é jogar.
 
 Ao fim da partida o watcher detecta o fim, ingere os dados no
 `cs2_tracker.db` e regenera os HTMLs estáticos — sem precisar de nenhum
@@ -476,8 +476,8 @@ erro de configuração. Por isso todo fluxo aqui assume um servidor dedicado.
 - **`con_logfile` não existe mais** (era CS:GO/Source 1) — o caminho do
   log é sempre `game/csgo/console.log`, sem opção de customizar.
 - **`bot_quota_mode fill` não divide certo com 1 humano** (observado: 4x5
-  em vez de 5x5) — por isso o `start_match.py` zera os bots e adiciona a
-  quantidade exata por lado, intercalando CT/TR com o autobalance desligado.
+  em vez de 5x5) — por isso o `start_match.py`, no warmup e antes do `css_start`, zera os bots e
+  adiciona a quantidade exata por lado, intercalando CT/TR com o autobalance desligado.
 - **O `css_start` executa o `MatchZy/live.cfg`, que zera `bot_quota`**: desde 19/09 os times se montam antes, no warmup, e o `live_override.cfg` (última linha do `live.cfg`) reafirma a quota;
   3 s depois do `css_start` o `start_match.py` reafirma a quota pela RCON (o `gamemode_competitive_server.cfg` a devolve a 10) e kicka a sobra.
 
