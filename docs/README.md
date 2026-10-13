@@ -17,7 +17,7 @@ As regras para agentes ficam no [AGENTS.md](../AGENTS.md), na raiz. O board de s
 ## Por onde começar
 
 1. [ADR-0001: visão](adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md): partidas avulsas agora, modo carreira no horizonte longo.
-2. [SPEC.md](SPEC.md): o produto especificado em 19–20/09 (decisões D1–D22). O status real de cada decisão é do K1.6.
+2. [SPEC.md](SPEC.md): o produto especificado em 19–20/09 (decisões D1–D22). O status real de cada decisão, em 13/10, está na §12 (K1.6).
 3. [features/](features/README.md): specs de feature por milestone (M0–M7).
 4. [runbooks/](runbooks/README.md): procedimentos passo a passo, como a trilha de bots.
 5. [historico/](historico/README.md): investigações e handoffs, que não se editam.
@@ -47,7 +47,12 @@ As regras para agentes ficam no [AGENTS.md](../AGENTS.md), na raiz. O board de s
 | [0004](adr/0004-jogo-sempre-jogavel.md) | O jogo está sempre jogável | aceito |
 | [0005](adr/0005-trilha-de-bots-uma-variavel-por-vez.md) | Trilha de bots primeiro, uma variável por vez | aceito |
 | 0006 | Respostas da pauta Q1–Q21 (card V1.9) | a escrever |
-| 0007+ | ADRs retroativos, tirados dos commits e das D1–D22 (card K1.6) | a escrever |
+| [0007](adr/0007-servidor-dedicado-em-docker-com-matchzy.md) | Servidor dedicado em Docker, com a MatchZy conduzindo a partida | aceito (retroativo, K1.6) |
+| [0008](adr/0008-captura-por-plugin-proprio.md) | A partida é capturada por plugin próprio, não pela demo | aceito (retroativo, K1.6) |
+| [0009](adr/0009-versoes-fixas-de-metamod-cssharp-e-matchzy.md) | Metamod, CSSharp e MatchZy com versão fixa no compose | aceito (retroativo, K1.6) |
+| [0010](adr/0010-volume-cs2-data-external.md) | O volume do servidor é external, com nome fixo | aceito (retroativo, K1.6) |
+| [0011](adr/0011-python-3-13-unico.md) | Um interpretador só: Python 3.13, com dependências travadas | aceito (retroativo, K1.6) |
+| [0012](adr/0012-suite-hermetica-e-ci-antes-do-merge.md) | Suíte hermética e CI obrigatório antes do merge | aceito (retroativo, K1.6) |
 
 ## Frontmatter padrão
 
