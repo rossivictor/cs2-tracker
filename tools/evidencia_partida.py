@@ -30,7 +30,13 @@ Só leitura e só biblioteca padrão. Todas as entradas são explícitas:
   --config-hash, --config-hash-janela   o config-hash de agora e o da janela;
                   sem os dois não há OK (G7).
   --partida DEMO  julga só esta partida (repetível). Sem ela, julga as que
-                  terminaram no log ("MAP ENDED").
+                  terminaram no log ("MAP ENDED"). É o demo_name do banco,
+                  events_<matchid>_map<n>: o arquivo .dem da MatchZy sai com 2.
+  --build-esperada N   a build da janela. A do log (linha "GC Connection
+                  established for server version N") diferente dela vira AVISO
+                  na saída e na linha final, sem mudar veredito nem código: o
+                  QA julga. Sem a opção, a saída só mostra a build, o Metamod e
+                  a CSSharp lidos do log ("?" com a linha que faltou).
   --assinatura-proibida NOME, --fatal-esperado PLUGIN   critérios do card.
 
 Veredito, na última linha:
@@ -159,8 +165,20 @@ _RECUSADO = re.compile(r"Failed to load plugin ([^\s:]+)")
 _MATCHZY = re.compile(r"\[MatchZy ([\d.]+) LOADED\]")
 _PRONTO = re.compile(r"\[Cs2TrackerEvents\] Pronto")
 _CARREGOU = re.compile(r"Finished loading plugin (.+?)\s*$")
-_SETUP = re.compile(r"\[(METAMOD|CSSHARP) SETUP\] complete: version (\S+?) installed")
-_BUILD = re.compile(r"PatchVersion=(\S+)|Exe version (\S+)")
+# Do script de setup da imagem, no começo de todo boot (card H1.1c): "complete:
+# version X installed." só quando baixa; sem troca, "Version X is already
+# installed. No action needed.". O "Fixed tag 'X' provided" é o pedido, não o
+# instalado, e fica de fora.
+_SETUP = re.compile(r"\[(METAMOD|CSSHARP) SETUP\] (?:complete: version (\S+?) installed"
+                    r"|Version (\S+) is already installed)")
+# A build do CS2 que as épocas e o cliente usam (docs/runbooks/versoes-conhecidas.md).
+_BUILD = re.compile(r"GC Connection established for server version (\d+)")
+# O que falta no log quando a saída mostra "?" (card H1.1c).
+_LINHA_DA_VERSAO = {
+    "metamod": "[METAMOD SETUP] ... installed",
+    "cssharp": "[CSSHARP SETUP] ... installed",
+    "build": "GC Connection established for server version N",
+}
 _OVERFLOW = re.compile(
     r"NETWORK_DISCONNECT_OVERFLOW|ProcessMessages has taken more than|"
     r"Disconnecting netchan because of excessive CPU|overflowed reliable|"
@@ -300,9 +318,9 @@ def analisar_log(texto: str) -> dict:
         if m := _CARREGOU.search(corpo):
             carregados.setdefault(m.group(1), "carregado")
         if m := _SETUP.search(corpo):
-            versoes[m.group(1).lower()] = m.group(2)
+            versoes[m.group(1).lower()] = m.group(2) or m.group(3)
         if m := _BUILD.search(corpo):
-            build = m.group(1) or m.group(2)
+            build = m.group(1)
             if build not in builds:
                 builds.append(build)
         if _FULL.search(corpo):
@@ -699,9 +717,9 @@ def _checar_eventos(pasta: Path):
 
 def avaliar(log=None, eventos=None, db=None, partidas=(), sha_montados=None,
             sha_referencia=None, config_hash=None, config_hash_janela=None,
-            assinaturas_proibidas=(), fatais_esperados=()) -> dict:
+            assinaturas_proibidas=(), fatais_esperados=(), build_esperada=None) -> dict:
     res = {"entradas": {"log": log and str(log), "eventos": eventos and str(eventos),
-                        "db": db and str(db)}}
+                        "db": db and str(db)}, "build_esperada": build_esperada}
     res["log"] = analisar_log(ler_texto(log)) if log else None
     linhas = arquivos = None
     if eventos:
@@ -847,7 +865,25 @@ def veredito(res: dict, proibidas: set, fatais_esperados: set) -> dict:
     elif ch["agora"] != ch["janela"]:
         invalida("config-hash diferente do da janela")
     g7 = SEM if invalidam else RUIM if ruim else SEM if sem else OK
-    return {"g7": g7, "ruim": ruim, "sem_evidencia": sem, "invalidam": invalidam}
+    return {"g7": g7, "ruim": ruim, "sem_evidencia": sem, "invalidam": invalidam,
+            "avisos": avisos_de_build(res)}
+
+
+def avisos_de_build(res: dict) -> list:
+    """Build do log diferente da esperada (--build-esperada) é aviso, não
+    veredito: o QA julga se a troca entre a janela e a partida pesa (card
+    H1.1c; runbook da trilha de bots, confundidor 3)."""
+    esperada = res.get("build_esperada")
+    if not esperada:
+        return []
+    vistas = (res["log"] or {}).get("builds") or []
+    if not vistas:
+        return [f"build esperada {esperada} não conferida: log sem a linha "
+                f"{_LINHA_DA_VERSAO['build']} (colete desde o StartedAt)"]
+    if vistas != [esperada]:
+        return [f"build {' -> '.join(vistas)} diferente da esperada {esperada}: a build "
+                "mudou entre a janela e a partida, o QA julga"]
+    return []
 
 
 # ------------------------------------------------------------------ texto
@@ -885,7 +921,12 @@ def formatar(res: dict) -> str:
             + f" · boots da MatchZy: {log['boots_matchzy']}")
         v = log["versoes"]
         s.append(f"Metamod {v.get('metamod', '?')} · CSSharp {v.get('cssharp', '?')} · "
-                 f"build {_lista(log['builds'], '?')}")
+                 f"build {_lista(log['builds'], '?')}"
+                 + (f" · esperada {res['build_esperada']}" if res.get("build_esperada") else ""))
+        faltam = [linha for chave, linha in _LINHA_DA_VERSAO.items()
+                  if not (log["builds"] if chave == "build" else v.get(chave))]
+        if faltam:
+            s.append(f"  ? = log sem a linha {'; '.join(faltam)}: colete desde o StartedAt")
         ov = log["overflow"]
         t = ov["total"]
         s.append(f"Overflow: {len(ov['episodios'])} episódio(s) · signon {t.get('signon', 0)} · "
@@ -944,13 +985,17 @@ def formatar(res: dict) -> str:
     s += [f"  RUIM{' (anulado: evidência inválida)' if anulado else ''}: {m}" for m in v["ruim"]]
     s += [f"  sem evidência{' (invalida)' if m in v['invalidam'] else ''}: {m}"
           for m in v["sem_evidencia"]]
+    avisos = v.get("avisos", [])
+    s += [f"  AVISO: {a}" for a in avisos]
     # A linha final traz os motivos que decidiram: os que invalidam a
     # evidência, os de RUIM, ou os de sem evidência.
     if anulado:
         motivos = v["invalidam"] + ["RUIM anulado: " + "; ".join(v["ruim"])]
     else:
         motivos = v["ruim"] or v["sem_evidencia"]
-    s.append(f"VEREDITO G7: {v['g7']}" + (" — " + "; ".join(motivos) if motivos else ""))
+    # O aviso vai na linha final, mas não muda o veredito nem o código de saída.
+    s.append(f"VEREDITO G7: {v['g7']}" + (" — " + "; ".join(motivos) if motivos else "")
+             + "".join(f" · AVISO: {a}" for a in avisos))
     return "\n".join(s)
 
 
@@ -965,13 +1010,35 @@ def _erro(mensagem: str):
         print(ascii(mensagem), file=sys.stderr)
 
 
+def _build(texto: str) -> str:
+    texto = texto.strip()
+    if not texto.isdigit():
+        raise argparse.ArgumentTypeError(
+            f"{texto!r}: a build é o N da linha {_LINHA_DA_VERSAO['build']} (ex.: 2000930)")
+    return texto
+
+
+_DEMO_MATCHZY = re.compile(r"^\d{4}-\d\d-\d\d_\d\d-\d\d-\d\d_(\d+)_")
+
+
+def dica_dem(nome: str) -> str:
+    """--partida com o arquivo .dem da MatchZy: o que passar no lugar."""
+    m = _DEMO_MATCHZY.match(re.split(r"[\\/]", nome)[-1])
+    exemplo = f"; aqui, events_{m.group(1)}_map<n>" if m else ""
+    return (f"--partida {nome}: é o arquivo .dem da MatchZy. Use o demo_name do banco, "
+            f"events_<matchid>_map<n>, com n o mapa da série a partir de 0{exemplo}")
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         description="Evidência de partida para o G7 (card H1.1), só leitura.")
     ap.add_argument("--log", help="docker logs -t salvos desde o StartedAt")
     ap.add_argument("--eventos", help="cópia da pasta com events_*_map*.jsonl e current.jsonl")
     ap.add_argument("--db", help="cópia mode=ro do banco pedida ao PM (o real é recusado)")
-    ap.add_argument("--partida", action="append", default=[], metavar="DEMO_NAME")
+    ap.add_argument("--partida", action="append", default=[], metavar="DEMO_NAME",
+                    help="demo_name do banco (events_<matchid>_map<n>), não o .dem")
+    ap.add_argument("--build-esperada", type=_build, metavar="N",
+                    help="build da janela; outra no log vira AVISO, sem mudar o veredito")
     ap.add_argument("--sha-montados", help="sha256sum de dentro do container")
     ap.add_argument("--sha-referencia", help="sha256sum do checkout ou da janela")
     ap.add_argument("--config-hash")
@@ -982,6 +1049,10 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     if not (args.log or args.eventos or args.db or args.partida):
         ap.error("informe ao menos --log, --eventos, --db ou --partida")
+    for nome in args.partida:
+        if nome.lower().endswith(".dem"):
+            _erro(dica_dem(nome))
+            return 2
     try:
         for caminho in (args.log, args.sha_montados, args.sha_referencia):
             if caminho and not Path(caminho).is_file():
@@ -991,7 +1062,7 @@ def main(argv=None) -> int:
             sha_montados=args.sha_montados, sha_referencia=args.sha_referencia,
             config_hash=args.config_hash, config_hash_janela=args.config_hash_janela,
             assinaturas_proibidas=args.assinatura_proibida,
-            fatais_esperados=args.fatal_esperado)
+            fatais_esperados=args.fatal_esperado, build_esperada=args.build_esperada)
         texto = json.dumps(res, ensure_ascii=False, indent=1) if args.json else formatar(res)
     except Recusa as exc:
         _erro(f"recusado: {exc}")

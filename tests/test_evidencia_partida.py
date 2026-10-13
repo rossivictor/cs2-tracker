@@ -15,7 +15,9 @@ de 26/09, anonimizadas (SteamID64 abaixo da base, [U:1:0], "Jogador"):
 
 O docker_logs_partida60_sintetico.txt é montado à mão com as formas de linha
 citadas em docs/ (runbooks e handoff), porque o backup não guarda docker logs
-de 26/09. Os demais cenários (crash, overflow, colisão) são linhas escritas
+de 26/09. O docker_logs_boot_2000930_recorte.txt (card H1.1c) é real: as
+linhas de setup, carga e build do boot de 12/10, da coleta do G7 do
+candidato-9, sem PII. Os demais cenários (crash, overflow, colisão) são linhas escritas
 no próprio teste. Nada de Docker, rede ou banco real. Os logs são .txt porque
 o gitignore global desta máquina ignora *.log.
 """
@@ -38,10 +40,14 @@ import pii  # noqa: E402
 FIX = RAIZ / "tests" / "fixtures" / "logs"
 SERIE45 = FIX / "serie45_2026-09-19_live_watch.txt"
 PARTIDA60 = FIX / "docker_logs_partida60_sintetico.txt"
+# Recorte real do boot de 12/10 21:37Z (cópia da coleta do G7 do candidato-9),
+# com os escapes ANSI do script de setup da imagem: sem PII.
+BOOT_2000930 = FIX / "docker_logs_boot_2000930_recorte.txt"
 EVENTOS = FIX / "eventos"
-# Build do CS2 em constante: "1.41.8.4" solto numa linha parece IPv4 para o pii.
-BUILD_ANTES = "1.41.8.4"
-BUILD_DEPOIS = "1.41.8.5"
+# As duas últimas épocas de build (docs/runbooks/versoes-conhecidas.md).
+BUILD_ANTES = "2000924"
+BUILD_DEPOIS = "2000930"
+GC = "GC Connection established for server version {}, instance idx {}"
 FIM = "[MatchZy] [HandleMatchEnd] MAP ENDED, isMatchSetup: True matchid: {} currentMapNumber: 0"
 LIVE = "[MatchZy] [StartLive] Starting Live! Executing Live CFG from MatchZy/live.cfg"
 CAIU = "[Server] Disconnect client 'Jogador' from server: NETWORK_DISCONNECT_OVERFLOW"
@@ -209,7 +215,7 @@ def test_partida60_com_overflow_so_no_signon_da_ok(banco, tmp_path):
     log = res["log"]
     assert log["carimbo"] == "docker -t" and log["timeline_live_watch"] is False
     assert log["versoes"] == {"metamod": "2.0.0.1469", "cssharp": "v1.0.375"}
-    assert log["builds"] == ["1.41.8.5"]
+    assert log["builds"] == ["2000918"]
     assert log["carregados"] == {"MatchZy": "0.8.15", "Cs2TrackerEvents": "Pronto"}
     assert log["boots_matchzy"] == 1 and log["prontos"] == 1
     assert log["assinaturas"] == {"CSSharp": {"CEntityIOOutput_FireOutputInternal": 1}}
@@ -230,7 +236,8 @@ def test_partida60_com_overflow_so_no_signon_da_ok(banco, tmp_path):
     assert p["granadas_bot"] == {"bots": 9, "dano_de_granada": 5, "cegueiras": 0,
                                  "motor": {"utility": 10, "flash": 10, "ate_round": 15}}
     assert res["sha"]["conferidos"] == sorted(ep.SHA_DO_PROTOCOLO)
-    assert res["veredito"] == {"g7": ep.OK, "ruim": [], "sem_evidencia": [], "invalidam": []}
+    assert res["veredito"] == {"g7": ep.OK, "ruim": [], "sem_evidencia": [], "invalidam": [],
+                               "avisos": []}
     assert ep.formatar(res).splitlines()[-1] == "VEREDITO G7: OK"
 
 
@@ -243,7 +250,7 @@ def test_assinatura_proibida_do_card_vira_ruim(banco, tmp_path):
 
 def test_fixtures_nao_tem_pii():
     arquivos = [p for p in FIX.rglob("*") if p.is_file()]
-    assert len(arquivos) == 8
+    assert len(arquivos) == 9
     for caminho in arquivos:
         assert pii.achar(caminho.read_text(encoding="utf-8")) == [], caminho.name
 
@@ -358,11 +365,11 @@ def test_carga_versoes_e_build_que_muda_no_meio():
     log = _log(
         "[METAMOD SETUP] complete: version 2.0.0.1411 installed.",
         "[CSSHARP SETUP] complete: version v1.0.373 installed.",
-        f"ServerVersion=2000917  PatchVersion={BUILD_ANTES}",
+        GC.format(BUILD_ANTES, 1),
         "[MatchZy 0.8.15 LOADED]",
         "[Cs2TrackerEvents] Pronto — gravando em /x/current.jsonl",
         "Finished loading plugin RoundDamageRecap",
-        f"ServerVersion=2000918  PatchVersion={BUILD_DEPOIS}",
+        GC.format(BUILD_DEPOIS, 1),
         "[MatchZy 0.8.15 LOADED]")
     assert log["versoes"] == {"metamod": "2.0.0.1411", "cssharp": "v1.0.373"}
     assert log["builds"] == [BUILD_ANTES, BUILD_DEPOIS]
@@ -377,6 +384,125 @@ def test_carga_versoes_e_build_que_muda_no_meio():
     # (runbook da trilha de bots, confundidor 3).
     assert v["ruim"] == ["MatchZy carregou 2x: o processo reiniciou"]
     assert v["g7"] == ep.SEM
+
+
+# ------------------------------------------------------------ build e versões (H1.1c)
+
+def test_boot_real_de_12_10_mostra_build_metamod_e_cssharp():
+    """Boot sem download de plugin: o setup diz "Version X is already
+    installed", não "complete: version X installed" (G7 do B0.8 saía "?")."""
+    res = ep.avaliar(log=BOOT_2000930)
+    log = res["log"]
+    assert log["versoes"] == {"metamod": "2.0.0.1469", "cssharp": "v1.0.375"}
+    assert log["builds"] == ["2000930"]
+    texto = ep.formatar(res)
+    assert "Metamod 2.0.0.1469 · CSSharp v1.0.375 · build 2000930" in texto.splitlines()
+    assert "? = " not in texto
+    assert res["veredito"]["avisos"] == []
+
+
+def test_build_repetida_em_outra_instancia_do_gc_conta_uma_vez():
+    log = _log(GC.format("2000919", 1), GC.format("2000919", 2), GC.format("2000919", 3))
+    assert log["builds"] == ["2000919"]
+    assert not any("build mudou" in m for m in _veredito_do_log(log)["sem_evidencia"])
+
+
+def test_sem_linha_de_versao_mostra_interrogacao_e_a_linha_que_faltou(tmp_path):
+    """O tag pedido ("Fixed tag") não é o instalado, e PatchVersion não é a
+    build que o cliente e as épocas usam."""
+    res = ep.avaliar(log=_arquivo(tmp_path, "docker-logs.txt", [
+        "[METAMOD SETUP] Fixed tag '2.0.0.1469' provided. Fetching release from GitHub...",
+        "[CSSHARP SETUP] Fixed tag 'v1.0.375' provided. Fetching release from GitHub...",
+        "ServerVersion=2000918  PatchVersion=1",
+        "[MatchZy 0.8.15 LOADED]"]))
+    assert (res["log"]["versoes"], res["log"]["builds"]) == ({}, [])
+    linhas = ep.formatar(res).splitlines()
+    i = linhas.index("Metamod ? · CSSharp ? · build ?")
+    assert linhas[i + 1] == (
+        "  ? = log sem a linha [METAMOD SETUP] ... installed; [CSSHARP SETUP] ... installed; "
+        "GC Connection established for server version N: colete desde o StartedAt")
+
+
+def test_so_a_build_faltando_mostra_so_ela_no_motivo(tmp_path):
+    res = ep.avaliar(log=_arquivo(tmp_path, "docker-logs.txt", [
+        "\x1b[34m[INFO] [METAMOD SETUP] complete: version 2.0.0.1469 installed.\x1b[0m",
+        "\x1b[34m[INFO] [CSSHARP SETUP] Version v1.0.375 is already installed. No action "
+        "needed.\x1b[0m"]))
+    linhas = ep.formatar(res).splitlines()
+    i = linhas.index("Metamod 2.0.0.1469 · CSSharp v1.0.375 · build ?")
+    assert linhas[i + 1] == ("  ? = log sem a linha GC Connection established for server "
+                             "version N: colete desde o StartedAt")
+
+
+def _main_completo(tmp_path, banco, *extra):
+    montados, referencia = _sha(tmp_path)
+    return ep.main(["--log", str(PARTIDA60), "--eventos", str(EVENTOS), "--db", str(banco),
+                    "--sha-montados", str(montados), "--sha-referencia", str(referencia),
+                    "--config-hash", "cfg-1", "--config-hash-janela", "cfg-1", *extra])
+
+
+def test_build_diferente_da_esperada_e_aviso_e_o_ok_continua_saindo_0(banco, tmp_path, capsys):
+    assert _main_completo(tmp_path, banco, "--build-esperada", "2000924") == 0
+    linhas = capsys.readouterr().out.splitlines()
+    aviso = ("build 2000918 diferente da esperada 2000924: a build mudou entre a janela e a "
+             "partida, o QA julga")
+    assert "Metamod 2.0.0.1469 · CSSharp v1.0.375 · build 2000918 · esperada 2000924" in linhas
+    assert f"  AVISO: {aviso}" in linhas
+    assert linhas[-1] == f"VEREDITO G7: OK · AVISO: {aviso}"
+
+
+def test_build_igual_a_esperada_nao_avisa(banco, tmp_path, capsys):
+    assert _main_completo(tmp_path, banco, "--build-esperada", "2000918") == 0
+    saida = capsys.readouterr().out
+    assert "AVISO" not in saida and saida.splitlines()[-1] == "VEREDITO G7: OK"
+
+
+def test_aviso_de_build_nao_muda_o_codigo_do_sem_evidencia():
+    sem = ep.main(["--log", str(BOOT_2000930)])
+    com = ep.main(["--log", str(BOOT_2000930), "--build-esperada", "2000924"])
+    assert sem == com == 3
+    res = ep.avaliar(log=BOOT_2000930, build_esperada="2000924")
+    assert res["veredito"]["g7"] == ep.SEM
+    assert res["veredito"]["avisos"] == [
+        "build 2000930 diferente da esperada 2000924: a build mudou entre a janela e a "
+        "partida, o QA julga"]
+
+
+def test_build_esperada_sem_linha_no_log_e_aviso(tmp_path):
+    log = _arquivo(tmp_path, "docker-logs.txt", ["[MatchZy 0.8.15 LOADED]"])
+    res = ep.avaliar(log=log, build_esperada="2000930")
+    assert res["veredito"]["avisos"] == [
+        "build esperada 2000930 não conferida: log sem a linha GC Connection established "
+        "for server version N (colete desde o StartedAt)"]
+
+
+def test_build_esperada_que_nao_e_numero_e_uso_errado(capsys):
+    with pytest.raises(SystemExit) as saida:
+        ep.main(["--log", str(BOOT_2000930), "--build-esperada", "1.41.8.5"])
+    assert saida.value.code == 2
+    assert "a build é o N da linha GC Connection established" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("demo", [
+    "2026-10-12_21-38-30_79_de_mirage_Jogador_vs_Bots.dem",
+    "MatchZy/2026-10-12_21-38-30_79_de_mirage_Jogador_vs_Bots.DEM",
+])
+def test_partida_com_arquivo_dem_sai_2_com_a_dica_do_demo_name(demo, capsys):
+    assert ep.main(["--partida", "events_60_map0", "--partida", demo]) == 2
+    erro = capsys.readouterr().err
+    assert erro.strip() == (
+        f"--partida {demo}: é o arquivo .dem da MatchZy. Use o demo_name do banco, "
+        "events_<matchid>_map<n>, com n o mapa da série a partir de 0; aqui, events_79_map<n>")
+
+
+def test_partida_dem_sem_matchid_no_nome_ainda_da_a_forma(capsys):
+    assert ep.main(["--partida", "demo.dem"]) == 2
+    assert "Use o demo_name do banco, events_<matchid>_map<n>" in capsys.readouterr().err
+
+
+def test_partida_com_demo_name_continua_valendo(capsys):
+    assert ep.main(["--partida", "events_60_map0"]) == 3
+    assert "events_60_map0" in capsys.readouterr().out
 
 
 # ------------------------------------------------------------ overflow
@@ -691,7 +817,7 @@ def test_sha_montado_divergente_e_sem_evidencia(banco, tmp_path):
     assert res["sha"]["divergentes"] == ["pre.sh"]
     assert res["veredito"] == {"g7": ep.SEM, "ruim": [],
                                "sem_evidencia": ["sha montado divergente: pre.sh"],
-                               "invalidam": ["sha montado divergente: pre.sh"]}
+                               "invalidam": ["sha montado divergente: pre.sh"], "avisos": []}
 
 
 def test_arquivo_da_referencia_ausente_no_container_e_sem_evidencia(banco, tmp_path):
@@ -701,14 +827,14 @@ def test_arquivo_da_referencia_ausente_no_container_e_sem_evidencia(banco, tmp_p
     assert res["sha"]["so_na_referencia"] == ["Cs2TrackerEvents.dll"]
     faltou = "sha não conferido no container: Cs2TrackerEvents.dll"
     assert res["veredito"] == {"g7": ep.SEM, "ruim": [], "sem_evidencia": [faltou],
-                               "invalidam": [faltou]}
+                               "invalidam": [faltou], "avisos": []}
 
 
 def test_sha_sem_os_arquivos_do_protocolo_e_sem_evidencia(banco, tmp_path):
     res = ep.avaliar(log=PARTIDA60, eventos=EVENTOS, db=banco,
                      **_completo(tmp_path, nomes=("pre.sh", "Cs2TrackerEvents.dll")))
     assert res["veredito"] == {
-        "g7": ep.SEM, "ruim": [], "invalidam": [],
+        "g7": ep.SEM, "ruim": [], "invalidam": [], "avisos": [],
         "sem_evidencia": ["sha sem os arquivos do protocolo §3: gamemode_competitive_server.cfg, "
                           "match_config.spike.json, Cs2TrackerEvents.deps.json"]}
 
@@ -728,7 +854,7 @@ def test_config_hash_nao_informado_e_sem_evidencia(banco, tmp_path, ausente):
     kw[ausente] = None
     res = ep.avaliar(log=PARTIDA60, eventos=EVENTOS, db=banco, **kw)
     assert res["veredito"] == {
-        "g7": ep.SEM, "ruim": [], "invalidam": [],
+        "g7": ep.SEM, "ruim": [], "invalidam": [], "avisos": [],
         "sem_evidencia": ["config-hash não conferido (--config-hash e --config-hash-janela)"]}
 
 

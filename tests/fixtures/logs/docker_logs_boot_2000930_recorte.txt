@@ -1,0 +1,12 @@
+2026-10-12T21:37:57.480979305Z [0mSuccess! App '730' fully installed.
+2026-10-12T21:37:58.153386085Z [34m[INFO] [METAMOD SETUP] Fixed tag '2.0.0.1469' provided. Fetching release from GitHub...[0m
+2026-10-12T21:37:58.466687566Z [34m[INFO] [METAMOD SETUP] Version 2.0.0.1469 is already installed. No action needed.[0m
+2026-10-12T21:37:58.475492180Z [32m[SUCCESS] [METAMOD GAMEINFO] Added : Game	csgo/addons/metamod[0m
+2026-10-12T21:37:58.479030660Z [34m[INFO] [CSSHARP SETUP] Fixed tag 'v1.0.375' provided. Fetching release from GitHub...[0m
+2026-10-12T21:37:58.762308701Z [34m[INFO] [CSSHARP SETUP] Version v1.0.375 is already installed. No action needed.[0m
+2026-10-12T21:37:58.764450980Z [34m[INFO] [MATCHZY SETUP] Fixed tag '0.8.15' provided. Fetching release from GitHub...[0m
+2026-10-12T21:37:59.037925392Z [34m[INFO] [MATCHZY SETUP] Version 0.8.15 is already installed. No action needed.[0m
+2026-10-12T21:38:03.581242556Z [MatchZy 0.8.15 LOADED] MatchZy by WD- (https://github.com/shobhit-pathak/)
+2026-10-12T21:38:03.777893184Z [Cs2TrackerEvents] Pronto — gravando em /home/steam/cs2-dedicated/game/csgo/events-live/current.jsonl
+2026-10-12T21:38:04.809757449Z [META] Loaded 1 plugin.
+2026-10-12T21:38:08.450762018Z GC Connection established for server version 2000930, instance idx 1
