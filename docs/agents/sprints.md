@@ -4,7 +4,7 @@ status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.sprints)"
   - "backup:temp-artifacts/eb5adec0/plan/plan.md (seção 3, Sequência)"
-atualizado: 2026-10-03
+atualizado: 2026-10-12
 ---
 
 # Ordem das sprints
@@ -37,7 +37,7 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 | 4 | **T1** | paralela | Testes herméticos, G4 e CI | 60–67 |
 | 5 | **K1** | paralela | Base de conhecimento | 70–78 |
 | 6 | **V1** | paralela | Pauta e partidas órfãs | a semear |
-| 7 | **P1** | trilho | Bugs de jogabilidade (depois da B1 e da T1) | a semear |
+| 7 | **P1** | trilho | Bugs de jogabilidade (depois da B1 e da T1) | 80–92 |
 | 8 | **S1** | trilho | Poda verificada (depois da K1) | a semear |
 | 9 | **S2** | trilho | Schema versionado | a semear |
 | 10 | **S3** | trilho | Ingestão única | a semear |
@@ -76,16 +76,15 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 | 26–28/09 | K1.1, K1.2 e K1.3 feitos antes da T1 | sem registro de decisão | ficam como estão; não abrem precedente |
 | 04/10 | wizard_tui.py com diff antes da D13, só o placeholder do campo de jogador (dado pessoal do Victor) | Victor | T1.3c |
 
-## Posição em 03/10, fim do dia
+## Posição em 12/10
 
 Foto do board (`docs/board-cs2/`, fora do git) nesta data. **O status de cada card é o do board**; esta seção diz a sprint da vez, a ordem da fila e as decisões que a mudaram.
 
-- **B0 fechada em 03/10** pela tag `jogavel-2026-10-03` (063b8a4): candidato-8 (B0.8, volume external) validado no G7 da partida 74, depois da Janela 0 de 02/10 (B0.9), que também ensaiou o `voltar` de verdade. Sobras da B0 feitas no mesmo dia: B0.8b, B0.3c, B0.5e e B0.7e (o vigiar que não aborta por python do próprio servidor). B0.7d (bloquear docker cru) segue estacionado até os runbooks migrarem para o `jogavel.py`; B0.11 (comentários do compose) espera janela.
-- **H1 fecha com este PR** (H1.9: plano versionado, [licoes.md](licoes.md), [pm-playbook.md](pm-playbook.md), [ideias.md](ideias.md)); H1.1b, H1.7 e H1.8 entraram em 03/10. O H1.10 (limpeza de worktrees) está adiado.
-- **Próxima sprint: T1** (pista paralela), testes herméticos, G4 e CI. Ela destrava a **P1**, a próxima do trilho.
-- **Trilho até a P1:** só sobras de caminho de jogo, uma por vez, cada uma com janela e partida: B0.11, B1.7 (BotAI, depois da investigação B1.7a, que é Offline) e B1.2 (depende do T1.1).
-- **Sobras sem servidor:** B1.7a e B1.8b.
-- **Decisões do Victor de 30/09 a 03/10:** ordem da fila da B0; critério 2 do B0.5c ampliado duas vezes, com teto; critério 5 do B0.7b retirado para o B0.7d; B0.7c e B0.9d como pré-requisitos da Janela 0; B0.5d encerrado na 3ª rodada com o resto como limite (opção a); fila pós-B0 (sobras, H1) e o card B0.7e.
-- **Lições da B0:** L01 a L05 em [licoes.md](licoes.md).
+- **Fechadas:** B0 (`jogavel-2026-10-03`), B1, H1 (PR #50) e **T1 (`jogavel-2026-10-12`)**: CI completo com 6 checks obrigatórios na `main` protegida (T1.8, Q20=A), suíte hermética com 0 falhas, G4, fixtures anonimizadas e o nick e o SteamID reais do Victor fora do repo (menos o `docker/match_config.spike.json`, que sai no P1.9). O T1.7 (`.gitattributes`) virou sobra de janela.
+- **Trilho: P1 (bugs de jogabilidade), semeada em 12/10 (cards 80 a 92).** Ordem aprovada pelo Victor: P1.1 → P1.1a → P1.6 → P1.2 → P1.3 → P1.4 → P1.5 → P1.7 → P1.8 → P1.9 → P1.10 → P1.11, um candidato por vez, cada um validado numa partida dele (P1.6 e P1.5 pedem MD3; P1.2, P1.9, P1.10 e P1.11, janela). O P1.5 só entra depois do relatório do B1.12.
+- **Pista paralela, sem servidor:** B1.12 (segfault na troca de mapa da MD3) primeiro, depois P1.13 (overflow no signon), H1.1c (evidência lê a build), B0.7f (coletar falha alto com log vazio) e a K1 (K1.4, K1.5, K1.6; depois K1.8 e K1.9). P1.12 e B1.7a depois.
+- **Sobras de janela:** T1.7 e B0.11, no fim da P1.
+- **Decisões do Victor em 12/10:** ordem da P1; agentes seguem trabalhando com ele jogando (opção a), parando só com janela aberta; o P1.13 mede se a carga do PC contribui para o overflow na entrada.
+- **Épocas novas de build, sem janela:** 2000924 (04/10) e 2000930 (12/10), validadas nas partidas 78 e 79.
 
 Quem fecha uma sprint, abre exceção ou muda a fila atualiza esta seção no mesmo dia (PM). Sprint nova semeada no board ganha a faixa na tabela "Ordem de execução".
