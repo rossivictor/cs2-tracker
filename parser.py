@@ -989,6 +989,29 @@ def _round_stats_deltas(round_stats_raw):
     return linhas
 
 
+def demo_name_no_banco(db_path, demo_name) -> bool:
+    """True se `demo_name` já tem linha em `matches`.
+
+    É o mesmo teste que faz o store_match_from_events pular a ingestão
+    ("já está no banco"). O watcher pergunta antes de arquivar para escolher
+    um nome livre (P1.1a): sem isso, um matchid repetido descartava a partida
+    nova em silêncio. Só lê: banco inexistente ou sem a tabela conta como
+    "não está", e nada é criado aqui.
+    """
+    if not Path(db_path).exists():
+        return False
+    conn = sqlite3.connect(db_path)
+    try:
+        linha = conn.execute(
+            "SELECT 1 FROM matches WHERE demo_name = ?", (demo_name,)
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return False
+    finally:
+        conn.close()
+    return linha is not None
+
+
 def store_match_from_events(events_path, meta, db_path, identity: PlayerIdentity,
                             force: bool = False):
     """
