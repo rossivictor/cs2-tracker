@@ -22,7 +22,8 @@ de 26/09). Runbook: docs/runbooks/voltar-ao-jogavel.md.
   coletar    [--destino D]: evidência pós-partida só lendo, com preflight 0 e
              sem janela: docker logs desde o StartedAt, config-hash do
              container e do compose, HEAD e sha256 dos arquivos montados
-             (docker exec sha256sum) contra o checkout (protocolo 6).
+             (docker exec sha256sum) contra o checkout (protocolo 6). Log
+             salvo vazio ou sem linha depois do StartedAt sai com 8 (B0.7f).
   recriar (up, recreate) | parar (stop) | rcon "cmd" | snapshot --destino D |
   restaurar --de TGZ | soak, todos com [--seco]: comandos do servidor, só
              com logs/janelas/ABERTA dentro dos 45 min, preflight 4 e cwd e
@@ -39,7 +40,9 @@ Saída: 0 ok; 1 falha; 2 uso errado; 3 partida em curso, preflight que não
 libera ou vigília abortada por processo do Victor; 5 recusado por regra
 (infra sem janela, confirmação errada, branch, janela já aberta, checklist
 pendente); 6 docker/pre.sh com '\\r' depois da troca (recreate abortado);
-7 janela vencida (teto ou 45 min pelo mtime da marca).
+7 janela vencida (teto ou 45 min pelo mtime da marca); 8 coleta incompleta
+(docker-logs.txt vazio ou sem linha carimbada a partir do StartedAt: os
+outros artefatos ficam gravados, e o log se reconstrói por `--tail`).
 """
 from __future__ import annotations
 
@@ -61,7 +64,7 @@ from typing import Callable, Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import preflight  # noqa: E402
 
-OK, FALHA, USO, PARTIDA, RECUSA, CRLF, VENCIDA = 0, 1, 2, 3, 5, 6, 7
+OK, FALHA, USO, PARTIDA, RECUSA, CRLF, VENCIDA, INCOMPLETA = 0, 1, 2, 3, 5, 6, 7, 8
 
 CONTAINER = "cs2-spike"
 COMPOSE = "docker-compose.yml"
@@ -1318,11 +1321,48 @@ def arquivos_montados(ex: Executor, servicos: dict) -> tuple:
     return pares, puladas
 
 
+# Carimbo do `docker logs -t` no começo da linha (RFC3339Nano com 9 dígitos)
+# e o StartedAt do `docker inspect` (RFC3339Nano sem os zeros do fim).
+RE_CARIMBO = re.compile(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?(Z|[+-]\d\d:\d\d)(?=\s|$)")
+
+
+def instante_ns(texto: str) -> Optional[int]:
+    """Nanossegundos UTC do carimbo no começo de `texto`, ou None. A fração
+    entra à parte: o datetime só vai ao microssegundo."""
+    achado = RE_CARIMBO.match(texto)
+    if not achado:
+        return None
+    base, fracao, fuso = achado.groups()
+    try:
+        segundos = datetime.fromisoformat(base + ("+00:00" if fuso == "Z" else fuso)).timestamp()
+    except ValueError:
+        return None
+    return int(segundos) * 10**9 + int((fracao or "").ljust(9, "0"))
+
+
+def conferir_log(texto: str, inicio: str) -> Optional[str]:
+    """None se o log salvo tem ao menos uma linha carimbada a partir do
+    StartedAt; senão, o que houve (B0.7f). Linha sem carimbo não conta: com
+    `-t` toda linha vem carimbada, e sem carimbo não se prova que é desta
+    subida. StartedAt ilegível: vale qualquer linha carimbada."""
+    if not texto.strip():
+        return f"docker-logs.txt vazio (o docker logs devolveu {len(texto.encode('utf-8'))} bytes)"
+    desde = instante_ns(inicio)
+    carimbos = [instante_ns(linha) for linha in texto.splitlines() if linha.strip()]
+    if any(c is not None and (desde is None or c >= desde) for c in carimbos):
+        return None
+    sem = carimbos.count(None)
+    return (f"nenhuma das {len(carimbos)} linhas do docker-logs.txt é do StartedAt {inicio} em diante "
+            f"({len(carimbos) - sem} antes dele, {sem} sem carimbo)")
+
+
 def cmd_coletar(args, ex: Executor, **_kw) -> int:
     """Evidência de carona (protocolo 6), só lendo e sem janela: docker logs
     desde o StartedAt, os dois config-hash, o HEAD e o sha256 dos arquivos
     montados dentro do container (docker exec sha256sum) e no checkout, com
-    os binds de `docker compose config`. Quem julga é o QA."""
+    os binds de `docker compose config`. Quem julga é o QA. O log salvo
+    vazio ou sem linha do StartedAt em diante sai com INCOMPLETA (B0.7f):
+    o arquivo e os outros artefatos ficam gravados como estão."""
     if not eh_checkout_principal(ex.raiz):
         print(f"coletar recusado: {ex.raiz} não é o checkout principal (o compose daqui seria outro projeto)")
         return RECUSA
@@ -1347,6 +1387,7 @@ def cmd_coletar(args, ex: Executor, **_kw) -> int:
     def salvar(nome: str, texto: str) -> None:
         (pasta / nome).write_text(texto, encoding="utf-8")
     salvar("docker-logs.txt", logs.saida + logs.erro)
+    problema = conferir_log(logs.saida + logs.erro, inicio.saida.strip())
     salvar("head.txt", ex.git("rev-parse", "HEAD").saida.strip() + "\n")
     # O config-hash do último recreate (rótulo do container) e o do compose de agora.
     rotulo = ex.docker("inspect", CONTAINER, "--format",
@@ -1378,6 +1419,14 @@ def cmd_coletar(args, ex: Executor, **_kw) -> int:
     if puladas:
         print(f"pastas montadas não conferidas (saída do jogo): {', '.join(puladas)}")
     print(f"coleta salva em {pasta}")
+    if problema:
+        print(f"coleta INCOMPLETA: {problema}. O json-file do container pode ter entradas "
+              "corrompidas depois de uma parada brusca, e o `docker logs --since` para nelas em "
+              "silêncio, com código 0 (coleta de 12/10). O arquivo fica na pasta como evidência e os "
+              "outros artefatos estão completos, mas não julgue o G7 por este log: reconstrua-o com "
+              "leituras `docker logs -t --tail N` (só leitura, preflight 0), como em "
+              "docs/runbooks/voltar-ao-jogavel.md#coleta-incompleta.")
+        return INCOMPLETA
     return OK
 
 
