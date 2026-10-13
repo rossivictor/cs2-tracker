@@ -32,8 +32,8 @@ Até a T1 (03 a 04/10), nada conferia o compose nem a compilação do plugin de 
 
 ## Alternativas consideradas
 
-- **Rodar a suíte com o Docker fora do PATH** (o costume até o T1.4): escondia o furo em vez de fechá-lo, e o banco real ficava ao alcance do teste.
-- **Validar o compose e o plugin só no boot**: o erro aparecia dentro da janela, com o jogo parado.
+- **Rodar a suíte com o Docker fora do PATH** (o costume até o T1.4): o banco real ficava ao alcance do teste (`185fbee`); que isso "escondia o furo em vez de fechá-lo" é dedução do escritor do K1.6, não registrada em commit.
+- **Validar o compose e o plugin só no boot**: o erro aparecia dentro da janela (`6bf07e6`), com o jogo parado.
 
 ## Consequências
 

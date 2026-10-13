@@ -25,4 +25,4 @@ Na verificação Web do QA, prove que a página é a da branch (passo 5 do [qa.m
 
 ## Testes
 
-`tests/test_web_wizard.py` (fluxo do wizard), `tests/test_matches_screens.py` (partidas) e `tests/test_web_golden.py` (a ferramenta acima). Falha de `no such table: matches` nos testes web é a baseline do AGENTS.md (Testes), não deste código.
+`tests/test_web_wizard.py` (fluxo do wizard), `tests/test_matches_screens.py` (partidas) e `tests/test_web_golden.py` (a ferramenta acima). A baseline do AGENTS.md (Testes) é 0 falhas desde o T1.4 (golden.db do `tests/conftest.py`): uma falha de `no such table: matches` hoje é teste furando o conftest, não baseline.

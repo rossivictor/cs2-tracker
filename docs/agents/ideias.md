@@ -4,7 +4,7 @@ status: vigente
 fontes:
   - "PR #39"
   - "PR #46"
-atualizado: 2026-10-03
+atualizado: 2026-10-13
 ---
 
 # Ideias que ainda não viraram card
@@ -15,7 +15,6 @@ Sugestões dos QAs e dos papéis que ficaram fora dos critérios. Antes de virar
 
 - O `vigiar` poderia tratar o `claude.exe` do app e os shells interativos como processo de sessão, não como raiz da árvore do servidor (QA do B0.7e).
 - Faltam testes no `vigiar` para "PID cego que volta legível na releitura" e "cs2.exe que aparece só na releitura" (QA do B0.7e).
-- `tools/evidencia_partida.py`: recusar com saída 2 quando o `--partida` termina em `.dem` e ler a build e as versões do log desde o StartedAt; hoje sai "Metamod ? · CSSharp ? · build ?" (QA do G7 do B0.8).
 - Gravar no registro de janela o comando exato do `docker run :ro` que lê `overrides/` (QA do B0.9).
 
 ## Guarda
@@ -25,7 +24,7 @@ Sugestões dos QAs e dos papéis que ficaram fora dos critérios. Antes de virar
 ## KB
 
 - Citações por número de linha que andaram com os diffs (ADR-0005 em `trilha-de-bots.md`; ADR-0003, ADR-0004, `docs/README.md` e `politica-de-comentarios.md` no `AGENTS.md`; notas que citam `versoes-conhecidas.md`), sem teste que as pegue.
-- Textos antigos de "volume novo e vazio": `docs/runbooks/b1.3-cssharp-1.0.375.md`, `trilha-de-bots.md`, comentários de `tools/jogavel.py` e `tests/test_jogavel.py`.
+- Textos antigos de "volume novo e vazio": `trilha-de-bots.md` e o comentário de `tools/jogavel.py` (o `b1.3-cssharp-1.0.375.md` saiu no K1.10).
 - `docs/runbooks/README.md` ainda lista `inventario-volume` em "Previstos".
 - Procedimento para reaplicar o contador de matchid da MatchZy se o volume for reconstruído da semente (QA do B0.9).
 

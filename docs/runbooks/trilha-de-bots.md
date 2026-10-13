@@ -237,9 +237,9 @@ O veredito de cada passo é um destes:
 
 ## Confundidores: leia antes de culpar um plugin
 
-1. **Overflow no signon causado pelo `warmup.cfg` da MatchZy.** Em 26/09 às 16:04, com a
-   suíte mascarada, o Victor caiu no instante em que a MatchZy executou o warmup ao detectar
-   o primeiro jogador:
+1. **Overflow no signon (a causa não é o `warmup.cfg`; ver abaixo).** Em 26/09 às 16:04, com a
+   suíte mascarada, o Victor caiu logo depois do FULL CONNECT, quando a MatchZy ia executar o
+   warmup ao detectar o primeiro jogador:
 
    ```
    16:04:00.761  SIGNONSTATE_SPAWN -> SIGNONSTATE_FULL
@@ -250,11 +250,11 @@ O veredito de cada passo é um destes:
    ```
 
    Isso não é evidência contra o plugin religado. Só conta o que acontece com o jogador já
-   dentro, depois de FULL + 60 s. A investigação própria é o P1.13.
+   dentro, depois de FULL + 60 s: essa regra de veredito segue valendo.
 
-   Hipótese do B1.1, não testada: na 373, o offset de `Respawn` está errado (272; o certo é
-   276), e a MatchZy chama `SwitchTeam` + `Respawn` no warmup. Se o overflow sumir depois do
-   B1.3r, registre como observação, não como conclusão.
+   A explicação é que caiu. O P1.13 (`945d9b0`, [engine-cs2](../armadilhas/engine-cs2.md), H1) mediu: em 26/09 o tempo
+   foi gasto no handler de FULL CONNECT, e o `execing MatchZy/warmup.cfg` só saiu no frame seguinte; em 04/10 a queda veio
+   antes de qualquer ação da MatchZy, já na CSSharp 1.0.375, o que enfraquece também a hipótese do offset de `Respawn` da 373.
 2. **RayTrace na segunda troca de mapa.** O RayTrace aborta na segunda troca de mapa de uma
    sessão, com `logger with name 'RayTrace' already exists` e core dumped (compose:93-108).
    Ele foi mascarado no mesmo commit que a suíte de bots, então um crash anterior a esse
