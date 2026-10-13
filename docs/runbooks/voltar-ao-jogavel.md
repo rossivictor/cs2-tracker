@@ -5,7 +5,7 @@ fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.playability_protocol, seções 2, 5 e 7)"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (judgements[1].must_fix[1], runtime file)"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.playability_protocol, seção 8, janelas)"
-  - "tools/jogavel.py:1-28"
+  - "tools/jogavel.py:1-46"
   - "tools/jogavel.py:59-66 (eventos de round)"
   - "tools/jogavel.py:238-305 (partida em curso)"
   - "tools/jogavel.py:310-354 (runtime file e volta do merge falho)"
@@ -13,10 +13,12 @@ fontes:
   - "tools/jogavel.py:459-501 (voltar)"
   - "tools/jogavel.py:910-1298 (janela abrir, fechar, vigiar e aborto; timeouts do ciclo no B0.7c)"
   - "tools/jogavel.py:1058-1210 (python sem linha confirmado na releitura e árvore do servidor, B0.7e)"
+  - "tools/jogavel.py:1324-1430 (coletar e a conferência do log salvo, B0.7f)"
+  - "backup:../2026-10-12/coleta-g7-candidato-9/docker-logs-reconstruido.LEIAME.txt (log vazio e reconstrução por --tail)"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:452-703 (tipos de evento)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:641-670 (a volta à mão que o voltar substitui)"
   - "docs/runbooks/versoes-conhecidas.md:200-216 (manifesto do plugin de captura)"
-atualizado: 2026-10-03
+atualizado: 2026-10-13
 ---
 
 # Voltar ao jogável
@@ -161,6 +163,51 @@ Todos aceitam `--seco`.
   Item faltando: a marca fica e ele diz o que falta (saída 5). Tudo ok: linha de fechamento no
   registro e marca apagada.
 
+## Coletar
+
+`jogavel.py coletar [--destino D]`, do checkout principal, com preflight 0 e sem janela: grava
+em `D` (ou `logs/jogavel/<data>_<hora>-coletar/`) o `docker-logs.txt` (`docker logs -t --since
+<StartedAt>`), o `head.txt`, os dois config-hash e o sha256 dos montados, dentro do container e
+no checkout. Quem julga o G7 é o QA, pelo `evidencia_partida.py`.
+
+Depois de gravar tudo, ele confere o log salvo (B0.7f). Vazio (0 bytes ou só espaço), ou sem
+nenhuma linha carimbada do StartedAt em diante, sai com 8 e `coleta INCOMPLETA`. Linha sem
+carimbo não conta: com `-t` toda linha vem carimbada, e sem carimbo não se prova que é desta
+subida. Os arquivos ficam como estão, o vazio também, porque ele é a evidência da falha.
+
+### Coleta incompleta
+
+Em 12/10 o `docker-logs.txt` saiu com 0 bytes e código 0: o json-file do container tinha uma
+entrada corrompida depois de cada parada brusca (05/10 e 06/10, sem linhas de desligamento), e
+o `docker logs` lendo para a frente (sem `--tail`, ou com `--since`) para em silêncio na
+primeira delas. Não julgue o G7 por esse log; reconstrua-o lendo do fim. Ainda é à mão: o
+modo `--tail-reconstruir` ficou fora do B0.7f.
+
+1. Não apague nada da pasta da coleta e não recrie o container: o recreate descarta o
+   json-file, e com ele as linhas que ainda se leem.
+2. Com preflight 0 (é a mesma leitura do `coletar`, sem janela), no Git Bash e na pasta da
+   coleta, leia o fim do log em tamanhos crescentes:
+
+   ```
+   for n in $(seq 100 100 16000); do docker logs -t --tail $n cs2-spike > tail-$n.txt 2>&1; done
+   ```
+
+   O PowerShell 5.1 grava o `>` em UTF-16: use o Git Bash. Onde a leitura muda de segmento
+   legível (uma fronteira), repita de 1 em 1 em volta do N dela para não perder linha.
+3. Junte as leituras sem duplicata e na ordem do carimbo. A linha inteira, com o carimbo de
+   largura fixa do `-t`, é a chave e também a ordem:
+
+   ```
+   C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe -c "import glob; linhas = {l for f in glob.glob('tail-*.txt') for l in open(f, encoding='utf-8')}; open('docker-logs-reconstruido.txt', 'w', encoding='utf-8', newline='\n').writelines(sorted(linhas))"
+   ```
+
+4. Confira que o reconstruído tem linhas do StartedAt em diante (o boot desta subida) e
+   escreva ao lado um `docker-logs-reconstruido.LEIAME.txt`: os N lidos, o intervalo coberto,
+   as fronteiras e as perdas conhecidas (a entrada corrompida de cada fronteira). Linhas com o
+   mesmo carimbo podem sair em ordem diferente da original.
+5. O QA julga o G7 pelo reconstruído e cita o LEIAME. O modelo é a coleta de 12/10, em
+   `C:/Users/Victor/cs2-tracker-backups/2026-10-12/coleta-g7-candidato-9/`.
+
 ## Saídas
 
 | Código | Quer dizer |
@@ -172,3 +219,4 @@ Todos aceitam `--seco`.
 | 5 | recusado por regra: infra sem janela, confirmação errada, branch que não é a `main`, recreate ou janela fora do checkout principal, janela já aberta ou sem `--por`, checklist pendente |
 | 6 | `docker/pre.sh` com `\r` depois da troca |
 | 7 | janela vencida (teto da marca ou 45 min pelo mtime) |
+| 8 | coleta incompleta: `docker-logs.txt` vazio ou sem linha do StartedAt em diante; veja [Coleta incompleta](#coleta-incompleta) |

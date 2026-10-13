@@ -25,7 +25,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 
 import jogavel  # noqa: E402
-from jogavel import CRLF, FALHA, OK, PARTIDA, RECUSA, VENCIDA, Executor, main  # noqa: E402
+from jogavel import CRLF, FALHA, INCOMPLETA, OK, PARTIDA, RECUSA, VENCIDA, Executor, main  # noqa: E402
 
 AGORA = 1_800_000_000.0
 PS = r"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe"
@@ -73,6 +73,9 @@ class Mundo:
         self.rcon, self.volume = [], True
         self.hash_container = self.hash_compose = "3970b702" + "0" * 56
         self.sha_no_container = {}
+        # O que o `docker logs -t --since` do coletar devolve; None: uma
+        # linha carimbada 5 s depois do StartedAt, como no log de verdade.
+        self.log_coleta = None
         # O que o `tar -tzf` do snapshot lista.
         self.lista_tar = "game/csgo/addons/metamod/metaplugins.ini\ngame/csgo/addons/counterstrikesharp/api.dll\n"
         # Relógio falso da janela e um `docker ps` que "espera aprovação":
@@ -144,6 +147,11 @@ class Mundo:
                 sha = self.sha_no_container.get(alvo) or (_sha(local.read_bytes()) if local.is_file() else None)
                 linhas += [f"{sha}  {alvo}\n"] if sha else []
             return _feito(args, 0 if len(linhas) == len(args) - 3 else 1, "".join(linhas))
+        if args[:1] == ["logs"] and "--since" in args and self.log_coleta is not None:
+            return _feito(args, 0, self.log_coleta)
+        if args[:1] == ["logs"] and "--since" in args:
+            return _feito(args, 0, f"2027-01-15T07:00:05.000000000Z GC Connection established for server "
+                                   f"version {self.build}, instance idx 1\n")
         if args[:1] == ["logs"]:
             return _feito(args, 0, f"GC Connection established for server version {self.build}, instance idx 1\n")
         if args[:2] == ["compose", "up"]:
@@ -1473,7 +1481,7 @@ def test_coletar_com_preflight_0_salva_logs_config_hash_e_sha_dos_montados(monta
                      " /srv/docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.dll"
                      " /srv/docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.pdb")
     assert (g7 / "docker-logs.txt").read_text() == \
-        "GC Connection established for server version 2000918, instance idx 1\n"
+        "2027-01-15T07:00:05.000000000Z GC Connection established for server version 2000918, instance idx 1\n"
     assert (g7 / "head.txt").read_text() == _head(montado) + "\n"
     assert (g7 / "config-hash-janela.txt").read_text() == "3970b702" + "0" * 56 + "\n"
     assert (g7 / "config-hash.txt").read_text() == "cs2-server 3970b702" + "0" * 56 + "\n"
@@ -1516,3 +1524,65 @@ def test_coletar_fora_do_checkout_principal_recusa(montado, tmp_path):
     _git(montado.raiz, "worktree", "add", "-q", "--detach", str(wt), "main")
     montado.raiz = wt
     assert _rodar(montado, "coletar") == RECUSA and montado.docker == []
+
+
+# ------------------------------------------- coletar: log salvo (B0.7f)
+# StartedAt do fake: 2027-01-15T07:00:00.123456789Z. Coleta de 12/10: o
+# json-file corrompido fez o `docker logs --since` sair 0 com 0 bytes.
+
+def test_codigo_da_coleta_incompleta_nao_colide_com_os_outros():
+    assert INCOMPLETA == 8 and INCOMPLETA not in (OK, FALHA, 2, PARTIDA, 4, RECUSA, CRLF, VENCIDA)
+
+
+@pytest.mark.parametrize("log,motivo", [
+    ("", "docker-logs.txt vazio (o docker logs devolveu 0 bytes)"),
+    ("\n  \n", "docker-logs.txt vazio (o docker logs devolveu 4 bytes)"),
+])
+def test_coletar_com_log_vazio_sai_incompleta_e_guarda_o_resto(montado, tmp_path, capsys, log, motivo):
+    montado.log_coleta = log
+    g7 = tmp_path / "g7"
+    assert _rodar(montado, "coletar", "--destino", str(g7)) == INCOMPLETA
+    saida = capsys.readouterr().out
+    assert f"coleta INCOMPLETA: {motivo}." in saida
+    assert "docker logs -t --tail N" in saida and "voltar-ao-jogavel.md#coleta-incompleta" in saida
+    # a evidência da falha fica, e os outros artefatos também
+    assert (g7 / "docker-logs.txt").read_text() == log
+    assert (g7 / "head.txt").read_text() == _head(montado) + "\n"
+    assert (g7 / "config-hash.txt").read_text() == "cs2-server 3970b702" + "0" * 56 + "\n"
+    assert (g7 / "sha-montados.txt").read_text().count("/srv/") == 6
+
+
+def test_coletar_com_log_so_de_antes_do_startedat_sai_incompleta(montado, tmp_path, capsys):
+    # A última linha fica 1 ns antes do StartedAt: com o datetime cortado no
+    # microssegundo, ela empataria e passaria por desta subida.
+    log = ("2027-01-14T22:10:00.000000000Z boot da subida anterior\n"
+           "linha sem carimbo\n"
+           "2027-01-15T06:59:59.999999999Z Shutdown\n"
+           "2027-01-15T07:00:00.123456788Z ultima entrada antes da subida\n")
+    montado.log_coleta = log
+    g7 = tmp_path / "g7"
+    assert _rodar(montado, "coletar", "--destino", str(g7)) == INCOMPLETA
+    assert ("coleta INCOMPLETA: nenhuma das 4 linhas do docker-logs.txt é do StartedAt "
+            "2027-01-15T07:00:00.123456789Z em diante (3 antes dele, 1 sem carimbo).") in capsys.readouterr().out
+    assert (g7 / "docker-logs.txt").read_text(encoding="utf-8") == log
+
+
+def test_coletar_com_log_sem_carimbo_nenhum_sai_incompleta(montado, tmp_path, capsys):
+    montado.log_coleta = "GC Connection established for server version 2000918, instance idx 1\n"
+    assert _rodar(montado, "coletar", "--destino", str(tmp_path / "g7")) == INCOMPLETA
+    assert "(0 antes dele, 1 sem carimbo)" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("ultima", [
+    "2027-01-15T07:00:00.123456789Z boot",  # no StartedAt exato
+    "2027-01-15T04:00:01.5-03:00 boot",     # outro fuso e fração curta: 07:00:01.5Z
+])
+def test_coletar_com_log_normal_sai_0(montado, tmp_path, capsys, ultima):
+    montado.log_coleta = "2027-01-14T22:10:00.000000000Z subida anterior\n" + ultima + "\n"
+    assert _rodar(montado, "coletar", "--destino", str(tmp_path / "g7")) == OK
+    assert "INCOMPLETA" not in capsys.readouterr().out
+
+
+def test_runbook_tem_a_secao_que_o_coletar_aponta():
+    runbook = Path(__file__).resolve().parent.parent / "docs" / "runbooks" / "voltar-ao-jogavel.md"
+    assert re.search(r"^#+ Coleta incompleta$", runbook.read_text(encoding="utf-8"), re.M)
