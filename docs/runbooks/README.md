@@ -3,7 +3,7 @@ tipo: indice
 status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.kb_structure; playability_protocol)"
-atualizado: 2026-10-03
+atualizado: 2026-10-13
 ---
 
 # Runbooks
@@ -22,9 +22,11 @@ Procedimentos passo a passo, com pré-condição, rollback e o que conferir no f
 - [smoke-partida-de-bots.md](smoke-partida-de-bots.md): a partida só de bots dentro da janela, com as três armadilhas de 27/09 e o fechamento nas cvars do boot (B0.9b).
 - [voltar-ao-jogavel.md](voltar-ao-jogavel.md): o `tools/jogavel.py` (`status`, `voltar`, `atualizar` e a janela: `abrir`, `vigiar` e o checklist do `fechar`) (B0.7).
 - [reconstruir-volume.md](reconstruir-volume.md): o que o `cs2-data` external protege e o que não, e a reconstrução a partir do `C:/cs2server` (B0.8).
+- [servidor-boot-saudavel.md](servidor-boot-saudavel.md): o que o log, a RCON e os arquivos montados mostram num boot saudável, o ruído conhecido e as linhas proibidas, ligadas às [armadilhas](../armadilhas/README.md) (K1.4).
+- [inventario-volume.md](inventario-volume.md): o inventário do volume da Janela 0 (B0.9).
 
 ## Previstos
 
 - Jogo: `jogar`.
-- Servidor: `janela-de-manutencao`, `servidor-boot-saudavel` (K1.4), `inventario-volume` (B0.9), `compilar-plugin` (B1.2).
+- Servidor: `janela-de-manutencao`, `compilar-plugin` (B1.2).
 - Dados: `backup-e-restauracao`.

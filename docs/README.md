@@ -5,7 +5,7 @@ fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.kb_structure; card K1.1)"
   - "backup:temp-artifacts/eb5adec0/audit/comments.json (proposed_kb_structure)"
   - "AGENTS.md:91-96"
-atualizado: 2026-10-01
+atualizado: 2026-10-13
 ---
 
 # Base de conhecimento do cs2-tracker
@@ -72,6 +72,8 @@ atualizado: 2026-09-26
   - `transcript <8 primeiros caracteres do id> @ AAAA-MM-DDTHH:MM:SSZ`: sessão local do Claude Code, que não é versionada;
   - `commit <sha>` ou `PR #<n>`.
   - Qualquer entrada pode terminar com ` (detalhe)`, só para quem lê (ex.: as chaves de um JSON). O checador ignora esse sufixo, e fora dele não há texto livre.
+  - O checador confere que o arquivo de um `caminho:N` existe e que a linha N (ou M) cabe nele; das outras formas, só a forma. Rode `C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/checar_fontes.py`: sai 0 sem erro e 1 com a lista.
+- Em `armadilhas/`, a linha `- **Fonte:**` de cada item numerado (`### N. título`) segue a mesma gramática, com cada entrada entre crases; texto fora das crases é só para quem lê. O `checar_fontes.py` confere essas entradas e exige as quatro linhas do item: Sintoma, Causa, Contorno e Fonte.
 - A linha de um `caminho:N` vale no último commit que tocou a nota (`git log -1 -- <nota>`), não na data de `atualizado`: o código pode andar depois, e a nota é revista quando alguém mexer nela.
 - `atualizado` é a data da última revisão de conteúdo, não de formatação.
 - As notas anteriores ao K1.1 (SPEC.md, features/ e os dois runbooks) ainda não têm frontmatter. Elas ganham o frontmatter quando forem revisadas (K1.4, K1.6). O handoff em `historico/` fica como está.
