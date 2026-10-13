@@ -31,6 +31,9 @@ CFGS = RAIZ / "server-configs" / "cfg"
 sys.path.insert(0, str(RAIZ / "tools" / "hooks"))
 import pii  # noqa: E402
 
+sys.path.insert(0, str(RAIZ / "tools"))
+import checar_fontes  # noqa: E402
+
 
 def _notas():
     """Toda nota .md da KB, sem o vault do board e sem pasta oculta
@@ -52,22 +55,11 @@ def _secao(texto, titulo):
 
 
 def _fontes(texto):
-    """Entradas de `fontes` do frontmatter inicial, ou [] se não houver."""
-    if not texto.startswith("---\n"):
-        return []
-    fim = texto.index("\n---", 4)
-    entradas, dentro = [], False
-    for linha in texto[4:fim].splitlines():
-        if linha.startswith("fontes:"):
-            dentro = True
-            continue
-        if dentro:
-            item = re.match(r'^\s+-\s+"(.*)"\s*$', linha)
-            if item:
-                entradas.append(item.group(1))
-            elif linha and not linha[0].isspace():
-                dentro = False
-    return entradas
+    """(entradas, erros) de `fontes` do frontmatter inicial, lidos pelo mesmo
+    código do tools/checar_fontes.py (K1.4): BOM, lista inline, item sem aspas
+    duplas e frontmatter sem fechamento viram erro, não lista vazia."""
+    fontes, erros = checar_fontes.ler_frontmatter(texto)
+    return [entrada for _, entrada in fontes], [f"linha {n}: {motivo}" for n, motivo in erros]
 
 
 # ---- cfg do CS2: o comentário é //, nunca # --------------------------------
@@ -194,7 +186,9 @@ def _forma_da_fonte(entrada):
 def test_fontes_seguem_a_gramatica_do_moc():
     fora = []
     for nota in _notas():
-        for entrada in _fontes(nota.read_text(encoding="utf-8")):
+        entradas, erros = _fontes(nota.read_text(encoding="utf-8"))
+        fora += [f"{nota.relative_to(RAIZ)}: {erro}" for erro in erros]
+        for entrada in entradas:
             achado = _forma_da_fonte(entrada)
             if achado is None:
                 fora.append(f"{nota.relative_to(RAIZ)}: {entrada}")

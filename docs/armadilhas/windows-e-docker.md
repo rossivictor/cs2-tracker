@@ -51,7 +51,7 @@ Windows 11 com Docker Desktop sobre WSL2, e o shell dos agentes é o Git Bash.
 - **Fonte:** `docker-compose.yml:196-205` · `AGENTS.md:35` (auditoria: sem linha, "compose sem name:")
 
 ### 52. Git Bash reescreve caminho de container
-- **Sintoma:** o build do plugin pelo `.sh` cria um diretório `Cs2TrackerEvents;C`; `-C /d` vira `D:/` e `/in/...` vira `C:/Program Files/Git/in/...`.
+- **Sintoma:** o build do plugin pelo `.sh` cria um diretório `Cs2TrackerEvents;C` (relato da auditoria, sem fonte no repo); `-C /d` vira `D:/` e `/in/...` vira `C:/Program Files/Git/in/...`.
 - **Causa:** a conversão automática de caminhos POSIX do MSYS.
 - **Contorno:** `export MSYS_NO_PATHCONV=1` e caminhos `C:/...`; o `.ps1` de build funciona sem isso.
 - **Fonte:** `docs/historico/2026-09-26-handoff-plugins-de-bot.md:101-104` · `docs/runbooks/b1.3-cssharp-1.0.375.md:228-233` (auditoria: sem linha)

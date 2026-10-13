@@ -43,7 +43,7 @@ Rascunho: o item 37 é hipótese não testada, e os valores efetivos das cvars d
 ### 25. `bot_add` mexe na quota sozinho
 - **Sintoma:** um `bot_add_ct` leva `bot_quota` de 0 para 2, e o `MaintainBotQuota` completa a vaga com um bot aleatório; re-setar a quota depois dos adds chuta bot nomeado.
 - **Causa:** `bot_add` auto-incrementa a quota, e o gerenciador corrige a contagem no think seguinte.
-- **Contorno:** `bot_quota 0; bot_quota_mode normal` → `bot_kick` → adds nomeados → quota igual ao total adicionado.
+- **Contorno:** `bot_quota 0; bot_quota_mode normal` → `bot_kick` → adds nomeados → quota igual ao total adicionado. A SPEC (189-191) descreve o fluxo anterior, que terminava sem mexer na quota; o código de hoje re-seta a quota no total adicionado, no fim (`start_match.py:472-473`).
 - **Fonte:** `docs/SPEC.md:189-191` · `docs/SPEC.md:211-214` · `start_match.py:448-473`
 
 ### 26. Nome duplicado falha duro, sem olhar o time

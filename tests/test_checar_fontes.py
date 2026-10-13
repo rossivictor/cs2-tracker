@@ -8,9 +8,13 @@ Os casos montam um repo de mentira em tmp_path; o último confere o repo de
 verdade (critério do card: checar_fontes verde e os 54 itens distribuídos).
 Só leitura de arquivo: nada de processo, rede, Docker ou banco.
 """
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 
@@ -75,7 +79,76 @@ def test_arquivo_que_nao_existe_e_erro(tmp_path):
 
 def test_caminho_que_sai_do_repo_e_erro(tmp_path):
     _repo(tmp_path, {"x.md": "x"})
-    assert conferir_entrada(tmp_path / "docs", "../mod.py:1") == "arquivo não existe no repo: ../mod.py"
+    assert conferir_entrada(tmp_path / "docs", "../mod.py:1") == "caminho sai do repo: ../mod.py"
+    assert conferir_entrada(tmp_path, "docs/../mod.py:1") == "caminho sai do repo: docs/../mod.py"
+
+
+def test_caminho_absoluto_e_erro_mesmo_apontando_para_dentro(tmp_path):
+    # Sem o guarda, a raiz é que levaria a culpa ("resolve fora do repo"),
+    # e no Windows `raiz / "/x"` vira o drive da raiz.
+    _repo(tmp_path, {})
+    absoluto = "/" + (tmp_path / "mod.py").as_posix().split(":", 1)[-1].lstrip("/")
+    assert conferir_entrada(tmp_path, f"{absoluto}:1") == f"caminho absoluto (use relativo à raiz): {absoluto}"
+    assert conferir_entrada(tmp_path, "/etc/hosts:1") == "caminho absoluto (use relativo à raiz): /etc/hosts"
+
+
+def test_barra_invertida_e_erro_em_qualquer_so(tmp_path):
+    # No Windows `raiz / "\\Windows\\win.ini"` vira C:\Windows\win.ini, e
+    # `sub\m.py` passava aqui e quebrava no Linux.
+    _repo(tmp_path, {}, {"sub/m.py": "a\n"})
+    assert conferir_entrada(tmp_path, "\\Windows\\win.ini:1") == \
+        "caminho com barra invertida (use /): \\Windows\\win.ini"
+    assert conferir_entrada(tmp_path, "sub\\m.py:1") == "caminho com barra invertida (use /): sub\\m.py"
+    assert conferir_entrada(tmp_path, "sub/m.py:1") is None
+
+
+def test_caminho_que_resolve_fora_da_raiz_e_erro(tmp_path, monkeypatch):
+    # Simula um link sem precisar de privilégio: o arquivo existe na raiz,
+    # mas resolvido ele cai fora dela.
+    raiz = _repo(tmp_path / "repo", {}, {"mod.py": "a\n", "link.py": "a\n"})
+    fora = tmp_path / "fora.txt"
+    fora.write_text("a\n", encoding="utf-8")
+    original = Path.resolve
+
+    def resolve_falso(self, strict=False):
+        return fora if self.name == "link.py" else original(self, strict)
+
+    monkeypatch.setattr(Path, "resolve", resolve_falso)
+    assert conferir_entrada(raiz, "link.py:1") == "caminho resolve fora do repo (link ou junction): link.py"
+    assert conferir_entrada(raiz, "mod.py:1") is None
+
+
+def _ligar_pasta(link: Path, alvo: Path) -> bool:
+    """Junction no Windows (mklink /J, sem privilégio), symlink nos outros."""
+    try:
+        if os.name == "nt":
+            r = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(alvo)],
+                               capture_output=True, timeout=30)
+            return r.returncode == 0 and link.is_dir()
+        os.symlink(alvo, link, target_is_directory=True)
+        return True
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def test_junction_ou_symlink_para_fora_do_repo_e_erro(tmp_path):
+    raiz = _repo(tmp_path / "repo", {"r.md": _nota("vendor/segredo.txt:1")})
+    alvo = tmp_path / "fora"
+    alvo.mkdir()
+    (alvo / "segredo.txt").write_text("a\nb\n", encoding="utf-8")
+    if not _ligar_pasta(raiz / "vendor", alvo):
+        pytest.skip("não deu para criar junction/symlink nesta máquina")
+    assert (raiz / "vendor" / "segredo.txt").is_file()
+    assert checar(raiz) == [
+        "docs/r.md:5: caminho resolve fora do repo (link ou junction): vendor/segredo.txt"]
+
+
+def test_caminho_escrito_diferente_do_disco_e_erro(tmp_path):
+    # `./mod.py` e (no Windows) `MOD.py` achariam o arquivo aqui e não no Linux.
+    _repo(tmp_path, {})
+    assert conferir_entrada(tmp_path, "./mod.py:1") == "caminho difere do arquivo no repo (mod.py): ./mod.py"
+    if os.name == "nt":
+        assert conferir_entrada(tmp_path, "MOD.py:1") == "caminho difere do arquivo no repo (mod.py): MOD.py"
 
 
 def test_intervalo_invertido_ou_linha_zero_e_erro(tmp_path):
@@ -108,6 +181,58 @@ def test_erro_do_frontmatter_diz_nota_e_linha(tmp_path):
     assert checar(tmp_path) == ["docs/runbooks/r.md:6: linha 7 além do fim de mod.py (3 linhas)"]
 
 
+def test_bom_no_comeco_da_nota_nao_esconde_a_fonte(tmp_path):
+    _repo(tmp_path, {"r.md": "﻿" + _nota("mod.py:99")})
+    assert checar(tmp_path) == ["docs/r.md:5: linha 99 além do fim de mod.py (3 linhas)"]
+
+
+def _frontmatter(*linhas):
+    return "\n".join(["---", "tipo: runbook", *linhas, "atualizado: 2026-10-13", "---", "", "corpo"])
+
+
+def test_fontes_fora_da_gramatica_no_frontmatter_e_erro(tmp_path):
+    casos = {
+        "inline.md": (_frontmatter('fontes: ["mod.py:99"]'),
+                      "docs/inline.md:3: `fontes:` com valor na mesma linha, fora da gramática: "
+                      "'fontes: [\"mod.py:99\"]'"),
+        "simples.md": (_frontmatter("fontes:", "  - 'mod.py:99'"),
+                       "docs/simples.md:4: item de `fontes` fora da gramática (use `  - \"...\"`): \"- 'mod.py:99'\""),
+        "sem_aspas.md": (_frontmatter("fontes:", "  - mod.py:99"),
+                         "docs/sem_aspas.md:4: item de `fontes` fora da gramática (use `  - \"...\"`): '- mod.py:99'"),
+        "coluna_0.md": (_frontmatter("fontes:", '- "mod.py:99"'),
+                        "docs/coluna_0.md:4: item de `fontes` fora da gramática (use `  - \"...\"`): '- \"mod.py:99\"'"),
+    }
+    for nome, (texto, erro) in casos.items():
+        pasta = tmp_path / nome.removesuffix(".md")
+        _repo(pasta, {nome: texto})
+        assert checar(pasta) == [erro], nome
+
+
+def test_frontmatter_sem_fechamento_e_erro(tmp_path):
+    _repo(tmp_path, {"r.md": "---\ntipo: runbook\nfontes:\n  - \"mod.py:2\"\n\ncorpo sem fechar\n"})
+    assert checar(tmp_path) == ["docs/r.md:1: frontmatter aberto sem `---` de fechamento"]
+
+
+def test_nota_que_nao_e_utf8_e_erro_sem_traceback(tmp_path, capsys):
+    _repo(tmp_path, {"ok.md": _nota("mod.py:2")})
+    (tmp_path / "docs" / "latin1.md").write_bytes(_nota("mod.py:2", corpo="ação").encode("latin-1"))
+    assert main(["--raiz", str(tmp_path)]) == 1
+    saida = capsys.readouterr()
+    assert saida.out.splitlines() == ["docs/latin1.md: não é UTF-8", "checar_fontes: 1 erro(s)."]
+    assert "Traceback" not in saida.err
+
+
+def test_raiz_sem_docs_ou_sem_nota_e_erro(tmp_path, capsys):
+    vazia = tmp_path / "vazia"
+    vazia.mkdir()
+    assert main(["--raiz", str(vazia)]) == 1
+    assert f"{vazia.as_posix()}: sem pasta docs/" in capsys.readouterr().out
+    (vazia / "docs" / "board-cs2").mkdir(parents=True)
+    (vazia / "docs" / "board-cs2" / "c.md").write_text(_nota("mod.py:1"), encoding="utf-8")
+    assert main(["--raiz", str(vazia)]) == 1
+    assert f"{vazia.as_posix()}/docs: nenhuma nota .md para conferir" in capsys.readouterr().out
+
+
 def test_corpo_so_e_conferido_em_armadilhas(tmp_path):
     corpo = _item(1, fonte="`mod.py:99`")
     _repo(tmp_path, {"runbooks/r.md": _nota("mod.py:1", corpo=corpo),
@@ -136,6 +261,25 @@ def test_secao_sem_numero_nao_precisa_dos_quatro_campos(tmp_path):
     corpo = "## Resumo\n\n### Assinatura\n\ntexto\n\n" + _item(1)
     _repo(tmp_path, {"armadilhas/a.md": _nota("mod.py:1", corpo=corpo)})
     assert checar(tmp_path) == []
+
+
+def test_campo_vazio_e_fonte_sem_codigo_sao_erro(tmp_path):
+    vazio = "### 1. Item\n- **Sintoma:**\n- **Causa:** c\n- **Contorno:** k\n- **Fonte:** `mod.py:2`\n"
+    corpo = vazio + "\n" + _item(2, fonte="`commit abc1234` · `PR #4`")
+    _repo(tmp_path, {"armadilhas/a.md": _nota("mod.py:1", corpo=corpo)})
+    assert checar(tmp_path) == ["docs/armadilhas/a.md:10: campo Sintoma vazio",
+                                "docs/armadilhas/a.md:15: item 2 sem fonte `caminho:N` nem `repo:`"]
+
+
+def test_linha_recuada_continua_a_fonte(tmp_path):
+    fonte = "`mod.py:2` ·\n  `mod.py:99` (continua)\n\n`mod.py:500` fora da Fonte"
+    _repo(tmp_path, {"armadilhas/a.md": _nota("mod.py:1", corpo=_item(1, fonte=fonte))})
+    assert checar(tmp_path) == ["docs/armadilhas/a.md:14: linha 99 além do fim de mod.py (3 linhas)"]
+
+
+def test_armadilha_em_subpasta_tambem_e_conferida(tmp_path):
+    _repo(tmp_path, {"armadilhas/sub/a.md": _nota("mod.py:1", corpo=_item(1, fonte="`mod.py:99`"))})
+    assert checar(tmp_path) == ["docs/armadilhas/sub/a.md:13: linha 99 além do fim de mod.py (3 linhas)"]
 
 
 def test_vault_do_board_e_pasta_oculta_ficam_de_fora(tmp_path):
