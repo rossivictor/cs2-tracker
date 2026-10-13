@@ -1,6 +1,6 @@
 # CS2 Tracker — Spec de Produto
 
-> **Status:** premissa central confirmada · **Data:** 2026-09-20
+> **Status:** premissa central confirmada · **Data:** 2026-09-20 · **Status real das D1–D22 em 2026-10-13 (K1.6):** §12 e §16; visão vigente no [ADR-0001](adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md)
 > Consolida as decisões da sessão de grilling. Nada do produto foi
 > implementado ainda (§10/Passo 0 é infra de spike, não produto).
 > O Passo 0 (experimento de RCON, §10) rodou: falhou na primeira tentativa,
@@ -328,30 +328,30 @@ e não deixa rastro.
 
 ## 12. Decisões
 
-| # | Decisão |
-|---|---|
-| D1 | App **local pessoal**; mercado é hipótese futura |
-| D2 | IA = **profiles nomeados do VPK** via `bot_add_ct "<perfil>"` em runtime. Plugin próprio é trabalho futuro |
-| D3 | **Nomes oficiais** no uso pessoal; roster como dado, com `display_name` separado |
-| D4 | **Sem anti-cheat, sem ranking global** |
-| D5 | **1 humano** + 9 bots |
-| D6 | **Evoluir o `cs2-tracker`**, não recomeçar |
-| D7 | **Local**: Docker Desktop + localhost; ritual de entrada idêntico ao atual |
-| D8 | **Perfil local** (nick + SteamID salvo), sem Steam OpenID |
-| D9 | **MD1/MD3/MD5**, cada um com escolha direta de mapas **ou** veto |
-| D10 | **SQLite atual**, sem migração |
-| D11 | Início de partida: **auto-retry (2x)** + botão manual + telemetria |
-| D12 | **Sem dial de dificuldade** — pro contra pro, e medir se é divertido |
-| D13 | TUI e web **em paralelo** até o web provar paridade em uso real (série MD3 completa jogada pelo browser); só então a TUI é aposentada (M7/F7.3). Headless fica com o CLI do `start_match.py` |
-| D14 | **Sessão stateful** — reabrir a aba reidrata a partida |
-| D15 | **FastAPI + Jinja + HTMX + SSE**, sem build step |
-| D16 | Catálogo **híbrido**: times transcritos + atributos extraídos do VPK |
-| D17 | **Dois seletores + presets como atalho**, com pool compartilhado |
-| D18 | **Head-to-head por profile** |
-| D19 | Veto por **preferência real curada à mão**, datada e versionada pelo pool |
-| D20 | `report.py` vira **camada de consulta**; gerador estático morre (cálculo já extraído pra `stats.py`, ver §11) |
-| D21 | Progressão = **marcos**, sem ELO nem nível |
-| D22 | **"Repetir última partida"** em vez de lineups salvas |
+| # | Decisão | Status em 13/10 (K1.6) | Evidência |
+|---|---|---|---|
+| D1 | App **local pessoal**; mercado é hipótese futura | parcialmente superada pelo [ADR-0001](adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md) | "local pessoal" vale ([ADR-0001](adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md), [ADR-0003](adr/0003-repo-publico.md)); o mercado deixou de orientar decisão (ADR-0001, Decisão e Consequências) |
+| D2 | IA = **profiles nomeados do VPK** via `bot_add_ct "<perfil>"` em runtime. Plugin próprio é trabalho futuro | vigente | `start_match.py:425-429` e `start_match.py:452-466`; a IA própria segue como direção (ADR-0001, Camada 3), e os plugins de bot de terceiros são da [trilha de bots](adr/0005-trilha-de-bots-uma-variavel-por-vez.md) |
+| D3 | **Nomes oficiais** no uso pessoal; roster como dado, com `display_name` separado | vigente | `roster.py:1-12`, `roster.py:219-236`; ponto de extensão 3 do ADR-0001 |
+| D4 | **Sem anti-cheat, sem ranking global** | vigente | nada no código implementa anti-cheat ou ranking global: o "ranking" de `stats.py:982` é por mapa, das partidas do próprio jogador |
+| D5 | **1 humano** + 9 bots | vigente | um `WizardSession` só (`web/app.py:79-82`); tamanho de time de 1 até o máximo do compose (`web/app.py:260-274`), 9 bots no 5x5 |
+| D6 | **Evoluir o `cs2-tracker`**, não recomeçar | vigente | o repo é o mesmo desde o `b953406` (02/09), e o produto da SPEC foi construído sobre ele (`f6a4e6b`, `193cd6c`) |
+| D7 | **Local**: Docker Desktop + localhost; ritual de entrada idêntico ao atual | vigente | [ADR-0007](adr/0007-servidor-dedicado-em-docker-com-matchzy.md) e [ADR-0010](adr/0010-volume-cs2-data-external.md); `docker-compose.yml:14-15`, `docker-compose.yml:189-191` |
+| D8 | **Perfil local** (nick + SteamID salvo), sem Steam OpenID | vigente | `data/profile.json` lido e gravado em `web/app.py:141-152` |
+| D9 | **MD1/MD3/MD5**, cada um com escolha direta de mapas **ou** veto | vigente | `wizard_core.py:52`, `wizard_core.py:96-139`, `wizard_core.py:220-229`; rotas `/maps` e `/veto` em `web/app.py:571-655` |
+| D10 | **SQLite atual**, sem migração | parcialmente cumprida; revisão prevista no S2.5 | SQLite segue único (`parser.py:433-436`), mas já há migração aditiva por `ALTER TABLE` (`parser.py:420-430`); o S2.5 escreve o ADR que revisa a D10 (`docs/agents/plano-2026-09-26.json:1924`) |
+| D11 | Início de partida: **auto-retry (2x)** + botão manual + telemetria | parcialmente cumprida; rebaixamento previsto no P1.12 | botão manual "Forçar início" na TUI (`wizard_tui.py:625-637` → `wizard_core.py:540-556`); auto-retry e telemetria não existem; o P1.12 rebaixa a D11 (`docs/agents/plano-2026-09-26.json:1460`) |
+| D12 | **Sem dial de dificuldade** — pro contra pro, e medir se é divertido | vigente | o app não escolhe dificuldade (`start_match.py:811-816`); a variante do `botprofile.vpk` é decisão do Victor, trocada só em janela (AGENTS.md:15) |
+| D13 | TUI e web **em paralelo** até o web provar paridade em uso real (série MD3 completa jogada pelo browser); só então a TUI é aposentada (M7/F7.3). Headless fica com o CLI do `start_match.py` | ainda aberta | a web não inicia partida: as rotas param no Resumo (`web/app.py:706-735`); a TUI fica viva e sem diff (AGENTS.md:10); cumprir é da S6 (`docs/agents/sprints.md:67`) e do S8.1 |
+| D14 | **Sessão stateful** — reabrir a aba reidrata a partida | parcialmente cumprida | reabrir reidrata o wizard (`web/app.py:79-82`, `web/app.py:176-183`); a partida não, porque a web ainda não a inicia; reidratar e sobreviver ao reinício do uvicorn é do S6.2 (`docs/agents/plano-2026-09-26.json:2300`) |
+| D15 | **FastAPI + Jinja + HTMX + SSE**, sem build step | parcialmente cumprida | FastAPI e Jinja (`web/app.py:24-27`), HTMX por CDN, sem build (`web/templates/wizard_modal.html:12`); o SSE ainda não existe (S6.2) |
+| D16 | Catálogo **híbrido**: times transcritos + atributos extraídos do VPK | vigente | times em `data/rosters.json`; atributos lidos do VPK em `roster.py:239-257`, estilo em `roster.py:111`, cards em `roster.py:280-299` |
+| D17 | **Dois seletores + presets como atalho**, com pool compartilhado | parcialmente superada, sem ADR | dois seletores e pool compartilhado valem (`web/app.py:309-336`); os presets deram lugar à grade de logos e ao sorteio de time no redesenho de 20/09 (`web/app.py:457-463`, `web/app.py:516-518`) |
+| D18 | **Head-to-head por profile** | vigente | `stats.py:562-572` (por partida) e `stats.py:1139-1146` (somado), na tela em `templates/match_detail.html:300-304` |
+| D19 | Veto por **preferência real curada à mão**, datada e versionada pelo pool | ainda aberta | o bot veta com sorteio uniforme (`wizard_core.py:141-143`), e só um dos dez times tem dado de veto (`data/rosters.json:10`) |
+| D20 | `report.py` vira **camada de consulta**; gerador estático morre (cálculo já extraído pra `stats.py`, ver §11) | parcialmente cumprida | `/` e `/report` são rotas sobre o banco (`web/app.py:176-183`, `web/app.py:206-212`), mas o watcher ainda gera os HTML estáticos (`watcher.py:263-266`, `watcher.py:507-510`); aposentar é do S4.4, depois da D13 (`docs/agents/plano-2026-09-26.json:2097`) |
+| D21 | Progressão = **marcos**, sem ELO nem nível | ainda aberta | nenhum marco no código; é a Etapa 8 (§14) |
+| D22 | **"Repetir última partida"** em vez de lineups salvas | ainda aberta | nenhum "repetir" no código; é a Etapa 8 (§14) |
 
 ## 13. Riscos
 
@@ -407,3 +407,24 @@ e não deixa rastro.
   toda mudança futura em `wizard_core.py`/`start_match.py`/`watcher.py` (inclusive
   no trabalho do launcher, Etapa 6) precisa ser testada pela TUI também, não só
   pelo browser
+
+## 16. Reconciliação das decisões (K1.6, 2026-10-13)
+
+O texto das D1–D22 e o resto desta SPEC ficam como o Victor decidiu em 19–20/09; o
+K1.6 só acrescentou as colunas de status e evidência da §12 e a linha de status no
+topo. Os `caminho:N` da §12 valem no commit do K1.6.
+
+- **vigente**: a decisão vale e o código a cumpre.
+- **parcialmente cumprida**: vale, mas falta parte; a coluna diz o que falta e qual card cobre.
+- **parcialmente superada**: parte dela foi trocada por ADR ou por mudança registrada no código.
+- **ainda aberta**: vale, e o código ainda não a cumpre.
+
+Decisões tomadas depois da SPEC, e que antes só estavam em commit, viraram ADRs
+retroativos ([índice](README.md#decisões-adrs)):
+
+- [ADR-0007](adr/0007-servidor-dedicado-em-docker-com-matchzy.md): servidor dedicado em Docker, com a MatchZy conduzindo a partida (D7).
+- [ADR-0008](adr/0008-captura-por-plugin-proprio.md): captura por plugin próprio, não pela demo.
+- [ADR-0009](adr/0009-versoes-fixas-de-metamod-cssharp-e-matchzy.md): Metamod, CSSharp e MatchZy com versão fixa.
+- [ADR-0010](adr/0010-volume-cs2-data-external.md): volume do servidor external, com nome fixo.
+- [ADR-0011](adr/0011-python-3-13-unico.md): um interpretador só, Python 3.13 com dependências travadas.
+- [ADR-0012](adr/0012-suite-hermetica-e-ci-antes-do-merge.md): suíte hermética e CI obrigatório antes do merge.
