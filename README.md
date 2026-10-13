@@ -1,15 +1,15 @@
 # CS2 Tracker
 
 Sobe um servidor de CS2 local (Docker + MatchZy), monta a partida por um
-wizard de terminal, joga contra bots e, no fim, grava demo, stats e um
-relatório HTML sozinho.
+wizard de terminal, joga contra bots e, no fim, grava as stats (capturadas
+por um plugin próprio no servidor) e regenera um relatório HTML sozinho.
 
-**Jogar** — sobe o servidor e abre o wizard:
-
+**Jogar** — abre o wizard, que sobe o servidor sozinho se ele estiver parado:
 ```bash
-docker compose up -d
 .venv\Scripts\python.exe wizard_tui.py
 ```
+
+Quebrou depois de uma mudança? [Volte ao jogável](#voltar-ao-jogável).
 
 **Ver as estatísticas** — sobe o app web em http://127.0.0.1:8000:
 
@@ -25,12 +25,12 @@ Os dois são independentes: dá pra abrir as estatísticas sem o Docker rodando
 
 ## O que dá pra fazer
 
-- **Jogar contra bots que se comportam como gente** — o servidor roda o
-  [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver), que
-  reescreve mira, movimentação e compra dos bots nativos (que sozinhos não
-  seguram um round competitivo). O perfil de dificuldade é um arquivo do
-  servidor, trocável entre **Low / Medium / High** — ver
-  [Bots](#bots-dificuldade-e-comportamento).
+- **Jogar contra bots com nome de pro** — os perfis vêm do `botprofile.vpk` do
+  [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver), e os plugins
+  dele (mira, compra, granadas, skins) voltaram um por vez depois da
+  atualização do CS2 de 23/09; o BotAI e o BotHider seguem desligados. O VPK
+  ativo é o **Low** (Medium e High ficam no volume) — ver
+  [Bots](#bots-dificuldade-e-comportamento) e a [trilha de bots](docs/runbooks/trilha-de-bots.md).
 - **Séries BO1, BO3 ou BO5 com veto de mapa** — bans e picks alternando com
   o bot sobre o pool competitivo de 7 mapas, decider incluso. Se preferir,
   dá pra escolher os mapas na mão e pular o veto.
@@ -40,9 +40,9 @@ Os dois são independentes: dá pra abrir as estatísticas sem o Docker rodando
 - **Times balanceados de verdade** — 1x1 até 5x5, com os bots distribuídos
   por lado via RCON (a divisão automática da engine erra quando já tem um
   humano ocupando um time).
-- **Stats e relatório automáticos** — ao fim da partida a demo é parseada
-  com awpy, os dados vão pro SQLite e o `report.html` é regenerado sem você
-  rodar nada.
+- **Stats e relatório automáticos** — o plugin `Cs2TrackerEvents` grava a
+  partida num JSONL; ao fim de cada mapa o watcher ingere no SQLite e
+  regenera o `report.html` e o `index.html` sem você rodar nada.
 
 ## Como configurar e rodar
 
@@ -51,18 +51,18 @@ Os dois são independentes: dá pra abrir as estatísticas sem o Docker rodando
 | O quê | Por quê |
 |---|---|
 | [Docker Desktop](https://www.docker.com/products/docker-desktop/) | roda o servidor dedicado + MatchZy |
-| Python `>=3.11,<3.14` | o awpy 2.x não suporta 3.14+ (`py -0` lista o que você tem) |
+| Python 3.13 | o projeto trava `>=3.13,<3.14` ([ADR-0011](docs/adr/0011-python-3-13-unico.md)); `py -0` lista o que você tem |
 | CS2 instalado | é o client que vai conectar no servidor local |
 
 ### 1. Ambiente Python (uma vez)
 
 ```bash
 py -3.13 -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install -r requirements.lock
 ```
 
 Todo comando daqui pra frente roda por esse `.venv`, não pelo Python do
-sistema.
+sistema. O `requirements.lock` tem as versões exatas que o jogo usa.
 
 ### 2. Variáveis de ambiente (uma vez)
 
@@ -79,21 +79,21 @@ Coloque o mesmo SteamID64 em `docker/match_config.spike.json` (campo
 
 ### 3. Subir o servidor
 
-```bash
-docker compose up -d
-```
+O wizard (passo 6) sobe o container sozinho quando ele está parado, sempre
+a partir deste checkout. Não rode `docker compose up -d` com o container de
+pé: se o compose mudou, o `up` recria o container, e infra só muda em janela
+de manutenção ([AGENTS.md](AGENTS.md#janela-de-manutenção)).
 
-A primeira subida baixa a imagem e os arquivos do CS2 — leva vários minutos.
-Confira que está de pé antes de seguir:
-
-```bash
-docker logs --tail 20 cs2-spike
-```
+Numa máquina nova, o volume `cs2-tracker_cs2-data` é external: precisa
+existir antes do primeiro `up` (o compose não o cria), e os plugins de bot
+moram nele, instalados à mão. Ver
+[reconstruir-volume](docs/runbooks/reconstruir-volume.md). Toda subida passa
+pelo SteamCMD, que pode atualizar o CS2 sozinho (leva vários minutos).
 
 O servidor escuta em `27015` (TCP pro RCON, UDP pro jogo) e `27020/UDP`
 (GOTV). `CS2_MAXPLAYERS=11` é o teto atual: 5x5 mais um slot do GOTV — pra
 jogar 6x6 você precisa subir esse valor no `docker-compose.yml` e recriar o
-container.
+container (em janela).
 
 ### 4. Rodar o wizard
 
@@ -198,28 +198,28 @@ jogar de verdade continua sendo o `wizard_tui.py` (ou o `start_match.py`).
 
 ## Plugins do servidor
 
-Tudo já vem embutido na imagem [`xbird/cs2-matchzy`](https://hub.docker.com/r/xbird/cs2-matchzy)
-(baseada em [joedwards32/cs2](https://github.com/joedwards32/CS2)). As três
-versões abaixo estão **fixadas** no `docker-compose.yml` porque a imagem
-busca `latest` a cada boot, e um Metamod mais novo (interface 18) já quebrou
-todos os plugins compilados pra interface 17 (`[META] Loaded 0 plugins.`,
-com `matchzy_loadmatch`/`css_start` virando "Unknown command").
+A imagem [`xbird/cs2-matchzy`](https://hub.docker.com/r/xbird/cs2-matchzy)
+(baseada em [joedwards32/cs2](https://github.com/joedwards32/CS2)) instala
+Metamod, CounterStrikeSharp e MatchZy a cada boot e, sem pin, baixa o
+`latest`. As três ficam **fixadas** no `docker-compose.yml`
+([ADR-0009](docs/adr/0009-versoes-fixas-de-metamod-cssharp-e-matchzy.md)): Metamod e
+CSSharp são um par (1469 com 1.0.375), e um par trocado derruba tudo (`[META] Loaded 0 plugins.`).
 
 | Plugin | Versão | Papel |
 |---|---|---|
-| [Metamod:Source](https://www.sourcemm.net/) | `2.0.0.1411` | camada de plugins da engine |
-| [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `v1.0.373` | runtime .NET pros plugins |
+| [Metamod:Source](https://www.sourcemm.net/) | `2.0.0.1469` | camada de plugins da engine |
+| [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `v1.0.375` | runtime .NET pros plugins |
 | [MatchZy](https://github.com/shobhit-pathak/MatchZy) | `0.8.15` | partidas competitivas: match config, séries, demo e CSV de stats |
-| [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) | embutida | comportamento, mira e compra dos bots |
+| `Cs2TrackerEvents` (deste repo) | fonte em `docker/plugins-src/`; a DLL é gerada e fica fora do git | captura da partida — ver [Captura](#captura-e-banco-de-dados) e [Build](#build-do-plugin-de-captura) |
+| Plugins de bot do [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) | no volume (instalados à mão em 05/09); BotAimImprover e BotRandomizer compilados do upstream, por bind | o que está ligado em cada tag: [versoes-conhecidas](docs/runbooks/versoes-conhecidas.md) |
 | [DefaultAgents-CS2](https://github.com/srwiruwiru/DefaultAgents-CS2) | versionado em `docker/plugins/` | **desligado** — ver abaixo |
 
 O DefaultAgents-CS2 forçaria todo mundo a usar o agente default sem mexer em
 skin de arma/faca/luva, mas está desativado: testado ao vivo, ele trava o
 load de um recurso de modelo (`RESOURCE_TYPE_MODEL B6EC56677600A473 "not
 resident"` no log do client), o viewmodel da arma renderiza gigante/quebrado
-e falta uma textura no HUD. O bug sumiu ao desativar e voltou ao reativar.
-Pra religar (por sua conta e risco), descomente o volume dele no
-`docker-compose.yml` e recrie o container.
+e falta uma textura no HUD. O bug sumiu ao desativar e voltou ao reativar. Pra religar
+(por sua conta e risco, em janela), descomente o volume dele no `docker-compose.yml` e recrie o container.
 
 ## Bots: dificuldade e comportamento
 
@@ -244,7 +244,7 @@ em [docs/SPEC.md §10](docs/SPEC.md) (Passo 0).
 As três variantes ficam no volume em `overrides/{Low,Medium,High}/` (instaladas à mão em 05/09, não vêm da imagem). Este
 projeto usa **Low** desde 28/09/2026. Pra trocar:
 
-**Pare o servidor ANTES de copiar.** O jogo mantém o VPK mapeado em memória
+**Só em janela, com o servidor parado.** O jogo mantém o VPK mapeado em memória
 enquanto roda; sobrescrever o arquivo por baixo de um processo vivo derruba o
 servidor com `FATAL ERROR: Error reading from loaded packed store` seguido de
 `Segmentation fault` (reproduzido em 26/09/2026). O processo volta sozinho e o
@@ -266,8 +266,8 @@ segura um round casual, `Medium` chega perto de um jogo competitivo online e
 wizard_tui.py                                    # o wizard (Textual) — porta de entrada
 wizard_core.py                                   # lógica do wizard (veto, match_config) — sem UI
 start_match.py                                   # docker up + RCON + matchzy_loadmatch + bots
-watcher.py                                       # segue o log do servidor, dispara o parser
-parser.py                                        # awpy -> SQLite
+watcher.py                                       # segue o log do servidor, arquiva o JSONL e dispara a ingestão
+parser.py                                        # JSONL da captura (e a demo, no legado) -> SQLite
 stats.py                                         # SQLite -> dict — cálculo puro, sem HTML, usado por report.py e home.py
 report.py                                        # stats.py -> report.html (dashboard + detalhe de partida)
 home.py                                          # stats.py -> index.html (tela inicial, ver docs/features/M3.5-home.md)
@@ -275,20 +275,24 @@ templates/                                       # Jinja: shell.html (header/CSS
 static/                                          # escudos, ícones de mapa/arma servidos pelos HTMLs gerados
 config.py                                        # paths/defaults compartilhados (.env)
 identity.py                                      # resolve nick/SteamID64 do jogador humano
+web/                                             # app web (FastAPI): estatísticas e o /setup
+tools/jogavel.py                                 # voltar ao jogável (ver o fim deste README)
 tools/make_screenshots.py                        # regenera os prints de docs/img/
 docker-compose.yml                               # servidor MatchZy em container
 docker/match_config.spike.json                   # match config reescrito a cada partida
-docker/plugins/                                  # plugins CounterStrikeSharp versionados aqui
-server-configs/cfg/                              # cfgs do servidor dedicado NATIVO (ver abaixo)
-docs/img/                                        # prints do wizard usados neste README
-demos/                                           # .dem já parseados, arquivados (git-ignored)
+docker/plugins-src/Cs2TrackerEvents/             # fonte do plugin de captura (C#)
+docker/plugins/                                  # pastas montadas: _empty (máscaras) e DefaultAgents; DLLs geradas fora do git
+docker/events-live/                              # JSONL da captura, um por mapa (git-ignored)
+server-configs/cfg/                              # cfg montado no container e usado pelo dedicado NATIVO (ver abaixo)
+tests/                                           # suíte hermética (ver Testes)
+docs/                                            # base de conhecimento: ADRs, runbooks, armadilhas
+demos/                                           # .dem do modo nativo (legado), arquivados (git-ignored)
 cs2_tracker.db                                   # SQLite gerado pelo parser (git-ignored)
 report.html, index.html                          # gerados pelo watcher a cada partida (git-ignored)
 ```
 
-Toda a lógica de negócio do wizard vive em `wizard_core.py`, sem nenhum
-import de Textual — `wizard_tui.py` é só a casca visual, então trocar de UI
-no futuro significa reescrever só esse arquivo.
+Toda a lógica de negócio do wizard vive em `wizard_core.py`, sem nenhum import de Textual —
+`wizard_tui.py` é só a casca visual, então trocar de UI no futuro significa reescrever só esse arquivo.
 
 Os prints deste README são SVGs gerados a partir do próprio wizard rodando
 headless; depois de mexer na TUI, regenere com:
@@ -297,27 +301,26 @@ headless; depois de mexer na TUI, regenere com:
 .venv\Scripts\python.exe tools/make_screenshots.py
 ```
 
-## Parser / banco de dados
+## Captura e banco de dados
 
-`parser.py` lê o `.dem` com awpy e grava em `cs2_tracker.db` (SQLite,
-git-ignored):
+O plugin `Cs2TrackerEvents` (CounterStrikeSharp) lê o jogo pela API e grava a partida em
+`docker/events-live/current.jsonl`. Quando a MatchZy fecha um mapa, o watcher renomeia esse arquivo para
+`events_<matchid>_map<N>.jsonl` (o plugin trunca o `current.jsonl` no mapa seguinte) e o `parser.py` ingere no
+`cs2_tracker.db` (SQLite, git-ignored). A demo do GOTV deixou de ser fonte em 25/09 ([ADR-0008](docs/adr/0008-captura-por-plugin-proprio.md)); o formato está no [contrato do JSONL](docs/arquitetura/contrato-events-jsonl.md).
 
 | Tabela | Conteúdo |
 |---|---|
-| `matches` | 1 linha por partida — mapa, placar, duração, caminho do demo, nome do jogador |
-| `rounds` | round a round — vencedor, motivo, plant de bomba |
+| `matches` | 1 linha por partida — mapa, placar, duração, nome do jogador, fonte (`events` ou, no legado, `demo`) |
+| `rounds` | round a round — vencedor, motivo, plant de bomba, lado do humano |
 | `kills` | quem matou quem, arma, headshot, distância (`attacker_is_human`/`victim_is_human` marcam se é você) |
 | `damages` | dano por evento, com os mesmos flags `*_is_human` (dá pra computar ADR agrupando por round) |
-| `player_positions` | posição tick a tick — **só do jogador humano** (`--player`) |
+| `player_positions` | posição amostrada com vida, flash e equipamento; na fonte `events`, dos 10 jogadores (`is_human` marca você) |
+| `player_blinds` | flash sofrida, uma linha por evento |
+| `round_stats` | contadores do engine por round e jogador: entry, clutch, multi-kill, utility e economia (só fonte `events`) |
 
-**TODO conhecido**: economia/compra (dinheiro gasto por round) fica de
-fora por ora — o awpy 2.0.2 não expõe um dataframe de compra com valor
-monetário, só o evento `item_pickup` sem o dado de dinheiro. Revisitar se
-uma versão futura do awpy cobrir isso.
-
-Pra reprocessar uma demo manualmente (sem precisar do watcher rodando):
+Pra reprocessar os JSONL já arquivados (sem rejogar nem precisar do watcher):
 ```bash
-.venv\Scripts\python.exe parser.py "C:/cs2server/game/csgo/20260902_202208_de_mirage.dem" --map de_mirage --score-ct 1 --score-t 13 --minutes 19 --player seu_nick_in_game --db cs2_tracker.db
+.venv\Scripts\python.exe tools/reingest_events.py --dry-run
 ```
 
 ## Relatório e Home
@@ -376,11 +379,10 @@ dado não permite separar os dois de verdade.
 
 ### CLI, sem wizard (`start_match.py`)
 
-Mesma orquestração do wizard, com flags em vez de telas — útil pra repetir
-uma configuração ou automatizar:
+Mesma orquestração do wizard, com flags em vez de telas — útil pra repetir uma configuração ou automatizar.
+Como no wizard, ele sobe o container só se estiver parado (`--skip-up` pula essa parte):
 
 ```bash
-docker compose up -d
 .venv\Scripts\python.exe start_match.py --player seu_nick_in_game --map de_inferno --side ct --team-size 5
 ```
 
@@ -395,17 +397,15 @@ você roda o watcher à mão em outra janela:
 
 O gatilho de fim de partida é a linha de log
 `[MatchZy] [WritePlayerStatsToCsv] ...` (só ela é confiável — ver comentário
-de `MATCHZY_PATTERNS` em `watcher.py`), disparada quando o MatchZy já
-terminou de gravar `docker/demos-live/<matchid>_<mapa>_<time1>_vs_<time2>.dem`.
-O watcher localiza essa demo pelo `matchid`, parseia com awpy e regenera o
-`report.html` — placar e duração são calculados a partir do próprio `.dem`
-(o CSV do MatchZy não tem placar por round).
+de `MATCHZY_PATTERNS` em `watcher.py`), uma por mapa. Nela o watcher arquiva o `current.jsonl` da captura como
+`events_<matchid>_map<N>.jsonl`, ingere no banco e regenera o `report.html` e o `index.html`. O `.dem` em
+`docker/demos-live/` não é lido para stats (sai com ~1,5 s de conteúdo no Docker), e o CSV do MatchZy só tem agregado.
 
 ### Servidor dedicado nativo (sem Docker)
 
-Fluxo anterior ao Docker, mantido porque ainda funciona. Não tem MatchZy:
-sem veto, sem série, sem CSV de stats — o watcher fala direto com o servidor
-por RCON e grava a demo via GOTV.
+Fluxo anterior ao Docker, legado na fila da poda (S1.4). Não tem MatchZy nem
+o plugin de captura: sem veto, sem série, e as stats saem da demo do GOTV pelo
+awpy — o watcher fala direto com o servidor por RCON e grava a demo.
 
 1. Baixe o [SteamCMD](https://developer.valvesoftware.com/wiki/SteamCMD) e
    os arquivos do servidor (pasta separada do client normal):
@@ -480,3 +480,69 @@ erro de configuração. Por isso todo fluxo aqui assume um servidor dedicado.
   quantidade exata por lado, intercalando CT/TR com o autobalance desligado.
 - **Balancear bots antes do `css_start` não adianta**: o `css_start` executa
   o `MatchZy/live.cfg`, que zera `bot_quota`. O ajuste tem que vir depois.
+
+A lista completa, com sintoma, causa e contorno de cada armadilha (imagem,
+MatchZy, captura, bots, Windows), está em [docs/armadilhas/](docs/armadilhas/README.md).
+
+## Testes
+
+A suíte é hermética ([ADR-0012](docs/adr/0012-suite-hermetica-e-ci-antes-do-merge.md)):
+o `tests/conftest.py` aponta o app para um banco temporário, só com o schema, e
+barra docker, conexão para fora do processo e banco fora da pasta temporária ou
+de `tests/fixtures/`. Ela não precisa de jogo nem de servidor, não toca no
+`cs2_tracker.db` e roda com ou sem o Docker no PATH. Use o Python da `.venv`
+pelo caminho absoluto (uma worktree não tem `.venv` própria):
+
+```bash
+C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider
+```
+
+- A linha de base é **0 falhas**. Um `cs2_tracker.db` que apareça na pasta
+  depois da suíte é sinal de teste furando o conftest: apague-o.
+- O smoke da TUI com Pilot e a integração TUI → `run_match` com docker, RCON e
+  watcher falsos (`tests/test_tui_smoke.py` e `tests/test_tui_integracao.py`)
+  provam, sem jogo, que o wizard ainda monta e lança a partida.
+- O CI roda em todo PR e em todo push na `main`, com seis checks obrigatórios:
+  `compose`, `plugin`, `ruff`, `pytest`, `crlf-sh` e `pii`
+  (`.github/workflows/ci.yml`). Passar no CI não prova o que só a partida
+  mostra: mudança no caminho de jogo só fecha depois de uma partida real.
+
+## Build do plugin de captura
+
+A fonte fica em `docker/plugins-src/Cs2TrackerEvents/`. A DLL compilada vai para
+`docker/plugins/Cs2TrackerEvents/`, que é git-ignored e montada no container. O
+build roda o SDK .NET dentro de um container, sem instalar nada no host:
+`docker/build-events-plugin.ps1` no PowerShell ou `docker/build-events-plugin.sh`
+no Git Bash.
+
+- **DLL nova só em janela, com o servidor parado**: trocar a DLL com o servidor
+  vivo dá `FATAL`/segfault. Depois do recreate, o sha256 dentro do container tem
+  que bater com o do checkout.
+- A DLL de cada tag jogável tem cópia com manifesto sha256:
+  [versoes-conhecidas](docs/runbooks/versoes-conhecidas.md#manifesto-do-plugin-de-captura).
+- O job `plugin` do CI compila a fonte a cada PR, fora de `docker/plugins/`.
+- O BotAimImprover e o BotRandomizer também são compilados do upstream, cada um
+  com o seu runbook: [b1.4b](docs/runbooks/b1.4b-botaimimprover-upstream.md) e
+  [b1.9](docs/runbooks/b1.9-botrandomizer-upstream.md).
+
+## Voltar ao jogável
+
+Se uma mudança quebrou o jogo, um comando devolve o checkout principal à última
+tag `jogavel-*` (o último commit em que uma partida real passou) e recria o
+container só se a infra mudou. Rode do checkout principal, sem agente nenhum:
+
+```bash
+C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/jogavel.py voltar --seco
+C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/jogavel.py voltar
+```
+
+- O `--seco` mostra o que mudaria sem mudar nada, e o `status` só lê o estado
+  (HEAD, última tag, janela, container). Com partida em curso, o `voltar` recusa.
+- Ele também restaura a pasta do plugin de captura pelo manifesto sha256.
+- O que não volta por git: a build do CS2 (o SteamCMD atualiza no boot), o VPK
+  de bots e os plugins instalados no volume; esses voltam pelo rollback do
+  runbook de cada passo, em janela.
+
+Passo a passo, códigos de saída e a janela de manutenção:
+[voltar-ao-jogavel](docs/runbooks/voltar-ao-jogavel.md). O que cada tag rodou
+(versões, plugins, VPK e sha256): [versoes-conhecidas](docs/runbooks/versoes-conhecidas.md).
