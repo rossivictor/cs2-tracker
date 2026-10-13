@@ -24,10 +24,12 @@ import argparse
 import itertools
 import json
 import re
+import shutil
 import subprocess
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -36,7 +38,7 @@ try:
 except ImportError:
     RconClient = None
 
-from config import COMPOSE_FILE, CONTAINER_NAME, MATCH_CONFIG_FILE, load_env
+from config import COMPOSE_FILE, CONTAINER_NAME, EVENTS_LIVE_DIR, MATCH_CONFIG_FILE, load_env
 
 ROOT = Path(__file__).resolve().parent
 
@@ -46,6 +48,107 @@ ROOT = Path(__file__).resolve().parent
 # stdout: quem quiser capturar a saída (ex.: wizard_tui.py) passa seu próprio
 # sink em vez de redirecionar o stdout do processo inteiro.
 Sink = Callable[[str], None]
+
+# Órfão real (P1.1): o plugin de captura trunca o current.jsonl no próximo
+# OnMapStart, e o loadmatch (ou a subida do container) dispara um. Se a
+# partida anterior caiu antes do watcher arquivar (BO3 matchid 75, 04/10:
+# segfault na troca para o mapa 2), os rounds dela estão só ali. Basta UM
+# destes eventos para ser partida de verdade. O resto (snapshot, round_stats,
+# round_officially_ended) é a cauda normal de toda partida já arquivada, e
+# segue sendo truncada pelo plugin, como antes.
+EVENTOS_DE_PARTIDA = frozenset({"round_start", "player_death", "player_hurt"})
+
+
+def _carimbo_utc() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _tem_evento_de_partida(caminho: Path) -> bool:
+    # utf-8-sig: o plugin já gravou arquivo com BOM (events_44_map0).
+    with caminho.open(encoding="utf-8-sig", errors="replace") as arquivo:
+        for linha in arquivo:
+            try:
+                evento = json.loads(linha)
+            except ValueError:
+                continue
+            if isinstance(evento, dict) and evento.get("type") in EVENTOS_DE_PARTIDA:
+                return True
+    return False
+
+
+def preservar_orfao(pasta_eventos: Path, log: Sink = print) -> Optional[Path]:
+    """Renomeia o current.jsonl para orphan_<utc>.jsonl quando ele tem round
+    real; devolve o caminho novo, ou None. Nunca para a partida: se nem o
+    rename nem a cópia derem certo, avisa e segue."""
+    current = Path(pasta_eventos) / "current.jsonl"
+    try:
+        if not current.is_file() or not _tem_evento_de_partida(current):
+            return None
+    except OSError as exc:
+        log(f"[AVISO] Não consegui ler {current} ({exc}); sigo sem conferir órfão.")
+        return None
+    carimbo = _carimbo_utc()
+    destino = current.with_name(f"orphan_{carimbo}.jsonl")
+    n = 2
+    while destino.exists():  # nunca sobrescreve um órfão anterior
+        destino = current.with_name(f"orphan_{carimbo}-{n}.jsonl")
+        n += 1
+    try:
+        current.rename(destino)
+    except OSError as exc:
+        try:
+            shutil.copy2(current, destino)
+        except OSError:
+            log(f"[AVISO] current.jsonl tem rounds não arquivados e não consegui "
+                f"preservá-lo ({exc}): o próximo mapa vai truncá-lo.")
+            return None
+    log(f"[CAPTURA] current.jsonl tinha rounds sem arquivar: preservado em {destino.name}.")
+    return destino
+
+
+def sink_com_arquivo(log: Sink, pasta: Path, nome: str) -> Sink:
+    """Sink que repassa cada linha a `log` e a acrescenta em pasta/nome
+    (logs/partidas/, P1.1). Falha de escrita vira um [AVISO] só, e as linhas
+    seguintes vão só para `log`: o arquivo nunca para a partida."""
+    caminho = Path(pasta) / nome
+    trava = threading.Lock()
+    estado = {"ok": True}
+
+    def escrever(linha: str):
+        log(linha)
+        with trava:
+            if not estado["ok"]:
+                return
+            try:
+                caminho.parent.mkdir(parents=True, exist_ok=True)
+                with caminho.open("a", encoding="utf-8") as arquivo:
+                    arquivo.write(f"{datetime.now():%H:%M:%S} {linha}\n")
+                return
+            except Exception as exc:  # qualquer falha: a partida segue
+                estado["ok"] = False
+                erro = exc
+        log(f"[AVISO] Não consegui gravar o log em {caminho} ({erro}); a partida segue sem ele.")
+
+    return escrever
+
+
+def aviso_candidato(arquivo: Path, log: Sink = print) -> None:
+    """Linha [INFO] do candidato em teste (protocolo 5, P1.1), lida do
+    data/candidato.json que o `jogavel.py marcar candidato` grava. Sem o
+    arquivo, não diz nada."""
+    arquivo = Path(arquivo)
+    if not arquivo.is_file():
+        return
+    try:
+        dados = json.loads(arquivo.read_text(encoding="utf-8"))
+        tag = dados.get("tag") or "?"
+        nota = dados.get("nota") or ""
+        commit = str(dados.get("commit") or "")[:9]
+    except Exception:
+        tag, nota, commit = "?", "data/candidato.json ilegível", ""
+    detalhe = ", ".join(p for p in (nota, commit and f"commit {commit}") if p)
+    log(f"[INFO] Candidato em teste: {tag}" + (f" ({detalhe})" if detalhe else "")
+        + ". Esta partida valida esse degrau; para desfazer: tools/jogavel.py voltar.")
 
 
 def container_running(container_name: str) -> bool:
@@ -716,6 +819,16 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
     """
     compose_file_path = ROOT / compose_file
     rcon_lock = rcon_lock or threading.Lock()
+
+    # P1.1: tudo o que esta partida diz (e o watcher, quando a saída dele
+    # passa por aqui) também vai para logs/partidas/; depois o aviso do
+    # candidato e o órfão, antes do compose_up e do loadmatch.
+    nome_log = f"partida_{_carimbo_utc()}.log"
+    log = sink_com_arquivo(log, ROOT / "logs" / "partidas", nome_log)
+    if watcher_output is not None:
+        watcher_output = sink_com_arquivo(watcher_output, ROOT / "logs" / "partidas", nome_log)
+    aviso_candidato(ROOT / "data" / "candidato.json", log=log)
+    preservar_orfao(ROOT / EVENTS_LIVE_DIR, log=log)
 
     # 2x team_size (times cheios) + 1 slot pro GOTV/SourceTV, que ocupa uma
     # vaga própria mesmo sem ser um jogador de verdade.
