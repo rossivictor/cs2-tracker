@@ -44,7 +44,7 @@ Até a T1 (03 a 04/10), nada conferia o compose nem a compilação do plugin de 
 
 ## Status
 
-Aceito na prática entre 03/10 (`6bf07e6`) e 04/10/2026 (`185fbee`, `6de3e95`, `8abc99b`), na `main`; a T1 fechou com a `jogavel-2026-10-12`. ADR retroativo, escrito pelo K1.6 em 13/10 a partir dos commits; o texto não passou pela leitura do Victor.
+Aceito na prática entre 03/10 (`6bf07e6`) e 04/10/2026 (`185fbee`, `6de3e95`, `8abc99b`), na `main`; a T1 fechou com a `jogavel-2026-10-12`. ADR retroativo, escrito pelo K1.6 em 13/10 a partir dos commits; confirmado pelo Victor em 13/10.
 
 ## Fontes
 

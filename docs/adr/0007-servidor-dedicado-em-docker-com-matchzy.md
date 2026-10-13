@@ -56,7 +56,7 @@ Em 06/09, o `start_match.py` passou a fazer os passos do spike por RCON (`8a3ff2
 
 ## Status
 
-Aceito na prática desde 04/09/2026 (`4c19249`) e 06/09 (`8a3ff2f`), na `main`. ADR retroativo, escrito pelo K1.6 em 13/10 a partir dos commits; o texto não passou pela leitura do Victor.
+Aceito na prática desde 04/09/2026 (`4c19249`) e 06/09 (`8a3ff2f`), na `main`. ADR retroativo, escrito pelo K1.6 em 13/10 a partir dos commits; confirmado pelo Victor em 13/10.
 
 ## Fontes
 

@@ -48,7 +48,7 @@ Decidido no `193cd6c` (25/09):
 
 ## Status
 
-Aceito na prática desde 25/09/2026 (`193cd6c`), na `main`. ADR retroativo, escrito pelo K1.6 em 13/10 a partir dos commits; o texto não passou pela leitura do Victor.
+Aceito na prática desde 25/09/2026 (`193cd6c`), na `main`. ADR retroativo, escrito pelo K1.6 em 13/10 a partir dos commits; confirmado pelo Victor em 13/10.
 
 ## Fontes
 

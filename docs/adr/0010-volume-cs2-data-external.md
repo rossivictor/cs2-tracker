@@ -44,7 +44,7 @@ Decidido no `c2a90e4` (B0.8, 01/10):
 
 ## Status
 
-Aceito na prática desde 01/10/2026 (`c2a90e4`), na `main`. No servidor, entrou como `candidato-8` na Janela 0 e foi validado na partida que deu a `jogavel-2026-10-03` (`docs/runbooks/versoes-conhecidas.md:178`). ADR retroativo, escrito pelo K1.6 em 13/10 a partir dos commits; o texto não passou pela leitura do Victor.
+Aceito na prática desde 01/10/2026 (`c2a90e4`), na `main`. No servidor, entrou como `candidato-8` na Janela 0 e foi validado na partida que deu a `jogavel-2026-10-03` (`docs/runbooks/versoes-conhecidas.md:178`). ADR retroativo, escrito pelo K1.6 em 13/10 a partir dos commits; confirmado pelo Victor em 13/10.
 
 ## Fontes
 

@@ -53,6 +53,7 @@ As regras para agentes ficam no [AGENTS.md](../AGENTS.md), na raiz. O board de s
 | [0010](adr/0010-volume-cs2-data-external.md) | O volume do servidor é external, com nome fixo | aceito (retroativo, K1.6) |
 | [0011](adr/0011-python-3-13-unico.md) | Um interpretador só: Python 3.13, com dependências travadas | aceito (retroativo, K1.6) |
 | [0012](adr/0012-suite-hermetica-e-ci-antes-do-merge.md) | Suíte hermética e CI obrigatório antes do merge | aceito (retroativo, K1.6) |
+| [0013](adr/0013-lineups-grade-de-logos-e-sorteio-no-lugar-dos-presets.md) | No wizard do browser, a grade de logos e o sorteio de time substituem os presets como atalho | aceito (13/10) |
 
 ## Frontmatter padrão
 
