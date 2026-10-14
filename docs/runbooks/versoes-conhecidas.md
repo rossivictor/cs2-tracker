@@ -39,6 +39,10 @@ fontes:
   - "backup:../2026-10-13/coleta-g7-p1.1/docker-logs-reconstruido.txt (build 2000930, 8 Finished loading no boot, nenhum anúncio de dificuldade)"
   - "backup:../2026-10-13/coleta-g7-p1.1/sha-montados.txt (contra sha-referencia.txt; config-hash.txt igual ao config-hash-janela.txt)"
   - "backup:../2026-10-13/coleta-g7-p1.1/skins-extrato.txt (regressão do BotRandomizer na 2000930)"
+  - "backup:../2026-10-13/janela-diag/libserver-2000930/LEIAME.txt (build 2000930, PatchVersion 1.41.9.0, VersionDate Oct 08 2026; cópia de 13/10 22:52)"
+  - "backup:../2026-10-13/janela-diag/libserver-2000930/libserver.so.sha256 (sha256 da cópia)"
+  - "backup:../2026-10-13/janela-diag/t0-2248.txt (tamanho, mtime e sha256sum do libserver.so dentro do container)"
+  - "backup:../2026-10-13/janela-diag/sha-comparacao.txt (janela de diagnóstico: 19 montados iguais ao checkout)"
 atualizado: 2026-10-13
 ---
 
@@ -54,12 +58,12 @@ Convenções:
 - sha256 aparece abreviado (8 caracteres) nas tabelas. O valor inteiro está em [Hashes completos](#hashes-completos).
 - **não registrado** quer dizer que nenhuma fonte guardou o valor. A nota diz de onde ele viria. Nenhum valor daqui é estimado.
 - Fontes fora do git: os registros de janela em `logs/janelas/2026-09-27.md`, `2026-09-28.md`,
-  `2026-09-30.md` e `2026-10-02.md` (checkout principal), as coletas em
+  `2026-09-30.md`, `2026-10-02.md` e `2026-10-13.md` (checkout principal), as coletas em
   `C:/Users/Victor/cs2-tracker-backups/2026-09-27/`, `2026-09-28/`, `2026-10-01/`, `2026-10-02/`, `2026-10-03/`, `2026-10-12/` e `2026-10-13/`,
   e os Históricos do card 17 (B0.8), do card 62,7 (T1.3c) e do card 80 (P1.1) no board. Nas tabelas, `b1.x/...` é relativo a `2026-09-27/`,
   a coleta da partida 36 aparece como `2026-10-01/g7-2000922-partida/`, a da Janela 0 como `2026-10-02/janela0/`, a do G7 do B0.8 como
-  `2026-10-03/coleta-g7-b0.8-0015/`, a do G7 do `candidato-9` como `2026-10-12/coleta-g7-candidato-9/` e a do G7 do `candidato-10` como
-  `2026-10-13/coleta-g7-p1.1/`.
+  `2026-10-03/coleta-g7-b0.8-0015/`, a do G7 do `candidato-9` como `2026-10-12/coleta-g7-candidato-9/`, a do G7 do `candidato-10` como
+  `2026-10-13/coleta-g7-p1.1/` e a da janela de diagnóstico do B1.12b como `2026-10-13/janela-diag/`.
 
 ## O que não mudou em nenhuma tag
 
@@ -98,7 +102,10 @@ o card não tinha infra nem janela. O compose não mudou desde o `candidato-8`
 `2a889474…`). O container é o da Janela 0, sem reinício desde o boot de 12/10 (`StartedAt`
 2026-10-12T21:37:09Z, `RestartCount` 0, `container-inspect.txt`): imagem, volume, mounts e
 config-hash (`3970b702…`) são os da `jogavel-2026-10-12`, e os 19 caminhos montados bateram com
-o checkout. Pendência: a regressão do BotRandomizer na 2000930, logo abaixo.
+o checkout. Pendência: a regressão do BotRandomizer na 2000930, logo abaixo. A janela de
+diagnóstico de 13/10 (B1.12b, 22:48–23:17 em -03, depois da partida 80) não mudou nada no ar:
+checkout `c60009a`, container sem recreate nem reinício, 19 montados iguais ao checkout e
+config-hash igual (`sha-comparacao.txt` da `2026-10-13/janela-diag/`).
 
 **Regressão do BotRandomizer na 2000930** (desde o boot de 12/10, partidas 79 e 80): as armas
 dos bots vêm sem skin, e as facas seguem com skin (relato do Victor, card K1.12). O log tem um
@@ -118,8 +125,9 @@ O B0.8 só mudou o compose (volume `cs2-data` external, com nome fixo): o volume
 
 Ressalva sobre a dificuldade da `jogavel-2026-10-12` e da `jogavel-2026-10-13`: o Low também é
 inferido, pelo mesmo caminho da `jogavel-2026-10-03`. As coletas de 12/10 e de 13/10 não leram
-o sha do VPK ativo, e os logs reconstruídos não têm nenhum "BOT Difficulty". Desde a Janela 0
-não houve janela (o último registro em `logs/janelas/` é o de 02/10), e o VPK só se troca em
+o sha do VPK ativo, e os logs reconstruídos não têm nenhum "BOT Difficulty". Da Janela 0 até a
+partida 80 não houve janela (o registro seguinte ao de 02/10 em `logs/janelas/` é o de 13/10, da
+janela de diagnóstico depois da partida 80, que não tocou no VPK), e o VPK só se troca em
 janela, com o servidor parado. Os quatro boots do log (04/10 17:18Z, 05/10 22:25Z e 23:12Z,
 12/10 21:37Z) são restarts do mesmo container, e o de 12/10 seguiu de pé até a coleta de 13/10.
 
@@ -163,6 +171,17 @@ Low" da [trilha](trilha-de-bots.md#épocas).
 
 Os boots de 05/10 (22:25Z e 23:12Z) dizem `already up to date` e seguem na 2000924. O cliente
 do Victor precisa estar na mesma build do servidor.
+
+**Binário da build 2000930 guardado:** o `libserver.so` do container (ServerVersion 2000930,
+PatchVersion 1.41.9.0, VersionDate Oct 08 2026; 41724600 bytes, mtime no container
+2026-10-12 21:37:53Z, no boot de 12/10) foi copiado só leitura na janela de diagnóstico de
+13/10 (B1.12b), para
+`C:/Users/Victor/cs2-tracker-backups/2026-10-13/janela-diag/libserver-2000930/libserver.so`,
+fora do repo, com o `LEIAME.txt` e o `libserver.so.sha256` ao lado. O sha256 da cópia é o mesmo
+do `sha256sum` dentro do container (`c7741272…`, inteiro em [Hashes completos](#hashes-completos)).
+É o insumo do B1.7a, que conferiria o offset do BotAI na build atual ([trilha](trilha-de-bots.md#sobras),
+sobra 1), e de um backtrace futuro nesta build. A build não volta por git: esta cópia é o que
+resta da 2000930 quando o SteamCMD trouxer a próxima.
 
 ### Candidatos
 
@@ -413,6 +432,12 @@ f8eeeaf7fb2913f0d6baf1dd712631b5ddc137b075266e2f1c6e13b45657074f  match_config.s
 a1e4ca2276832a174bdbe15647670ebaf1a2980b7d1bc683f0c68f36ffef7752  match_config.spike.json (coleta de 13/10, depois da partida 80)
 7075101b5d7ac0369eac102b04d23561611b88d5ce44ea0fcc68ff1fe55ad71b  RoundDamageRecap.dll (volume)
 sha256:1056e0031e44709aa5e30a0a0a8f3d5de86c7ee16aa6fee1ec29726a7940ad04  xbird/cs2-matchzy
+```
+
+Binários do servidor (cópia só leitura, fora do repo, em `C:/Users/Victor/cs2-tracker-backups/`):
+
+```
+c7741272b76f16e936d6224dc121105e8051e1bc4d834be016c35ee3c63cac5a  libserver.so build 2000930 (PatchVersion 1.41.9.0, VersionDate Oct 08 2026; 41724600 B) em 2026-10-13/janela-diag/libserver-2000930/
 ```
 
 VPK (`overrides/<variante>/botprofile.vpk`, no volume):

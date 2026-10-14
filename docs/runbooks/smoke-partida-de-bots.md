@@ -18,7 +18,12 @@ fontes:
   - "start_match.py:345-370"
   - "tools/preflight.py:21-25"
   - ".claude/agents/servidor.md:54-64"
-atualizado: 2026-09-30
+  - "docs/runbooks/voltar-ao-jogavel.md:182-188 (coleta incompleta: json-file corrompido em 05/10 e 06/10)"
+  - "backup:../2026-10-13/janela-diag/janela.vars (marca, desde e esperar_padrao, usados ao vivo no T1 do B1.12b)"
+  - "backup:../2026-10-13/janela-diag/t1-resumo.txt (OK do esperar_padrao para Pronto e StartWarmup nas 12 trocas; 351 a 413 linhas por ciclo)"
+  - "backup:../2026-10-13/janela-diag/fechamento.txt (OK do esperar_padrao no changelevel do fechamento)"
+  - "backup:../2026-10-13/janela-diag/docker-logs-antes.txt (o docker logs para a frente termina em 2026-10-05T02:44:21Z)"
+atualizado: 2026-10-13
 ---
 
 # Smoke só de bots
@@ -30,7 +35,8 @@ smoke é exigido e o que ele tem de específico (ex.: as duas trocas do
 [B1.3r](b1.3-cssharp-1.0.375.md#10-smoke-só-de-bots-q7a-condição-do-b11-para-o-b13r)).
 
 Contexto: [trilha de bots](trilha-de-bots.md). Ele nasceu das janelas de 27/09 (B1.3r, B1.5,
-B1.6, B1.8 e B1.9), em que cada smoke redescobriu as mesmas três [armadilhas](#armadilhas).
+B1.6, B1.8 e B1.9), em que cada smoke redescobriu as mesmas três [armadilhas](#armadilhas). A
+quarta, a do log lido pelo começo, veio da janela de diagnóstico de 13/10 (B1.12b).
 
 O smoke **não gera partida no banco**: sem partida carregada na MatchZy não há "MAP ENDED"
 para o watcher. O resíduo que ele deixa no `current.jsonl` e na contagem de rounds é zerado
@@ -42,35 +48,42 @@ pelo `changelevel` do [fechamento](#fechamento).
    [referência do fechamento](#referência-do-fechamento) salva pela RCON. A lista de cvars dela
    precisa ter `bot_join_after_player`, porque o smoke o muda.
 2. Shell preparado como na [preparação do shell do B1.3r](b1.3-cssharp-1.0.375.md#preparação-do-shell):
-   `RAIZ`, `PY`, a pasta `BK` do passo e as funções `rcon`, `prontos` e `esperar_pronto`. O
-   `rcon` lê a senha do `.env` dentro do processo do Python e nunca a imprime; nunca rode
-   `cat .env`. Sem a função `rcon` não há smoke nem fechamento por RCON: registre o smoke como
-   INCONCLUSIVO e siga a regra do resultado abaixo.
+   `RAIZ`, `PY`, a pasta `BK` do passo e a função `rcon`. O `rcon` lê a senha do `.env` dentro
+   do processo do Python e nunca a imprime; nunca rode `cat .env`. Sem a função `rcon` não há
+   smoke nem fechamento por RCON: registre o smoke como INCONCLUSIVO e siga a regra do resultado
+   abaixo. O `prontos` e o `esperar_pronto` daquela preparação contam do começo do log e não
+   servem mais ([armadilha 4](#armadilhas)): use os ajudantes abaixo.
 3. Preflight 4 entre as fases. Com a janela válida, o `current.jsonl` truncado pelo boot e por
    cada `changelevel` não conta (`tools/preflight.py:21-25`). Um 3 durante o smoke é processo
    (`cs2.exe`, TUI, `watcher` ou `start_match`): o Victor abriu o jogo, e o smoke aborta.
 
-Funções que o smoke acrescenta às do B1.3r (cole no mesmo shell):
+Ajudantes que leem o log pelo fim, com marca de carimbo (cole no mesmo shell; são os do
+`janela.vars` da janela de 13/10, só com comentários e quebra de linha a mais):
 
 ```bash
-warmups() { docker logs cs2-spike 2>&1 | grep -cF '[MatchZy] [StartWarmup]'; }
-esperar_warmup() {   # espera uma linha StartWarmup além das $1 que já havia (até 3 min)
-  for i in $(seq 36); do [ "$(warmups)" -gt "$1" ] && { echo "OK    warmup novo"; return 0; }; sleep 5; done
-  echo "FALTA warmup novo em 3 min"; return 1
+marca() { docker logs -t --tail 1 cs2-spike 2>&1 | tail -1 | cut -d' ' -f1; }   # carimbo da última linha
+desde() { docker logs -t --tail ${2:-5000} cs2-spike 2>&1 | awk -v t="$1" '$1 > t'; }   # linhas depois da marca $1, entre as últimas $2
+esperar_padrao() {   # espera o texto $2 depois da marca $1 (até $3 × 5 s; padrão 36, 3 min)
+  for i in $(seq ${3:-36}); do [ "$(desde "$1" | grep -cF "$2")" -gt 0 ] && { echo "OK    $2"; return 0; }; sleep 5; done
+  echo "FALTA $2"; return 1
 }
 ```
 
-O `esperar_warmup` **nunca rodou ao vivo**. Ele nasceu neste runbook, em 28/09 (card B0.9b),
-depois dos smokes que ele resume: todos os do [registro G6](trilha-de-bots.md#janela-g6) são de
-27/09, e o registro não tem smoke depois disso. O padrão que ele conta veio dos
-`docker-logs-smoke.txt` dessas janelas ([armadilha 2](#armadilhas)), não de um teste da
-função. No primeiro smoke que a usar:
+Uso: `m=$(marca)` **antes** do evento; depois, `esperar_padrao "$m" '[Cs2TrackerEvents] Pronto'`
+e `esperar_padrao "$m" '[MatchZy] [StartWarmup]'`. Eles substituem o `prontos` e o
+`esperar_pronto` do B1.3r e o `warmups` e o `esperar_warmup` que este runbook trazia, que
+contavam linhas do começo do log ([armadilha 4](#armadilhas)).
 
-- anote no registro da janela se ela devolveu `OK` ou `FALTA`;
-- antes de tratar um `FALTA` dela como troca de mapa que não terminou, confira no
-  `docker logs cs2-spike` se a linha `[MatchZy] [StartWarmup]` apareceu depois do
-  `changelevel`. Se apareceu, o erro é da função: registre e siga pela
-  [armadilha 2](#armadilhas), com a folga até ~30 s.
+- **Já rodaram ao vivo:** no T1 do [B1.12](b1.12-segfault-troca-de-mapa-md3.md#83-t1-braço-a-12-viradas-sem-queda)
+  (13/10), o `esperar_padrao` devolveu `OK` para o `Pronto` e para o `StartWarmup` nas 12
+  trocas e no `changelevel` do fechamento (`t1-resumo.txt` e `fechamento.txt` da janela).
+- A marca é o carimbo da última linha do próprio log, no mesmo relógio das linhas que o `desde`
+  compara: o atraso entre o relógio do host e o da VM do Docker Desktop não conta. Um salto do
+  relógio da VM para trás entre a marca e o evento contaria; não foi visto até aqui.
+- O `desde` só olha as últimas 5000 linhas (o segundo argumento muda isso). Um evento mais
+  antigo que isso some da conta: para esperar, tire a marca logo antes do comando.
+- O `esperar_warmup` antigo **nunca rodou ao vivo** (nasceu em 28/09, no B0.9b, depois dos
+  smokes de 27/09) e, com o log de hoje, daria `FALTA` em toda troca.
 
 ## Valores do boot
 
@@ -143,6 +156,27 @@ adiciona os bots da partida um a um e reafirma a quota (`start_match.py:345-370`
   mapa, e os rounds dos bots entram na partida dele.
 - **O que fazer:** o [fechamento](#fechamento) abaixo, com a conferência pela RCON.
 
+### 4. O `docker logs` lido do começo para em 05/10
+
+- **Onde apareceu:** na coleta de 12/10, com o `docker-logs.txt` de 0 bytes e código 0
+  ([coleta incompleta](voltar-ao-jogavel.md#coleta-incompleta)); de novo na coleta de 13/10; e na
+  janela de diagnóstico de 13/10 (B1.12b), em que o `docker logs` lido para a frente parou em
+  2026-10-05T02:44:21Z: o `docker-logs-antes.txt` da janela termina nesse carimbo. Com isso, o
+  `prontos` e o `warmups` ficam presos na contagem de 05/10, e o `esperar_pronto` e o
+  `esperar_warmup` dariam `FALTA` em toda troca, mesmo com a troca boa.
+- **Por quê:** o json-file do container tem uma entrada corrompida depois de cada parada brusca
+  (05/10 02:44Z e 06/10 04:04Z, sem linhas de desligamento). Lido do começo (sem `--tail`, ou
+  com `--since`), o `docker logs` para em silêncio na primeira delas, com código 0. O `--tail`
+  lê do fim, e o trecho depois da última parada brusca sai inteiro. A versão antiga deste
+  runbook também guardava o log do smoke pela contagem de linhas (`N=$(docker logs | wc -l)` e
+  `tail -n +N`), que cai no mesmo buraco: o log do smoke sairia vazio.
+- **O que fazer:** ler tudo pelo fim, com a marca de carimbo: `marca`, `desde` e
+  `esperar_padrao` ([pré-condições](#pré-condições)) e o log do smoke pelo
+  [passo 3](#3-o-que-olhar-no-log). Não recrie o container para "limpar" o log: o recreate
+  descarta o json-file, com as linhas que ainda se leem, e é infra, só em janela. Num container
+  recriado, a leitura do começo volta a funcionar até a próxima parada brusca, e os ajudantes
+  pelo fim seguem valendo do mesmo jeito.
+
 ## Procedimento
 
 As durações medidas vêm do [registro G6 da trilha](trilha-de-bots.md#janela-g6) e dos registros
@@ -155,13 +189,13 @@ das janelas de 27/09 (`logs/janelas/2026-09-27.md`).
 | Fase 2, mapa novo | 2 min (B1.9); 1,5 min depois da 2ª troca (B1.5) | registros das janelas |
 | Janela inteira (ff, recreate, G6, smoke e fechamento) | 8 min (B1.9, 22:29–22:37) | [registro G6](trilha-de-bots.md#janela-g6) |
 
-O smoke só com fechamento não foi cronometrado à parte: meça do `N=` ao `fechamento-rcon.txt` e
+O smoke só com fechamento não foi cronometrado à parte: meça do `M=` ao `fechamento-rcon.txt` e
 anote no registro da janela.
 
 ### 1. Entrada
 
 ```bash
-N=$(docker logs cs2-spike 2>&1 | wc -l)   # linhas do log antes do smoke
+M=$(marca)                                # carimbo do log antes do smoke (armadilha 4)
 rcon "sv_hibernate_when_empty 0"          # sem humano o servidor pode hibernar
 rcon "bot_join_after_player 0"            # armadilha 1: sem isso os bots não entram sem humano
 rcon "bot_quota_mode normal"; rcon "bot_quota 10"
@@ -177,8 +211,8 @@ rcon "status" > "$BK/smoke-status.txt"    # precisa haver bots nos dois times
 ### 2. Troca de mapa, com o mapa assentado
 
 ```bash
-P=$(prontos); W=$(warmups); rcon "changelevel de_inferno"
-esperar_pronto "$P" && esperar_warmup "$W"
+m=$(marca); rcon "changelevel de_inferno"
+esperar_padrao "$m" '[Cs2TrackerEvents] Pronto' && esperar_padrao "$m" '[MatchZy] [StartWarmup]'
 #   folga até ~30 s desde o changelevel (armadilha 2)
 rcon "bot_join_after_player 0"; rcon "bot_quota_mode normal"; rcon "bot_quota 10"
 rcon "mp_warmup_end"
@@ -188,24 +222,34 @@ rcon "status" > "$BK/smoke-status-2.txt"  # bots nos dois times de novo
 - Escolha um mapa diferente de `de_mirage`, o do boot, para a troca ser de verdade.
 - Reenviar o `bot_join_after_player 0` é defesa: não se mediu se ele sobrevive ao load. O
   `bot_quota` e o `bot_quota_mode` não sobrevivem (armadilha 2).
-- `FALTA` no `esperar_pronto` ou no `esperar_warmup` quer dizer que a troca de mapa não
-  terminou em 3 min: é motivo para voltar pelo runbook do passo.
+- `FALTA` num dos dois `esperar_padrao` quer dizer que a troca de mapa não terminou em 3 min:
+  é motivo para voltar pelo runbook do passo. Antes, confira com `desde "$m" | grep -F
+  'StartWarmup'` que a linha não está lá; se estiver, o erro é do ajudante: registre e siga
+  pela [armadilha 2](#armadilhas).
 - Fase 2: 2 min de rounds. Se o passo pedir outra troca (o B1.3r pede duas), repita este bloco
   com o mapa seguinte.
 
 ### 3. O que olhar no log
 
-O log do smoke é lido pela contagem de linhas `N`, e não por `--since`: no Docker Desktop, um
-relógio da VM atrasado (acontece depois de suspender o PC) apagaria justamente um crash.
+O log do smoke é lido pelo fim, a partir da marca `M` da entrada. Não é lido do começo
+([armadilha 4](#armadilhas)) nem por `--since`: no Docker Desktop, um relógio da VM atrasado
+(acontece depois de suspender o PC) apagaria justamente um crash, e a marca, por ser um
+carimbo do próprio log, não depende do relógio do host.
 
 ```bash
-docker logs -t cs2-spike 2>&1 | tail -n +$((N+1)) > "$BK/docker-logs-smoke.txt"
+T=20000   # linhas lidas do fim; o T1 de 13/10 deu 351 a 413 linhas por ciclo de ~1 min 45 s
+[[ "$(docker logs -t --tail $T cs2-spike 2>&1 | head -1 | cut -d' ' -f1)" < "$M" ]] || echo "FALTA cobertura: o --tail $T não chega à marca; aumente o T"
+desde "$M" $T > "$BK/docker-logs-smoke.txt"
 L="$BK/docker-logs-smoke.txt"
 grep -nE 'Segmentation fault|Stack overflow|core dumped|FATAL ERROR' "$L" || echo "OK    smoke sem crash"
 grep -c 'MatchZy 0.8.15 LOADED' "$L"      # precisa ser 0: outro LOADED = o processo reiniciou
 grep -nE '<plugin do passo>|Unhandled exception|Error invoking callback|signature failed|Fatal error' "$L"
 ```
 
+- **Cobertura:** a conferência da primeira linha e o `T` nasceram aqui em 13/10 (card B1.12c)
+  e ainda não rodaram ao vivo. No primeiro smoke, anote no registro se ela passou e quantas
+  linhas o `docker-logs-smoke.txt` teve. Um `FALTA cobertura` não é crash: aumente o `T` e
+  leia de novo.
 - **Crash:** qualquer linha do primeiro `grep` reprova. O `SIGSEGV` em `libtier0.so` do
   Serilog (confundidor 4 da trilha) é aleatório: olhe o backtrace antes de culpar o plugin.
 - **Reinício da MatchZy:** um `LOADED` dentro do smoke quer dizer que o processo do jogo caiu e
@@ -250,8 +294,8 @@ rcon "bot_join_after_player 1"            # armadilha 3: o valor do boot é true
 rcon "bot_quota <valor da referência>"
 rcon "bot_quota_mode <valor da referência>"
 rcon "sv_hibernate_when_empty <valor da referência>"
-P=$(prontos); rcon "changelevel de_mirage"   # zera os rounds do smoke e trunca o current.jsonl
-esperar_pronto "$P"
+m=$(marca); rcon "changelevel de_mirage"   # zera os rounds do smoke e trunca o current.jsonl
+esperar_padrao "$m" '[Cs2TrackerEvents] Pronto'
 for c in get5_status bot_join_after_player sv_hibernate_when_empty bot_quota bot_quota_mode mp_ignore_round_win_conditions; do echo "== $c"; rcon "$c"; done > "$BK/fechamento-rcon.txt" 2>&1
 ```
 
