@@ -23,7 +23,7 @@ de 26/09). Runbook: docs/runbooks/voltar-ao-jogavel.md.
              sem janela: docker logs desde o StartedAt, config-hash do
              container e do compose, HEAD e sha256 dos arquivos montados
              (docker exec sha256sum) contra o checkout (protocolo 6). Log
-             salvo vazio ou sem linha depois do StartedAt sai com 8 (B0.7f).
+             sem linha do StartedAt se refaz pelo fim (--tail, B0.7h).
   recriar (up, recreate) | parar (stop) | rcon "cmd" | snapshot --destino D |
   restaurar --de TGZ | soak, todos com [--seco]: comandos do servidor, só
              com logs/janelas/ABERTA dentro dos 45 min, preflight 4 e cwd e
@@ -41,8 +41,8 @@ libera ou vigília abortada por processo do Victor; 5 recusado por regra
 (infra sem janela, confirmação errada, branch, janela já aberta, checklist
 pendente); 6 docker/pre.sh com '\\r' depois da troca (recreate abortado);
 7 janela vencida (teto ou 45 min pelo mtime da marca); 8 coleta incompleta
-(docker-logs.txt vazio ou sem linha carimbada a partir do StartedAt: os
-outros artefatos ficam gravados, e o log se reconstrói por `--tail`).
+(docker-logs.txt vazio ou sem linha carimbada a partir do StartedAt, e a
+reconstrução pelo fim também: os outros artefatos ficam gravados).
 """
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ import subprocess
 import sys
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional
@@ -425,7 +425,8 @@ def trocar_de_commit(ex: Executor, pasta: Path, alvo: str, *comandos) -> bool:
 
 def salvar_logs(ex: Executor, pasta: Path) -> Optional[str]:
     """Salva `docker logs -t` do container (o recreate os descarta) e
-    devolve a build do CS2 que eles mostram."""
+    devolve a build do CS2 do boot atual, lida pelo fim (B0.7h): o log lido
+    do começo para na 1ª entrada corrompida e mostraria a de um boot velho."""
     ch = ex.docker("logs", "-t", CONTAINER, muda=True)
     if ch.seco:
         return None
@@ -435,19 +436,18 @@ def salvar_logs(ex: Executor, pasta: Path) -> Optional[str]:
     pasta.mkdir(parents=True, exist_ok=True)
     (pasta / "docker-logs.txt").write_text(ch.saida + ch.erro, encoding="utf-8")
     print(f"docker logs salvos em {pasta / 'docker-logs.txt'} ({ch.segundos:.1f} s)")
-    builds = RE_BUILD.findall(ch.saida + ch.erro)
-    return builds[-1] if builds else None
+    return build_do_boot(ex)
 
 
 def esperar_build(ex: Executor) -> Optional[str]:
+    """Espera a linha do GC do boot novo, lida pelo fim e do StartedAt do
+    container novo em diante (B0.7h). O StartedAt se relê a cada volta: se
+    o container reiniciar no boot, vale a build do boot que ficou."""
     fim = ex.relogio() + ESPERA_BUILD_S
     while True:
-        ch = ex.docker("logs", CONTAINER)
-        builds = RE_BUILD.findall(ch.saida + ch.erro) if ch.ok else []
-        if builds:
-            return builds[-1]
-        if ex.relogio() >= fim:
-            return None
+        build = build_do_boot(ex)
+        if build or ex.relogio() >= fim:
+            return build
         ex.dormir(INTERVALO_BUILD_S)
 
 
@@ -1340,20 +1340,168 @@ def instante_ns(texto: str) -> Optional[int]:
     return int(segundos) * 10**9 + int((fracao or "").ljust(9, "0"))
 
 
-def conferir_log(texto: str, inicio: str) -> Optional[str]:
+def conferir_log(texto: str, inicio: str, nome: str = "docker-logs.txt") -> Optional[str]:
     """None se o log salvo tem ao menos uma linha carimbada a partir do
     StartedAt; senão, o que houve (B0.7f). Linha sem carimbo não conta: com
     `-t` toda linha vem carimbada, e sem carimbo não se prova que é desta
     subida. StartedAt ilegível: vale qualquer linha carimbada."""
     if not texto.strip():
-        return f"docker-logs.txt vazio (o docker logs devolveu {len(texto.encode('utf-8'))} bytes)"
+        return f"{nome} vazio (o docker logs devolveu {len(texto.encode('utf-8'))} bytes)"
     desde = instante_ns(inicio)
     carimbos = [instante_ns(linha) for linha in texto.splitlines() if linha.strip()]
     if any(c is not None and (desde is None or c >= desde) for c in carimbos):
         return None
     sem = carimbos.count(None)
-    return (f"nenhuma das {len(carimbos)} linhas do docker-logs.txt é do StartedAt {inicio} em diante "
+    return (f"nenhuma das {len(carimbos)} linhas do {nome} é do StartedAt {inicio} em diante "
             f"({len(carimbos) - sem} antes dele, {sem} sem carimbo)")
+
+
+# Leitura pelo fim (B0.7h). O `docker logs --tail N` conta N linhas de trás
+# para a frente no json-file e decodifica para a frente dali; numa entrada
+# corrompida (parada brusca) ele para em silêncio, com código 0. A saída é
+# então só o trecho do segmento legível em que o N caiu, até o fim dele, e a
+# última linha da saída diz que segmento é. Ela só recua quando o N cresce:
+# dobrando o N acha-se a fronteira, e a busca binária, o maior N que ainda
+# lê o segmento inteiro. Um N bem na entrada corrompida devolve nada (uma
+# entrada ilegível, perdida). A união das leituras, sem duplicata e na ordem
+# do carimbo, é o log reconstruído: o método da coleta de 12/10, sem o passo
+# fixo de 100. Para quando uma linha é de antes do StartedAt (o boot desta
+# subida está inteiro), no começo do json-file ou no teto de linhas.
+TAIL_PRIMEIRO, TAIL_TETO, TAIL_ILEGIVEIS = 200, 1 << 20, 8
+
+
+@dataclass
+class PeloFim:
+    linhas: list = field(default_factory=list)      # carimbadas, sem duplicata, na ordem do carimbo
+    lidos: list = field(default_factory=list)       # os N lidos, na ordem da leitura
+    fronteiras: list = field(default_factory=list)  # (última do segmento velho, ilegíveis, 1ª do novo ou None)
+    parada: str = ""
+    erro: Optional[str] = None
+    inteiro: bool = False  # chegou a antes do StartedAt ou ao começo do json-file
+
+    @property
+    def texto(self) -> str:
+        return "".join(linha + "\n" for linha in self.linhas)
+
+
+def _ordem(linha: str) -> tuple:
+    return (instante_ns(linha), linha)
+
+
+def ler_pelo_fim(ex: Executor, inicio: Optional[str]) -> PeloFim:
+    """Reconstrói o log pelo fim, só lendo (`docker logs -t --tail N`), até
+    cobrir o StartedAt `inicio` (None: até o começo do json-file)."""
+    desde = instante_ns(inicio) if inicio else None
+    lidas: dict = {}
+    pf = PeloFim()
+
+    def ler(n: int) -> Optional[list]:
+        if n not in lidas:
+            ch = ex.docker("logs", "-t", "--tail", str(n), CONTAINER, timeout=300)
+            pf.lidos.append(n)
+            if not ch.ok:
+                pf.erro = f"docker logs -t --tail {n} falhou ({ch.erro.strip() or ch.codigo})"
+                return None
+            texto = ch.saida + ch.erro
+            lidas[n] = [linha for linha in texto.splitlines() if instante_ns(linha) is not None]
+        return lidas[n]
+
+    def ultima(n: int):
+        linhas = ler(n)
+        return max(linhas, key=_ordem) if linhas else None
+
+    juntas, base, nova = set(), 0, None  # nova: 1ª linha do segmento mais novo já lido
+    while True:
+        n, ilegiveis = base + 1, 0
+        while (linhas := ler(n)) is not None and not linhas:
+            ilegiveis, n = ilegiveis + 1, n + 1
+            if ilegiveis >= TAIL_ILEGIVEIS or n > TAIL_TETO:
+                pf.parada = f"{ilegiveis} leituras vazias seguidas a partir de --tail {base + 1}"
+                break
+        if pf.erro or pf.parada:
+            break
+        topo = ultima(n)
+        if nova is not None or ilegiveis:
+            pf.fronteiras.append((topo, ilegiveis, nova))
+        lo, hi = n, None
+        while desde is None or instante_ns(min(ler(lo), key=_ordem)) >= desde:
+            prox = min(max(2 * lo, lo + TAIL_PRIMEIRO), TAIL_TETO)
+            if prox == lo:
+                pf.parada = f"teto de {TAIL_TETO} linhas"
+                break
+            if ultima(prox) != topo:
+                hi = prox
+                break
+            if len(ler(prox)) == len(ler(lo)):
+                lo, pf.parada, pf.inteiro = prox, "começo do json-file", True
+                break
+            lo = prox
+        while hi is not None and hi - lo > 1 and not pf.erro:
+            meio = (lo + hi) // 2
+            lo, hi = (meio, hi) if ultima(meio) == topo else (lo, meio)
+        if pf.erro:
+            break
+        segmento = ler(lo)
+        juntas.update(segmento)
+        nova = min(segmento, key=_ordem)
+        if desde is not None and instante_ns(nova) < desde:
+            pf.parada = f"linha de antes do StartedAt {inicio}: o boot desta subida está inteiro"
+            pf.inteiro = True
+            break
+        if pf.parada:
+            break
+        base = lo
+    pf.linhas = sorted(juntas, key=_ordem)
+    return pf
+
+
+def build_do_boot(ex: Executor) -> Optional[str]:
+    """Build do CS2 do boot atual: a última linha do GC com carimbo do
+    StartedAt em diante, lida pelo fim (B0.7h). Sem o StartedAt, a última
+    linha do GC que se lê pelo fim."""
+    ch = ex.docker("inspect", CONTAINER, "--format", "{{.State.StartedAt}}")
+    inicio = ch.saida.strip() if ch.ok and ch.saida.strip() else None
+    desde = instante_ns(inicio) if inicio else None
+    lido = ler_pelo_fim(ex, inicio)
+    if lido.erro:
+        print(f"aviso: {lido.erro}")
+    builds = [achado.group(1) for linha in lido.linhas
+              if (desde is None or instante_ns(linha) >= desde) and (achado := RE_BUILD.search(linha))]
+    return builds[-1] if builds else None
+
+
+def _carimbo(linha: Optional[str]) -> str:
+    return linha.split(None, 1)[0] if linha else "?"
+
+
+def leiame(problema: str, inicio: str, pf: PeloFim, falha: Optional[str]) -> str:
+    """O docker-logs-reconstruido.LEIAME.txt: o método, o que cobre, as
+    fronteiras e as perdas, no modelo da coleta de 12/10."""
+    perdas = sum(ilegiveis for _, ilegiveis, _ in pf.fronteiras)
+    linhas = [
+        f"docker-logs.txt (docker logs -t --since {inicio}) saiu incompleto: {problema}.",
+        "",
+        "docker-logs-reconstruido.txt: união, sem duplicata e na ordem do carimbo, de "
+        f"{len(pf.lidos)} leituras `docker logs -t --tail N {CONTAINER}` (só leitura, preflight 0), "
+        "feitas pelo `jogavel.py coletar` (card B0.7h): N dobrando a partir de 1 e, em cada "
+        "fronteira, busca binária do maior N que ainda lê o segmento inteiro.",
+        f"N lidos: {', '.join(map(str, pf.lidos)) or 'nenhum'}.",
+        f"Cobre {_carimbo(pf.linhas[0]) if pf.linhas else '?'} até "
+        f"{_carimbo(pf.linhas[-1]) if pf.linhas else '?'} ({len(pf.linhas)} linhas).",
+        f"Parou: {pf.parada or pf.erro or '?'}.",
+        "Fronteiras (segmentos legíveis), da mais velha para a mais nova:" if pf.fronteiras
+        else "Fronteiras: nenhuma.",
+    ]
+    for velha, ilegiveis, nova in reversed(pf.fronteiras):
+        linhas.append(f"  ... {_carimbo(velha)} | {ilegiveis} entrada(s) ilegível(is) | "
+                      f"{_carimbo(nova) if nova else 'fim do log'} ...")
+    linhas += [f"Perdas conhecidas: {perdas} entrada(s) ilegível(is) nas fronteiras"
+               + (", e ao menos a entrada corrompida de cada fronteira sem leitura vazia." if
+                  any(not i for _, i, _ in pf.fronteiras) else "."),
+               "Em linhas com o mesmo carimbo a ordem pode diferir da original."]
+    if falha:
+        linhas.append(f"RECONSTRUÇÃO FALHOU: {falha}. Não julgue o G7 por este arquivo.")
+    return "\n".join(linhas) + "\n"
 
 
 def cmd_coletar(args, ex: Executor, **_kw) -> int:
@@ -1361,8 +1509,9 @@ def cmd_coletar(args, ex: Executor, **_kw) -> int:
     desde o StartedAt, os dois config-hash, o HEAD e o sha256 dos arquivos
     montados dentro do container (docker exec sha256sum) e no checkout, com
     os binds de `docker compose config`. Quem julga é o QA. O log salvo
-    vazio ou sem linha do StartedAt em diante sai com INCOMPLETA (B0.7f):
-    o arquivo e os outros artefatos ficam gravados como estão."""
+    vazio ou sem linha do StartedAt em diante (B0.7f) se reconstrói pelo
+    fim, com LEIAME (B0.7h); só sai INCOMPLETA se a reconstrução também
+    falhar. O docker-logs.txt e os outros artefatos ficam como estão."""
     if not eh_checkout_principal(ex.raiz):
         print(f"coletar recusado: {ex.raiz} não é o checkout principal (o compose daqui seria outro projeto)")
         return RECUSA
@@ -1419,14 +1568,30 @@ def cmd_coletar(args, ex: Executor, **_kw) -> int:
     if puladas:
         print(f"pastas montadas não conferidas (saída do jogo): {', '.join(puladas)}")
     print(f"coleta salva em {pasta}")
-    if problema:
-        print(f"coleta INCOMPLETA: {problema}. O json-file do container pode ter entradas "
-              "corrompidas depois de uma parada brusca, e o `docker logs --since` para nelas em "
-              "silêncio, com código 0 (coleta de 12/10). O arquivo fica na pasta como evidência e os "
-              "outros artefatos estão completos, mas não julgue o G7 por este log: reconstrua-o com "
-              "leituras `docker logs -t --tail N` (só leitura, preflight 0), como em "
+    if not problema:
+        return OK
+    # B0.7h: o json-file pode ter entradas corrompidas depois de uma parada
+    # brusca, e o `--since` para nelas em silêncio, com código 0 (12/10).
+    print(f"docker-logs.txt incompleto: {problema}. Reconstruindo pelo fim (`docker logs -t "
+          "--tail N`, só leitura); o docker-logs.txt fica na pasta como evidência.")
+    pf = ler_pelo_fim(ex, inicio.saida.strip())
+    falha = pf.erro or conferir_log(pf.texto, inicio.saida.strip(), "docker-logs-reconstruido.txt")
+    salvar("docker-logs-reconstruido.txt", pf.texto)
+    salvar("docker-logs-reconstruido.LEIAME.txt", leiame(problema, inicio.saida.strip(), pf, falha))
+    if falha:
+        print(f"coleta INCOMPLETA: {problema}. A reconstrução pelo fim também falhou: {falha}. "
+              "Os outros artefatos estão completos, mas não julgue o G7 por este log: reconstrua-o à "
+              "mão com leituras `docker logs -t --tail N` (só leitura, preflight 0), como em "
               "docs/runbooks/voltar-ao-jogavel.md#coleta-incompleta.")
         return INCOMPLETA
+    perdas = sum(ilegiveis for _, ilegiveis, _ in pf.fronteiras)
+    print(f"AVISO: log reconstruído pelo fim em {len(pf.lidos)} leituras: {len(pf.linhas)} linhas, de "
+          f"{_carimbo(pf.linhas[0])} a {_carimbo(pf.linhas[-1])}, {len(pf.fronteiras)} fronteira(s), "
+          f"{perdas} entrada(s) ilegível(is); parou: {pf.parada}. Julgue o G7 pelo "
+          "docker-logs-reconstruido.txt e cite o docker-logs-reconstruido.LEIAME.txt.")
+    if not pf.inteiro:
+        print("AVISO: a leitura não chegou a uma linha de antes do StartedAt nem ao começo do "
+              "json-file; o começo desta subida pode faltar (veja o LEIAME).")
     return OK
 
 

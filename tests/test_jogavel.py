@@ -73,9 +73,13 @@ class Mundo:
         self.rcon, self.volume = [], True
         self.hash_container = self.hash_compose = "3970b702" + "0" * 56
         self.sha_no_container = {}
-        # O que o `docker logs -t --since` do coletar devolve; None: uma
-        # linha carimbada 5 s depois do StartedAt, como no log de verdade.
+        # O que o `docker logs -t --since` do coletar devolve; None: o que o
+        # json-file abaixo dá lido para a frente, do StartedAt em diante.
         self.log_coleta = None
+        # json-file do container (B0.7h): linhas carimbadas na ordem e
+        # CORROMPIDA onde a parada brusca deixou uma entrada que o docker não
+        # decodifica. None: a subida anterior e o GC 5 s depois do StartedAt.
+        self.json_file, self.inicio, self.tail_falha = None, "2027-01-15T07:00:00.123456789Z", False
         # O que o `tar -tzf` do snapshot lista.
         self.lista_tar = "game/csgo/addons/metamod/metaplugins.ini\ngame/csgo/addons/counterstrikesharp/api.dll\n"
         # Relógio falso da janela e um `docker ps` que "espera aprovação":
@@ -136,7 +140,7 @@ class Mundo:
             return _feito(args, 0 if self.compose_ok else 1, json.dumps(
                 {"services": {"cs2-server": {"container_name": "cs2-spike", "volumes": vols}}}))
         if args == ["inspect", "cs2-spike", "--format", "{{.State.StartedAt}}"]:
-            return _feito(args, 0, "2027-01-15T07:00:00.123456789Z\n")
+            return _feito(args, 0, self.inicio + "\n")
         if args[:3] == ["inspect", "cs2-spike", "--format"] and "config-hash" in args[3]:
             return _feito(args, 0, f"{self.hash_container}\n")
         if args[:3] == ["exec", "cs2-spike", "sha256sum"]:
@@ -149,13 +153,12 @@ class Mundo:
             return _feito(args, 0 if len(linhas) == len(args) - 3 else 1, "".join(linhas))
         if args[:1] == ["logs"] and "--since" in args and self.log_coleta is not None:
             return _feito(args, 0, self.log_coleta)
-        if args[:1] == ["logs"] and "--since" in args:
-            return _feito(args, 0, f"2027-01-15T07:00:05.000000000Z GC Connection established for server "
-                                   f"version {self.build}, instance idx 1\n")
         if args[:1] == ["logs"]:
-            return _feito(args, 0, f"GC Connection established for server version {self.build}, instance idx 1\n")
+            return self._logs(args)
         if args[:2] == ["compose", "up"]:
-            self.build = self.build_depois
+            # Container novo: json-file novo, só com o boot da build nova.
+            self.build, self.inicio = self.build_depois, "2027-01-15T08:00:00.000000000Z"
+            self.json_file = [f"2027-01-15T08:00:05.000000000Z {GC.format(self.build)}"]
             return _feito(args, 0, "")
         if args[:1] == ["ps"]:
             if self.docker_lento:
@@ -182,6 +185,35 @@ class Mundo:
             if "-xzpf" in args:
                 return _feito(args, 0, "")
         raise AssertionError(f"docker inesperado: {args}")
+
+
+    def _logs(self, args):
+        """O `docker logs` do json-file: decodifica para a frente a partir do
+        começo (ou, com --tail N, da N-ésima entrada a contar do fim) e para
+        em silêncio, com código 0, na primeira entrada corrompida."""
+        entradas = self.json_file if self.json_file is not None else [
+            "2027-01-14T22:10:00.000000000Z boot da subida anterior",
+            f"2027-01-15T07:00:05.000000000Z {GC.format(self.build)}"]
+        if "--tail" in args:
+            if self.tail_falha:
+                return _feito(args, 1, "")
+            entradas = entradas[max(0, len(entradas) - int(args[args.index("--tail") + 1])):]
+        lidas = entradas[:entradas.index(CORROMPIDA)] if CORROMPIDA in entradas else entradas
+        if "--since" in args:
+            desde = jogavel.instante_ns(args[args.index("--since") + 1])
+            lidas = [linha for linha in lidas if jogavel.instante_ns(linha) >= desde]
+        if "-t" not in args:
+            lidas = [linha.split(" ", 1)[1] for linha in lidas]
+        return _feito(args, 0, "".join(linha + "\n" for linha in lidas))
+
+
+GC = "GC Connection established for server version {}, instance idx 1"
+CORROMPIDA = "<entrada corrompida>"  # nunca sai: o docker para nela
+# A build lida pelo fim no log padrão (B0.7h): o StartedAt e duas leituras,
+# a última linha (o GC do boot) e as 201 últimas, que já trazem uma linha de
+# antes do StartedAt (ou, no container novo, não crescem: começo do log).
+BUILD_PELO_FIM = ["inspect cs2-spike --format {{.State.StartedAt}}",
+                  "logs -t --tail 1 cs2-spike", "logs -t --tail 201 cs2-spike"]
 
 
 def _feito(argv, codigo, saida):
@@ -348,8 +380,7 @@ def test_agora_nao_le_docker_logs_antes_do_recreate(mundo, capsys):
     mundo.build_depois = "2000919"
     assert _rodar(mundo, "voltar", "--agora", entrada=lambda _t: "VOLTAR") == OK
     saida = capsys.readouterr().out
-    assert mundo.docker == ["compose config --format json", "compose up -d --force-recreate",
-                            "logs cs2-spike"]
+    assert mundo.docker == ["compose config --format json", "compose up -d --force-recreate", *BUILD_PELO_FIM]
     assert "build do CS2 antes: não lida (partida em curso)" in saida
     assert "build do CS2 depois: 2000919" in saida and "a build do CS2 mudou" not in saida
     assert not list((mundo.raiz / "logs" / "jogavel").glob("*/docker-logs.txt"))
@@ -421,6 +452,39 @@ def test_fonte_de_bind_mudada_recria_e_registra_a_build(mundo, capsys):
     assert "build do CS2 antes: 2000918" in saida and "build do CS2 depois: 2000919" in saida
     assert "a build do CS2 mudou (2000918 -> 2000919)" in saida
     assert list((mundo.raiz / "logs" / "jogavel").glob("*/docker-logs.txt"))
+
+
+# json-file como o de 12/10 (B0.7h): duas paradas bruscas, cada uma com uma
+# entrada corrompida, e a subida atual (StartedAt 07:00:00.123456789Z) com
+# 302 linhas e a build nova. Lido do começo, o docker para no fim do A.
+SEG_A = ["2027-01-10T10:00:00.000000000Z boot A", f"2027-01-10T10:00:05.000000000Z {GC.format('2000924')}",
+         "2027-01-10T11:00:00.000000000Z fim A"]
+SEG_B = ["2027-01-12T09:00:00.000000000Z boot B", f"2027-01-12T09:00:05.000000000Z {GC.format('2000924')}",
+         "2027-01-12T09:30:00.000000000Z fim B"]
+SEG_C = ["2027-01-15T07:00:01.000000000Z boot C", f"2027-01-15T07:00:05.000000000Z {GC.format('2000930')}",
+         *[f"2027-01-15T07:{10 + i // 60:02d}:{i % 60:02d}.000000000Z round {i}" for i in range(300)]]
+JSON_12_10 = [*SEG_A, CORROMPIDA, *SEG_B, CORROMPIDA, *SEG_C]
+
+
+def test_recriar_le_a_build_do_boot_atual_pelo_fim(janela, capsys):
+    # Na janela do B1.9b o recriar imprimiu "antes 2000924", do boot de
+    # antes da 1ª parada brusca; a do boot atual era a 2000930.
+    janela.json_file, janela.build_depois = JSON_12_10, "2000930"
+    assert _rodar(janela, "recriar") == OK
+    saida = capsys.readouterr().out
+    assert "build do CS2 antes: 2000930" in saida and "build do CS2 depois: 2000930" in saida
+    assert "a build do CS2 mudou" not in saida
+    salvo, = (janela.raiz / "logs" / "jogavel").glob("*-recriar/docker-logs.txt")
+    assert salvo.read_text(encoding="utf-8") == "".join(f"{linha}\n" for linha in SEG_A)
+
+
+def test_build_de_boot_anterior_nao_vale_para_o_boot_atual(janela, capsys):
+    # Sem parada brusca: o GC do boot de antes está no mesmo json-file, e o
+    # boot atual ainda não chegou ao GC.
+    janela.json_file = [f"2027-01-15T06:00:05.000000000Z {GC.format('2000924')}",
+                        "2027-01-15T07:00:01.000000000Z boot sem GC ainda"]
+    assert _rodar(janela, "recriar") == OK
+    assert "build do CS2 antes: não registrada" in capsys.readouterr().out
 
 
 def test_so_python_mudado_nao_recria(mundo, capsys):
@@ -1397,7 +1461,8 @@ def test_comando_do_servidor_exige_janela_e_checkout_principal(mundo, monkeypatc
 
 def test_recriar_salva_os_logs_e_recria_com_force_recreate(janela):
     assert _rodar(janela, "up") == OK
-    assert janela.docker == ["logs -t cs2-spike", "compose up -d --force-recreate", "logs cs2-spike"]
+    assert janela.docker == ["logs -t cs2-spike", *BUILD_PELO_FIM, "compose up -d --force-recreate",
+                             *BUILD_PELO_FIM]
     assert list((janela.raiz / "logs" / "jogavel").glob("*-recriar/docker-logs.txt"))
     assert " jogavel.py up: saída 0\n" in _registro(janela)
 
@@ -1573,11 +1638,13 @@ def test_codigo_da_coleta_incompleta_nao_colide_com_os_outros():
     ("\n  \n", "docker-logs.txt vazio (o docker logs devolveu 4 bytes)"),
 ])
 def test_coletar_com_log_vazio_sai_incompleta_e_guarda_o_resto(montado, tmp_path, capsys, log, motivo):
-    montado.log_coleta = log
+    # Sem nada pelo fim também (json-file vazio): a reconstrução falha.
+    montado.log_coleta, montado.json_file = log, []
     g7 = tmp_path / "g7"
     assert _rodar(montado, "coletar", "--destino", str(g7)) == INCOMPLETA
     saida = capsys.readouterr().out
-    assert f"coleta INCOMPLETA: {motivo}." in saida
+    assert f"coleta INCOMPLETA: {motivo}. A reconstrução pelo fim também falhou: docker-logs-reconstruido.txt " \
+           "vazio (o docker logs devolveu 0 bytes)." in saida
     assert "docker logs -t --tail N" in saida and "voltar-ao-jogavel.md#coleta-incompleta" in saida
     # a evidência da falha fica, e os outros artefatos também
     assert (g7 / "docker-logs.txt").read_text() == log
@@ -1593,7 +1660,7 @@ def test_coletar_com_log_so_de_antes_do_startedat_sai_incompleta(montado, tmp_pa
            "linha sem carimbo\n"
            "2027-01-15T06:59:59.999999999Z Shutdown\n"
            "2027-01-15T07:00:00.123456788Z ultima entrada antes da subida\n")
-    montado.log_coleta = log
+    montado.log_coleta, montado.json_file = log, log.splitlines()
     g7 = tmp_path / "g7"
     assert _rodar(montado, "coletar", "--destino", str(g7)) == INCOMPLETA
     assert ("coleta INCOMPLETA: nenhuma das 4 linhas do docker-logs.txt é do StartedAt "
@@ -1603,6 +1670,7 @@ def test_coletar_com_log_so_de_antes_do_startedat_sai_incompleta(montado, tmp_pa
 
 def test_coletar_com_log_sem_carimbo_nenhum_sai_incompleta(montado, tmp_path, capsys):
     montado.log_coleta = "GC Connection established for server version 2000918, instance idx 1\n"
+    montado.json_file = []
     assert _rodar(montado, "coletar", "--destino", str(tmp_path / "g7")) == INCOMPLETA
     assert "(0 antes dele, 1 sem carimbo)" in capsys.readouterr().out
 
@@ -1615,8 +1683,78 @@ def test_coletar_com_log_normal_sai_0(montado, tmp_path, capsys, ultima):
     montado.log_coleta = "2027-01-14T22:10:00.000000000Z subida anterior\n" + ultima + "\n"
     assert _rodar(montado, "coletar", "--destino", str(tmp_path / "g7")) == OK
     assert "INCOMPLETA" not in capsys.readouterr().out
+    # log completo: nada se lê pelo fim nem se reconstrói (B0.7h)
+    assert not any("--tail" in c for c in montado.docker)
+    assert not (tmp_path / "g7" / "docker-logs-reconstruido.txt").exists()
 
 
 def test_runbook_tem_a_secao_que_o_coletar_aponta():
     runbook = Path(__file__).resolve().parent.parent / "docs" / "runbooks" / "voltar-ao-jogavel.md"
     assert re.search(r"^#+ Coleta incompleta$", runbook.read_text(encoding="utf-8"), re.M)
+
+
+# ------------------------------- coletar: reconstrução pelo fim (B0.7h)
+# O gabarito sai do JSON_12_10 à mão: 310 entradas (A 0-2, corrompida 3, B
+# 4-6, corrompida 7, C 8-309). --tail 1 e 201 caem no C; 402 passa do começo
+# e lê o A; a busca binária acha 302 (o C inteiro); 303 cai na corrompida e
+# volta vazio; 304 dá o fim do B, de antes do StartedAt, e a leitura para.
+
+def test_coletar_com_since_vazio_reconstroi_pelo_fim_e_sai_0(montado, tmp_path, capsys):
+    montado.json_file = JSON_12_10
+    g7 = tmp_path / "g7"
+    assert _rodar(montado, "coletar", "--destino", str(g7)) == OK
+    saida = capsys.readouterr().out
+    assert [c for c in montado.docker if "--tail" in c] == [
+        f"logs -t --tail {n} cs2-spike" for n in (1, 201, 402, 301, 351, 326, 313, 307, 304, 302, 303)]
+    # o --since devolveu nada; ele fica como evidência
+    assert (g7 / "docker-logs.txt").read_text(encoding="utf-8") == ""
+    assert (g7 / "docker-logs-reconstruido.txt").read_text(encoding="utf-8") == "".join(
+        f"{linha}\n" for linha in ["2027-01-12T09:30:00.000000000Z fim B", *SEG_C])
+    leiame = (g7 / "docker-logs-reconstruido.LEIAME.txt").read_text(encoding="utf-8")
+    for trecho in (
+            "docker-logs.txt (docker logs -t --since 2027-01-15T07:00:00.123456789Z) saiu incompleto: "
+            "docker-logs.txt vazio (o docker logs devolveu 0 bytes).",
+            "N lidos: 1, 201, 402, 301, 351, 326, 313, 307, 304, 302, 303.",
+            "Cobre 2027-01-12T09:30:00.000000000Z até 2027-01-15T07:14:59.000000000Z (303 linhas).",
+            "Parou: linha de antes do StartedAt 2027-01-15T07:00:00.123456789Z: o boot desta subida está inteiro.",
+            "  ... 2027-01-12T09:30:00.000000000Z | 1 entrada(s) ilegível(is) | 2027-01-15T07:00:01.000000000Z ...",
+            "Perdas conhecidas: 1 entrada(s) ilegível(is) nas fronteiras."):
+        assert trecho in leiame
+    assert "RECONSTRUÇÃO FALHOU" not in leiame
+    assert ("AVISO: log reconstruído pelo fim em 11 leituras: 303 linhas, de 2027-01-12T09:30:00.000000000Z a "
+            "2027-01-15T07:14:59.000000000Z, 1 fronteira(s), 1 entrada(s) ilegível(is)") in saida
+    assert "INCOMPLETA" not in saida and "pode faltar" not in saida
+    # os outros artefatos continuam completos
+    assert (g7 / "sha-montados.txt").read_text().count("/srv/") == 6
+
+
+def test_coletar_reconstrucao_que_nao_chega_ao_boot_avisa(montado, tmp_path, capsys, monkeypatch):
+    # Teto baixo: lê só o fim da subida atual, sem chegar a antes do StartedAt.
+    monkeypatch.setattr(jogavel, "TAIL_TETO", 100)
+    montado.json_file = JSON_12_10
+    assert _rodar(montado, "coletar", "--destino", str(tmp_path / "g7")) == OK
+    saida = capsys.readouterr().out
+    assert "parou: teto de 100 linhas" in saida and "o começo desta subida pode faltar" in saida
+    assert (tmp_path / "g7" / "docker-logs-reconstruido.txt").read_text(encoding="utf-8") == "".join(
+        f"{linha}\n" for linha in SEG_C[-100:])
+
+
+@pytest.mark.parametrize("json_file,falha,motivo", [
+    # só há linhas de antes desta subida, nem pelo fim
+    ([*SEG_A, CORROMPIDA, *SEG_B], False,
+     "nenhuma das 1 linhas do docker-logs-reconstruido.txt é do StartedAt 2027-01-15T07:00:00.123456789Z "
+     "em diante (1 antes dele, 0 sem carimbo)"),
+    # o docker logs --tail falha
+    (JSON_12_10, True, "docker logs -t --tail 1 falhou (1)"),
+])
+def test_coletar_com_reconstrucao_que_falha_sai_incompleta(montado, tmp_path, capsys, json_file, falha, motivo):
+    montado.json_file, montado.tail_falha = json_file, falha
+    g7 = tmp_path / "g7"
+    assert _rodar(montado, "coletar", "--destino", str(g7)) == INCOMPLETA
+    saida = capsys.readouterr().out
+    assert (f"coleta INCOMPLETA: docker-logs.txt vazio (o docker logs devolveu 0 bytes). "
+            f"A reconstrução pelo fim também falhou: {motivo}.") in saida
+    assert "voltar-ao-jogavel.md#coleta-incompleta" in saida
+    leiame = (g7 / "docker-logs-reconstruido.LEIAME.txt").read_text(encoding="utf-8")
+    assert f"RECONSTRUÇÃO FALHOU: {motivo}. Não julgue o G7 por este arquivo." in leiame
+    assert (g7 / "head.txt").read_text() == _head(montado) + "\n"
