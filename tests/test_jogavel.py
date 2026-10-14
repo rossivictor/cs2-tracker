@@ -1190,6 +1190,40 @@ def test_vigiar_intervalo_acima_de_30_s_e_uso_errado(mundo):
     assert _janela(mundo, "vigiar", "--intervalo", "31") == jogavel.USO
 
 
+@pytest.mark.parametrize("fim,codigo,ultima", [
+    ("vence", VENCIDA, "JANELA VENCIDA (marca de 45 min, teto 45 min)"),
+    ("aborta", PARTIDA, "VPK, volume e pasta do plugin não voltam pelo git"),
+    ("fecha", OK, "marca removida: janela fechada, fim da vigília")])
+def test_vigiar_redirecionado_para_arquivo_grava_cada_linha_na_hora(
+        mundo, tmp_path, monkeypatch, fim, codigo, ultima):
+    # B0.7g: com `> arquivo` o stdout do Python é um TextIOWrapper com buffer
+    # em bloco, e o `vigiar` de 13/10 deixou o arquivo vazio por 29 min. Aqui
+    # o stdout é um arquivo aberto do mesmo jeito, e o disco é lido no meio
+    # do laço e no fim, sem fechar nem dar flush no arquivo.
+    marca = _marca(mundo, 44 * 60)
+    saida = tmp_path / "vigiar.txt"
+    redirecionado = open(saida, "w", encoding="cp1252")
+    assert not redirecionado.line_buffering
+    monkeypatch.setattr(sys, "stdout", redirecionado)
+    no_disco = []
+    rel = Relogio()
+
+    def ler_no_sono():
+        no_disco.append(saida.read_text(encoding="utf-8"))
+        if fim == "aborta":
+            mundo.processos = [(10, "cs2.exe", None)]
+        elif fim == "fecha":
+            marca.unlink()
+    rel.no_sono[1] = ler_no_sono
+    try:
+        assert _janela(mundo, "vigiar", rel=rel) == codigo
+        no_disco.append(saida.read_text(encoding="utf-8"))
+    finally:
+        redirecionado.close()
+    assert no_disco[0].startswith("vigiando a janela a cada 30 s (teto 45 min)\n")
+    assert ultima in no_disco[1].splitlines()[-1]
+
+
 def test_janela_acao_desconhecida_e_uso_errado(mundo):
     with pytest.raises(SystemExit):
         _rodar(mundo, "janela", "outra")

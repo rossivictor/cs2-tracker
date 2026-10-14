@@ -1707,9 +1707,11 @@ for _nomes, _funcao in ((("recriar", "up", "recreate"), cmd_recriar), (("parar",
 def main(argv: Optional[list] = None, fabrica: Callable = Executor,
          entrada: Callable = input, agora: Optional[float] = None,
          relogio: Callable = time.time) -> int:
-    for fluxo in (sys.stdout, sys.stderr):  # em pipe o padrão seria cp1252
+    # Em pipe o padrão seria cp1252 e buffer em bloco: o `janela vigiar` em
+    # segundo plano deixou o arquivo vazio por 29 min em 13/10 (card B0.7g).
+    for fluxo in (sys.stdout, sys.stderr):
         try:
-            fluxo.reconfigure(encoding="utf-8", errors="replace")
+            fluxo.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
         except (AttributeError, ValueError, OSError):
             pass
     args = montar_parser().parse_args(argv)
