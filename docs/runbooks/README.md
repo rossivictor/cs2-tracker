@@ -18,6 +18,7 @@ Procedimentos passo a passo, com pré-condição, rollback e o que conferir no f
 - [b1.4b-botaimimprover-upstream.md](b1.4b-botaimimprover-upstream.md): o B1.4b, BotAimImprover compilado do upstream por bind mount, com o sha256 fixado.
 - [b1.9-botrandomizer-upstream.md](b1.9-botrandomizer-upstream.md): o B1.9, BotRandomizer compilado do upstream por bind mount, com o smoke só de bots na janela.
 - [b1.12-segfault-troca-de-mapa-md3.md](b1.12-segfault-troca-de-mapa-md3.md): o B1.12, investigação do segfault na virada de série da MD3 de 04/10, com as hipóteses e os testes de janela (rascunho: nada testado).
+- [b1.7b-botai-fork-assinatura.md](b1.7b-botai-fork-assinatura.md): o B1.7b, BotAI de um fork do 1.8.12 com o `m_gameState` lido por assinatura no load, a conferência no `libserver.so` da 2000930, o build e a troca por bind (rascunho: build e janela pendentes).
 - [versoes-conhecidas.md](versoes-conhecidas.md): a combinação boa de cada tag `jogavel-*` (versões, máscaras, config-hash e sha256), para a volta ao jogável (B0.3).
 - [smoke-partida-de-bots.md](smoke-partida-de-bots.md): a partida só de bots dentro da janela, com as três armadilhas de 27/09 e o fechamento nas cvars do boot (B0.9b).
 - [voltar-ao-jogavel.md](voltar-ao-jogavel.md): o `tools/jogavel.py` (`status`, `voltar`, `atualizar` e a janela: `abrir`, `vigiar` e o checklist do `fechar`) (B0.7).
