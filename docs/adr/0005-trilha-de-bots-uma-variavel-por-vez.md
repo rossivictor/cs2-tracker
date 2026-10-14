@@ -7,7 +7,7 @@ fontes:
   - "transcript de92b218 @ 2026-09-05T02:41:33Z"
   - "docs/runbooks/trilha-de-bots.md:13-30"
   - "docs/runbooks/trilha-de-bots.md:62-73"
-  - "docs/runbooks/trilha-de-bots.md:256-258"
+  - "docs/runbooks/trilha-de-bots.md:281-283 (regra: uma variável por experimento, o par conta como uma)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:14-54"
   - "docs/historico/2026-09-26-handoff-plugins-de-bot.md:15-18"
   - "docker-compose.yml:62-64"
@@ -17,11 +17,11 @@ fontes:
   - "PR #4"
   - "backup:temp-artifacts/eb5adec0/audit/critic.json (gaps[2]; top_risks[5])"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (sprint B1; Q2, Q7, Q9, Q16 e Q17)"
-  - "docs/runbooks/trilha-de-bots.md:303-369 (registro e épocas)"
-  - "docs/runbooks/trilha-de-bots.md:371-443 (fechamento, sobras, Q16 e Q17)"
+  - "docs/runbooks/trilha-de-bots.md:329-402 (registro e épocas)"
+  - "docs/runbooks/trilha-de-bots.md:404-497 (fechamento, sobras, Q16 e Q17)"
   - "repo:cs2-tracker-builds CS2-Bot-Randomizer/BotRandomizer.cs:95-110 (upstream 18d1510, ancestral de 276f1ce)"
   - "AGENTS.md:15"
-atualizado: 2026-09-28
+atualizado: 2026-10-13
 ---
 
 # ADR-0005: Trilha de bots primeiro, uma variável por vez
@@ -39,7 +39,7 @@ O B1.1 mostrou que o primeiro passo aprovado não funciona como uma linha. A CSS
 - **Prioridade:** a trilha de bots (B1) é a primeira frente de produto do programa. Ela anda junto com as sprints Offline (H1, T1, K1...), que não tocam no caminho de jogo. Durante a B1, só card da B1 edita o compose.
 - **Uma variável por partida:** cada passo muda uma coisa só, é aplicado em janela e é validado numa partida normal do Victor ([ADR-0004](0004-jogo-sempre-jogavel.md)). Os confundidores ficam registrados: o overflow no signon, o update do SteamCMD no boot e o RayTrace.
 - **Quando as versões são acopladas, a variável é o par compatível.** Metamod + CSSharp sobem e voltam juntos (B1.3r, `docker-compose.yml:62-63`). O rollback restaura os dois. Um par descasado nunca é estado intermediário aceitável.
-- **Ordem:** B1.3r (o par, com a suíte ainda mascarada) → B1.4 BotAimImprover → B1.5 BotState → B1.6 BotBuy → B1.7 BotAI → B1.8 NadeSystem → B1.9 BotRandomizer `18d1510` (o plano dizia `5dfe948`, que não existe no clone do upstream) → B1.10 (fechamento). Plugin sem guarda confirmada passa antes por partida só de bots, em janela pré-partida (Q7=A).
+- **Ordem:** B1.3r (o par, com a suíte ainda mascarada) → B1.4 BotAimImprover → B1.5 BotState → B1.6 BotBuy → B1.7 BotAI → B1.8 NadeSystem → B1.9 BotRandomizer `18d1510` (o plano dizia `5dfe948`, o mesmo conserto no CS2-Bot-Improver) → B1.10 (fechamento). Plugin sem guarda confirmada passa antes por partida só de bots, em janela pré-partida (Q7=A).
 - **Fixo durante a B1:** o `botprofile.vpk` High (Q9=A; o VPK acabou trocado duas vezes, ver Resultado). A MatchZy segue na 0.8.15. Download de versão ou de plugin só com OK explícito (G5).
 - **Fora da B1:** plugins nativos do Metamod, RayTrace e BotHider ficam na B2, fora do backlog ativo, que só acontece se Q16=A. Plugin que não religar fica registrado pelo nome como degradado ou mascarado. O que fazer com ele é a Q17, respondida no fim da B1.
 

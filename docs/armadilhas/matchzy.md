@@ -25,8 +25,8 @@ partida da MatchZy 0.8.15 com um humano contra bots, e o que dá para ler do log
 ### 15. O `live.cfg` desfaz o que vem antes do `css_start`
 - **Sintoma:** quota e bloqueio de fim de round setados antes do `css_start` somem no ao vivo.
 - **Causa:** o `live.cfg` zera `bot_quota` (linha 4) e `mp_ignore_round_win_conditions` (linha 58). O único gancho depois dele é o `cfg/MatchZy/live_override.cfg`, na última linha. Ele não dá `bot_kick`: os bots só saem no think seguinte.
-- **Contorno:** o `start_match` escreve o `live_override.cfg` com a quota reafirmada. O README ainda diz que o ajuste tem que vir depois do `css_start`: está desatualizado (item 31).
-- **Fonte:** `start_match.py:316-345` · `docs/features/M0.5-placar.md:141-162` · `README.md:481-482` (auditoria: start_match.py:217-233)
+- **Contorno:** o `start_match` escreve o `live_override.cfg` com a quota reafirmada. O README já traz a ordem certa: times montados no warmup, antes do `css_start` (item 31), e a quota reafirmada pelo `live_override.cfg` e de novo pela RCON (gotcha corrigido no K1.10; passo 6 no K1.12).
+- **Fonte:** `start_match.py:316-345` · `docs/features/M0.5-placar.md:141-162` · `README.md:481-482` · `README.md:155-157` · `commit 875231d` (auditoria: start_match.py:217-233)
 
 ### 16. `mp_ignore_round_win_conditions 1` precisa sempre ser desligado
 - **Sintoma:** nenhum round termina, nem por bomba, nem por tempo, nem num `.start` manual.

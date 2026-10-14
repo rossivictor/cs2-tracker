@@ -89,7 +89,7 @@ import shutil
 import subprocess
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from glob import glob
 from pathlib import Path
 
@@ -98,7 +98,8 @@ try:
 except ImportError:
     RconClient = None
 
-from parser import parse_and_store, store_match_from_csv, store_match_from_events
+from parser import (demo_name_no_banco, parse_and_store, store_match_from_csv,
+                    store_match_from_events)
 from report import generate_report
 from home import generate_home
 from config import (
@@ -106,6 +107,12 @@ from config import (
     HOME_PATH, MATCH_CONFIG_FILE, REPORT_PATH, ROOT, STATS_LIVE_DIR,
 )
 from identity import resolve_identity
+
+
+def _carimbo_utc() -> str:
+    """Carimbo do sufixo de colisão (P1.1a): AAAAMMDDTHHMMSSZ, em UTC, o mesmo
+    formato do orphan_* do start_match. Função à parte para o teste fixar."""
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
 # ---------------------------------------------------------------------------
@@ -452,6 +459,18 @@ class MatchWatcher:
         )
         return achou.group("map") if achou else None
 
+    def _demo_name_livre(self, base):
+        """`base__<utc>`, livre em disco e no banco. Dois fins no mesmo
+        segundo ganham -2, -3... (mesma regra do orphan_* do start_match)."""
+        carimbo = _carimbo_utc()
+        nome = f"{base}__{carimbo}"
+        n = 2
+        while ((self.events_live_dir / f"{nome}.jsonl").exists()
+               or demo_name_no_banco(self.db_path, nome)):
+            nome = f"{base}__{carimbo}-{n}"
+            n += 1
+        return nome
+
     def on_matchzy_map_finished(self, matchid, map_number, winner):
         """
         Chamado quando o MatchZy termina de escrever o CSV de stats de UM
@@ -476,11 +495,24 @@ class MatchWatcher:
         demo_name = f"events_{matchid}_map{map_number}"
         archived = self.events_live_dir / f"{demo_name}.jsonl"
         current = self.events_live_dir / "current.jsonl"
+        tem_eventos = current.exists() and current.stat().st_size > 0
+
+        # Colisão (P1.1a): o nome já existe em disco ou no banco, e o
+        # current.jsonl tem uma partida nova. Antes o watcher não renomeava e
+        # mandava ingerir o arquivo ANTIGO, que o parser pulava ("já está no
+        # banco"): a partida nova sumia no truncamento do mapa seguinte. Agora
+        # ela ganha um nome livre, events_<matchid>_map<N>__<utc>, e o antigo
+        # fica intacto.
+        if tem_eventos and (archived.exists() or demo_name_no_banco(self.db_path, demo_name)):
+            antigo = demo_name
+            demo_name = self._demo_name_livre(antigo)
+            archived = self.events_live_dir / f"{demo_name}.jsonl"
+            print(f"[PIPELINE] {antigo} já existe; a partida nova vai como {demo_name}")
 
         # Arquiva PRIMEIRO, ingere depois: o rename é o que salva os dados do
         # truncamento, e qualquer erro de ingestão depois disso é recuperável
         # (tools/reingest_events.py).
-        if not archived.exists() and current.exists() and current.stat().st_size > 0:
+        if tem_eventos:
             current.rename(archived)
             print(f"[PIPELINE] Eventos do mapa {map_number} arquivados em {archived.name}")
 

@@ -132,9 +132,9 @@ A evidência de cada passo vem do B1.1. Os clones que ele leu estão em
   endereço é válido e os bytes originais antes de gravar (150-180) e desfaz par órfão
   (95-115).
 - A exceção é o `UpdateBotBombState` (121, 138, 224-240). A cada spawn de bot, ele escreve um
-  Int32 zero em `CCSBot+0x5100+0x0C`. O offset é fixo, da build 14172 (PR #5, jul/26), e só
-  é protegido por "endereço legível". Com o layout de `CCSBot` mudado, isso pode corromper
-  memória em silêncio, sem assinatura que barre.
+  Int32 zero em `CCSBot+0x5100+0x0C`. O offset é fixo, da build 14172 (`f746074`, 30/07, no
+  CS2-Bot-Improver, clone `cbi/`), e só é protegido por "endereço legível". Se o layout de
+  `CCSBot` mudou, isso corrompe memória em silêncio, sem assinatura que barre.
 - Recomendação do B1.1, que não é critério do card: um [smoke só de bots](smoke-partida-de-bots.md)
   antes da partida do Victor (Q7=A permite).
 - Registrar pelo nome quais das 43 assinaturas falham (card). No upstream, não há commit
@@ -156,16 +156,16 @@ A evidência de cada passo vem do B1.1. Os clones que ele leu estão em
 
 ### Passo 7 · B1.9: BotRandomizer do upstream
 
-- O `try/catch` de `BotRandomizer.cs:95-130` é código morto: o construtor de
-  `MemoryFunctionWithReturn` nunca lança, porque a CSSharp engole a falha e devolve zero. O
-  `NativeAvailable` fica verdadeiro com handle zero (`WeaponItemViewStore.cs:30`). Cada
-  chamada lança exceção, apanhada no catch "GiveNamedItem pre-hook failed" (316). O resultado
-  é sem crash e sem skins.
-- A correção upstream é o commit `18d1510` (24/09, "fix: Update sig", do PR #8 do upstream:
-  assinatura nova de `SetOrAddAttributeValueByName` para Linux e Windows), com o csproj na
-  CSSharp.API 1.0.375 no `276f1ce`, o commit compilado ([runbook](b1.9-botrandomizer-upstream.md)).
-  O plano e o card B1.9 citam `5dfe948` e `d5cf9e0`, que não existem no clone do upstream
-  (conferido no B1.10). O nome do card fica como está.
+- Antes do `18d1510`, a assinatura de `SetOrAddAttributeValueByName` não casava, e o `try/catch`
+  de `BotRandomizer.cs:95-130` é código morto: o construtor de `MemoryFunctionWithReturn` não
+  lança, porque a CSSharp engole a falha e devolve handle zero. O `NativeAvailable` fica
+  verdadeiro (`WeaponItemViewStore.cs:30`), o pre-hook de `GiveNamedItem` liga, e a chamada
+  nativa lança dentro do `TryPrepare`, cujo catch loga uma vez `Failed to prepare a weapon item
+  view` (`WeaponItemViewStore.cs:95-104`; o catch do pre-hook, 316, só pega o que falha fora
+  dele): sem crash e sem skins. Na build 2000930 isso voltou ([Sobras](#sobras), 7).
+- A correção upstream é o `18d1510` (24/09, "fix: Update sig", PR #8 do upstream), com o csproj
+  na 1.0.375 no `276f1ce`, o commit compilado ([runbook](b1.9-botrandomizer-upstream.md)). Os
+  `5dfe948` e `d5cf9e0` do plano existem no CS2-Bot-Improver (`cbi/`), com as mesmas mudanças.
 - A licença é AGPL-3.0, como a de todos os repositórios ed0ard. Por isso ele compila
   localmente, no container do SDK (o mecanismo de `docker/build-events-plugin.sh`), pelo papel
   servidor. Clone e download só com OK.
@@ -294,7 +294,7 @@ O veredito de cada passo é um destes:
   trilha. Nada aqui a aposenta.
 - **Compose só do checkout principal** (`C:/Users/Victor/Projetos/cs2-tracker`), com
   `docker compose up -d --force-recreate`. O `restart` não aplica env nem mount, e o compose
-  rodado de uma worktree cria projeto e volume novos, vazios.
+  rodado de uma worktree monta o volume vivo com os binds dela ([reconstruir-volume](reconstruir-volume.md)).
 - **Snapshot antes de qualquer escrita no volume**, seja a extração da imagem no B1.3r ou uma
   restauração.
 - **Janela só por frase do Victor:** "pode mexer no servidor" (Q4=A, no máximo 45 min) ou,
@@ -343,7 +343,7 @@ sha e a hora) ou inferida (com a origem).
 | 2b · B1.4b | 27/09 15:44–15:56 ("Pode juntar") | BotAimImprover do upstream `c3d10f5` por bind mount + VPK Medium (15:34) | igual | não precisa (bind mount) | `[BotAimImprover] Loaded (Linux)`; sha no container = manifesto | — |
 | 3 · B1.5 | 27/09 18:38–18:56 ("terminei") | máscara do BotState removida (versão do volume) | igual | não precisa | Smarter-Bot 1.9.4 carregado, sem falha de assinatura; `BotController API not available` | OK: 10 bots em mirage e de novo após troca de mapa; 0 crash |
 | 4 · B1.6 | 27/09 19:52–20:17 ("fechei o jogo, pode seguir") | máscara do BotBuy removida (volume) | igual | não precisa | BotBuyPatch 1.0.12 carregado; 0 linha proibida | OK: bots entram antes e depois da troca (readição com o mapa assentado) |
-| 5 · B1.7 | — | **pulado** (decisão do Victor, 27/09): BotAI escreve por offset fixo do CCSBot (`0x5100+0x0C`), deslocado pelo update de 23/09; upstream sem correção desde 27/08 | — | — | — | — |
+| 5 · B1.7 | — | **pulado** (decisão do Victor, 27/09): BotAI escreve por offset fixo do CCSBot (`0x5100+0x0C`), da build 14172 e não conferido depois do update de 23/09 (B1.7a: indeterminado); upstream sem correção desde 27/08 | — | — | — | — |
 | 6 · B1.8 | 27/09 21:17–21:28 ("terminei") | máscara do NadeSystem removida (volume) | igual | não precisa | NadeSystem 1.2.1, "3703 grenades in DB"; sem EmitSoundFilter | OK: 5 rounds, 0 crash, replays de smoke/flash; 182 cegueiras |
 | 7 · B1.9 | 27/09 22:29–22:37 ("pode aplicar", Victor no PC) | BotRandomizer do upstream `276f1ce` (com a correção `18d1510`) por bind mount, no lugar da máscara | igual | não precisa (bind mount) | BotRandomizer 1.3.2, "Catalog loaded: 35 weapons, 1456 weapon paints, 10565 stickers, 81 charms"; 0 `signature failed`; sha no container = manifesto (5/5) | OK: 10 bots em mirage e de novo após a troca para inferno (readição); 0 crash, 0 exceção do BotRandomizer |
 
@@ -370,7 +370,7 @@ se vier (não bloqueia).
 - **4 · B1.6:** CTs trocaram a AUG pela M4A1 (146 vs 30 hits); entropia de armas 3,18 bits (ref. 2,54). Com BotState + BotBuy os bots deixaram de usar granada (0 dano/cegueira nas partidas 28 e 29).
 - **5 · B1.7:** pulado. Religar só com correção upstream do offset `m_gameState` do CCSBot, ou após verificação do offset na build atual. **Verificação do B1.7a** (13/10, offline, só leitura dos clones já existentes; não há `libserver.so` nem dump de schema da 2000930 fora do volume). *Números (Linux), com fonte:* `m_gameState` no `CCSBot` era `0x5108` antes do update de 09/07 e passou a `0x5100` na build que o upstream chama de 14172: as assinaturas `48 8B 83 08 51 00 00` e `55 48 8D BE 08 51 00 00` viraram `00 51 00 00` no `eedceee` (19/07) do CS2-Bot-Improver (clone `cbi/`), e a constante virou `0x5100` no `f746074` (30/07, comentário "lea r14,[rbx+5100h]"). No BotAI 1.8.9 (clone `botai/`, `1bcd6db`, igual à cópia do `cbi/`) estão em `BotAI.cs:17-19` e `LinuxPatchDefinitions.cs:335` e `:351`. O campo zerado é o `m_bombState`, `+0x0C` dentro do `CSGameState` (`BotAI.cs:21-22`), o mesmo que o `CSGameState::Reset` zera (`48 C7 47 0C 00 00 00 00`, `LinuxPatchDefinitions.cs:19`); esse `+0x0C` nunca mudou no histórico. **Na 2000930, o valor é indeterminado.** Nenhum dos dois repositórios mexeu no BotAI depois de 31/08 (`cbi/` em `abb2c0f`, 25/09), e não existe cópia da build para ler. *Comparação:* o fix do BotAimImprover (`2e27900`, mergeado no `c3d10f5`) moveu -8 os três campos do `CCSBot` que ele lê, de `0x5974`/`0x59E0`/`0x59E4` para `0x596C`/`0x59D8`/`0x59DC`, e mudou o `m_pBot` do pawn (`0x1590` → `0x17D8`, outra classe). O `0x5100` fica abaixo da faixa movida, e o diff não diz onde o deslocamento começa: **indeterminado, com risco concreto de deslocado -8 (`0x50F8`)**. No update de 09/07, o mesmo -8 do BotAimImprover (`0x597C` → `0x5974`, `0e0636f`) atingiu o `m_gameState` e todos os campos de `0x4F5C` a `0x5E10` (`eedceee`). Com -8, o BotAI leria o `m_isRoundOver` em `m_gameState+0x10` e zeraria `m_gameState+0x14` a cada spawn de bot, sem assinatura que barre (`BotAI.cs:228-238`). As builds 2000919, 2000922, 2000924 e 2000930 chegaram pelo SteamCMD sem janela nem OK ([Épocas](#épocas)), e nenhuma foi conferida. *Insumo que falta:* uma cópia só leitura do `libserver.so` da 2000930, tirada do volume pelo papel servidor em janela e guardada fora do repo. Nela, o `disp32` de `55 48 8D BE ? ? 00 00 48 89 E5 41 54 53 48 89 F3` (`DefuseBombState::OnUpdate`, `lea rdi,[rsi+m_gameState]`) é o offset atual, e o padrão do `Reset` confirma o `+0x0C`. A alternativa é o OK do Victor (G5) para buscar correção nova no upstream. Falta também ler a versão do `BotAI.dll` instalado no volume em 05/09, que ninguém conferiu. **Recomendação para o B1.7: manter mascarado** até esse insumo. Para religar, usar **fork corrigido compilado fora do repo**, como no B1.4b e no B1.9: o 1.8.9 lendo o offset do `m_gameState` no `disp32` dessa assinatura durante o load, e não da constante, com o `UpdateBotBombState` desligado se ela não casar. O DLL do volume como está só serve se o offset der `0x5100` na 2000930 e o DLL for o 1.8.9, e mesmo assim volta a ficar sem guarda no próximo update do SteamCMD.
 - **6 · B1.8:** granadas voltaram (324 replays na partida 30). Aviso do engine "Grenade has no weapon info" nas granadas replayed: a contagem de utility do motor não credita o bot. Victor: 9/13, K/D 0,69, primeira derrota da trilha.
-- **7 · B1.9:** nenhuma assinatura falhou (0 `signature failed` e 0 `cosmetics disabled` na janela e na partida). Skins, facas e luvas confirmadas pelo Victor. O `5dfe948` do plano não existe no clone do upstream: a correção de assinatura é o `18d1510`, ancestral do `276f1ce` compilado. Avisos iguais aos da partida 30: 3 `Error invoking callback` do BotBuyPatch e "Grenade has no weapon info" (ver [Sobras](#sobras)).
+- **7 · B1.9:** nenhuma assinatura falhou (0 `signature failed` e 0 `cosmetics disabled` na janela e na partida). Skins, facas e luvas confirmadas pelo Victor. O `5dfe948` do plano é do CS2-Bot-Improver (clone `cbi/`), não do CS2-Bot-Randomizer compilado: lá a correção de assinatura é o `18d1510`, ancestral do `276f1ce`. Avisos iguais aos da partida 30: 3 `Error invoking callback` do BotBuyPatch e "Grenade has no weapon info" (ver [Sobras](#sobras)).
 - **8 · B1.10:** fechamento offline, sem janela nem partida: [Épocas](#épocas) e [Fechamento](#fechamento).
 
 ### Épocas
@@ -426,9 +426,9 @@ upstream. O BotAI não chegou a ser testado, então as 43 assinaturas dele ficam
 ### Sobras
 
 1. **BotAI:** mascarado. Escreve Int32 zero em `CCSBot+0x5100+0x0C` a cada spawn, num offset
-   da build 14172 que o update de 23/09 deslocou. O upstream não tem commit desde 27/08, e o
-   PR #7 dele segue aberto. O card B1.7a confere o offset na build atual, que desde 30/09 é a
-   2000922.
+   da build 14172 que ninguém conferiu depois do update de 23/09: o B1.7a (13/10) não achou
+   insumo offline, deu indeterminado e espera a cópia do `libserver.so` (janela do B1.12b). O
+   upstream não tem commit desde 27/08, e o PR #7 dele segue aberto. A build atual é a 2000930.
 2. **Nativos do Metamod, para a B2:** RayTrace/RayTraceImpl e BotHider/BotHiderImpl seguem
    mascarados (no boot, `[META] Failed to load plugin ... File not found`, efeito da máscara).
    O BotVision não está no volume, e o BotController só em parte: o snapshot
@@ -448,6 +448,19 @@ upstream. O BotAI não chegou a ser testado, então as 43 assinaturas dele ficam
    na 2000919, sem G7.
 6. **Fora da trilha:** o GOTV não grava `.dem` desde 21/09
    (`CDemoFile::Open: couldn't open file ... for writing`). Já é a Q12, no S1.2.
+7. **BotRandomizer na build 2000930:** desde o boot de 12/10 (21:37Z), as armas dos bots vêm
+   sem skin, e as facas seguem com skin (relato do Victor, card K1.12). O log tem um erro só, no
+   primeiro `GiveNamedItem` do boot (12/10 21:38:43Z): `Failed to prepare a weapon item view`,
+   com `NativeException: Invalid function pointer` em `WeaponItemViewStore.cs:57`, a chamada
+   do construtor de `CEconItemView`. O catch loga uma vez por boot, por isso a janela da partida
+   80 não tem linha. Nos boots de 04/10 e 05/10 (2000924), nenhum erro do BotRandomizer. Fontes:
+   `skins-extrato.txt` da coleta `2026-10-13/coleta-g7-p1.1/` e o log reconstruído da
+   `2026-10-12/coleta-g7-candidato-9/` (boot de 04/10). Leitura, por inferência e não
+   conferida no binário: a assinatura do construtor deixou de casar na 2000930 e a CSSharp
+   devolveu handle zero sem `signature failed`, como no passo 7, acima; faca e luva vão pelo
+   `CosmeticApplicator` (`BotRandomizer.cs:445-452`), que só usa a de
+   `SetOrAddAttributeValueByName`. Sem crash: as partidas 79 e 80 saíram 0 no
+   `evidencia_partida.py`. O conserto (correção upstream, com OK do Victor, G5) é card próprio.
 
 ### Recomendação para a Q16 (etapa 2: nativos)
 
