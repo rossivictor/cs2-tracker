@@ -37,7 +37,7 @@ O estado de cada alvo no fim da trilha está no [Fechamento](#fechamento).
 |---|---|---|---|
 | 101 | `counterstrikesharp/plugins/RayTraceImpl` | CSSharp | fora da B1 (B2, Q16) |
 | 108 | `RayTrace` | Metamod nativo | fora da B1 (B2) |
-| 141 | `counterstrikesharp/plugins/BotAI` | CSSharp | B1.7 |
+| 141 | `counterstrikesharp/plugins/BotAI` | CSSharp | B1.7 (vira bind de `./docker/plugins/BotAI`, o fork do B1.7b: [religar pelo fork](#religar-o-botai-pelo-fork)) |
 | 142 | `counterstrikesharp/plugins/BotAimImprover` | CSSharp | B1.4 |
 | 143 | `counterstrikesharp/plugins/BotBuy` | CSSharp | B1.6 |
 | 144 | `counterstrikesharp/plugins/BotHiderImpl` | CSSharp | fora da B1 (B2) |
@@ -67,7 +67,7 @@ A correção é a parte "compose" do B0.11, num PR separado e só de comentário
 | 2 | B1.4 | linha 142 (BotAimImprover) | guarda explícita: sem a assinatura, desativa-se limpo antes de qualquer hook | pós-partida |
 | 3 | B1.5 | linha 146 (BotState) | guarda efetiva: só escreve se o endereço resolveu e os bytes originais batem | pré-partida, com partida só de bots (card) |
 | 4 | B1.6 | linha 143 (BotBuy) | não tem assinatura própria; usa o `GiveNamedItem` da CSSharp, que não mudou | pré-partida, com partida só de bots (card) |
-| 5 | B1.7 | linha 141 (BotAI) | guarda forte nas 43 assinaturas, **mas** escreve num offset fixo de `CCSBot` a cada spawn de bot | pós-partida; smoke só de bots recomendado |
+| 5 | B1.7 | linha 141 (BotAI); pelo fork, vira bind de `./docker/plugins/BotAI` ([religar pelo fork](#religar-o-botai-pelo-fork)) | guarda forte nas 43 assinaturas, **mas** escreve num offset fixo de `CCSBot` a cada spawn de bot | pós-partida; smoke só de bots recomendado |
 | 6 | B1.8 | linha 155 (NadeSystem) | **sem guarda**; chama `DispatchSpawn()`, que na 1.0.373 é ponteiro nulo. Só roda com CSSharp 1.0.375 ou mais nova | pré-partida, com partida só de bots de 5 rounds ou mais (card) |
 | 7 | B1.9 | linha 145 vira bind de `./docker/plugins/BotRandomizer` | **sem guarda**; a correção upstream é o commit `18d1510` (o plano dizia `5dfe948`) | pré-partida, com partida só de bots (card) |
 | 8 | B1.10 | nenhuma | fechamento: registro, sobras pelo nome e ADR-0005 | offline |
@@ -138,7 +138,7 @@ A evidência de cada passo vem do B1.1. Os clones que ele leu estão em
 - Recomendação do B1.1, que não é critério do card: um [smoke só de bots](smoke-partida-de-bots.md)
   antes da partida do Victor (Q7=A permite).
 - Registrar pelo nome quais das 43 assinaturas falham (card). No upstream, não há commit
-  desde 27/08, e o PR #7 ("fix: Update sig") está aberto.
+  desde 27/08, e o PR #7 ("fix: Update sig") está aberto. Critério trocado em 14/10, com OK do Victor: o BotAI volta pelo fork do B1.7b, por bind ([religar pelo fork](#religar-o-botai-pelo-fork)).
 
 ### Passo 6 · B1.8: NadeSystem
 
@@ -495,3 +495,62 @@ de VPK, que já aconteceu duas vezes. A decisão é do Victor.
 - **BotBuyPatch e NadeSystem:** aceitos como estão. Nenhum dos dois derrubou partida, e o do
   NadeSystem só distorce a contagem de utility (B1.8b).
 - A (C), PR no upstream, fica opcional e sem prazo.
+
+## Religar o BotAI pelo fork
+
+Passo 5 refeito pelo card B1.7, um degrau do trilho. Fica no fim do documento para não deslocar
+as linhas que outras notas citam. O procedimento inteiro (fork, conferência, build, troca, G6,
+volta) está no [runbook do B1.7b](b1.7b-botai-fork-assinatura.md); aqui fica o que a trilha
+precisa para registrar o passo.
+
+- **Por que o fork.** O B1.7a mostrou que o BotAI 1.8.9 do volume zeraria, a cada spawn de bot,
+  um campo errado do `CSGameState` na build 2000930 ([passo 5](#notas-por-passo)). Em 14/10 o
+  Victor trocou o critério do card (fork por bind, em vez de tirar a máscara) e aceitou a base
+  1.8.12: o comportamento dos bots muda (8 patches em outro lugar, 3 novos, 6 a menos; a lista
+  está no runbook do B1.7b). O 1.8.9 do volume não é usado: o bind cobre a pasta dele.
+- **Mudança no compose.** A máscara `_empty` do alvo `counterstrikesharp/plugins/BotAI` (linha
+  144 no `eb4cb0e`; 141 no `efcaa42`) vira o bind de `./docker/plugins/BotAI`, com três linhas
+  de comentário acima. Nenhuma outra linha funcional muda. A pasta é gitignored, como as do
+  B1.4b e do B1.9: o binário (AGPL) não entra no repo.
+- **Pré-condições:** trilho livre (nenhum outro candidato esperando partida), o PR do B1.7
+  mergeado, o build do fork feito e o manifesto registrado no runbook do B1.7b (seção Build),
+  preflight 0 e janela aberta pelo Victor.
+- **Só pelo servidor, em janela.** O compose novo é infra: só chega ao checkout principal pelo
+  ff que o papel servidor faz dentro da janela ([como um passo chega ao jogo](#como-um-passo-chega-ao-jogo)).
+- **A pasta antes do recreate.** `docker/plugins/BotAI/` precisa existir no checkout principal,
+  com os 3 arquivos do manifesto e o sha256 conferido, **antes** do `--force-recreate`. Sem
+  ela, o Docker cria uma pasta vazia, o plugin some sem erro no log e o passo parece
+  "inativo" sem ter rodado. Enquanto a máscara está no ar, a cópia não toca no servidor vivo.
+- **G6**, além dos [critérios de cada passo](#critérios-de-sucesso-de-cada-passo):
+  1. Build do boot (`GC Connection established for server version`) e a **conferência das
+     assinaturas do fork contra essa build**, pelo script do B1.7b, com `RESULTADO: OK`
+     registrado: build, sha256 do `libserver.so` conferido e a última linha da saída. Com outra
+     build que não a 2000930, a conferência roda sobre a cópia do `libserver.so` dela antes de
+     religar ([a cada build nova](b1.7b-botai-fork-assinatura.md#a-cada-build-nova-do-cs2)).
+     Saída 1 ou 2: o fork não religa, e a volta é decisão do PM.
+  2. No log, o `m_gameState` resolvido e `Applied 40/40 patches.`; as linhas proibidas são as
+     do G6 do runbook do B1.7b. Entrada que falhar vai **pelo nome** para as notas.
+  3. sha256 dos 3 arquivos dentro do container igual ao manifesto. O `jogavel.py coletar`
+     também os confere, porque a pasta é bind de `docker/plugins/`
+     (`tools/jogavel.py:1305-1321`).
+  4. Recomendação do B1.1, que não é critério: [smoke só de bots](smoke-partida-de-bots.md)
+     até pelo menos uma bomba plantada, antes da partida do Victor (Q7=A).
+- **G7**, a partida do Victor: zero segfault e nenhum overflow depois de `SIGNONSTATE_FULL` +
+  60 s; MatchZy e captura carregadas e a partida ingerida; sha256 dos montados e config-hash
+  iguais aos da janela. O que o Victor deve perceber está no G7 do runbook do B1.7b.
+- **Conclusão do card**, uma destas:
+  - **religado:** 40/40 patches, `m_gameState` resolvido, zero crash na janela e na partida;
+  - **degradado:** carregou com alguma entrada desligada (por exemplo o TBot no freio do
+    B1.7c, 39/40), segue ativo e sem crash; as entradas vão pelo nome para as notas;
+  - **mascarado:** a máscara voltou, pela volta abaixo. Também é o caso em que o próprio fork
+    se desliga (`NAO resolvido`): pelo vocabulário da trilha é **inativo**, que equivale a
+    mascarado.
+- **Rollback**, se o G6 ou o G7 sair ruim: volta à máscara `_empty`, em janela, pelo papel
+  servidor, do checkout principal: `git -C C:/Users/Victor/Projetos/cs2-tracker switch --detach <última tag jogavel-*>`
+  e `docker compose up -d --force-recreate` (ou `jogavel.py voltar --tag <última jogavel-*>`,
+  que recria quando o compose difere); depois, reverter o PR. Nunca `down`, `volume rm` ou
+  `prune`. A pasta `docker/plugins/BotAI/` pode ficar: sem o bind, não é lida.
+- **Registro.** Uma linha `5b · B1.7` nas tabelas de [janela](#janela-g6) e de
+  [partida](#partida-g7), uma nota em [notas por passo](#notas-por-passo) com a saída da
+  conferência e, com o G7 OK, a época nova, a linha do BotAI no [Fechamento](#fechamento) e a
+  sobra 1.

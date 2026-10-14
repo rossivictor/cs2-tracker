@@ -141,7 +141,10 @@ services:
       # Correção (B1.1, 26/09): esses plugins NÃO vêm da imagem; foram
       # instalados à mão no volume em 05/09. Religar um por vez pela trilha de
       # bots (docs/runbooks/trilha-de-bots.md), uma partida por passo.
-      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAI
+      # B1.7: BotAI do fork local (CS2-BotAI a23f7e2 + patches B1.7b e B1.7c, m_gameState por assinatura).
+      # Pasta gerada fora do repo (AGPL, gitignored); build e volta:
+      # docs/runbooks/b1.7b-botai-fork-assinatura.md.
+      - ./docker/plugins/BotAI:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAI
       # B1.4b: BotAimImprover compilado do upstream (ed0ard/CS2-Bullseye-Bot
       # c3d10f5: offsets Linux corrigidos e trace pela API da CSSharp, sem o
       # RayTrace nativo). A pasta é gerada fora do repo (AGPL, gitignored);

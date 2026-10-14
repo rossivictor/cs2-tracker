@@ -12,6 +12,7 @@ docker/plugins/Cs2TrackerEvents/*
 # Plugins de bot compilados do upstream (AGPL-3.0), só para uso local: o
 # binário não é redistribuído aqui; o runbook do passo fixa repo, commit e
 # sha256 (docs/runbooks/b1.4b-botaimimprover-upstream.md).
+docker/plugins/BotAI/
 docker/plugins/BotAimImprover/
 docker/plugins/BotRandomizer/
 docker/plugins-src/*/bin/
