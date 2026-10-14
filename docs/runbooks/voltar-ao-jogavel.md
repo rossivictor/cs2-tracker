@@ -13,12 +13,15 @@ fontes:
   - "tools/jogavel.py:563-726 (voltar: pasta do plugin pelo manifesto em 563-618, pre.sh antes dela em 700-708)"
   - "tools/jogavel.py:910-1298 (janela abrir, fechar, vigiar e aborto; timeouts do ciclo no B0.7c)"
   - "tools/jogavel.py:1058-1210 (python sem linha confirmado na releitura e árvore do servidor, B0.7e)"
-  - "tools/jogavel.py:1324-1430 (coletar e a conferência do log salvo, B0.7f)"
+  - "tools/jogavel.py:1324-1357 (conferência do log salvo, B0.7f)"
+  - "tools/jogavel.py:1359-1504 (leitura pelo fim, build do boot atual e LEIAME, B0.7h)"
+  - "tools/jogavel.py:426-451 (build antes e depois do recreate, lida pelo fim, B0.7h)"
+  - "tools/jogavel.py:1507-1595 (coletar e a reconstrução automática, B0.7h)"
   - "backup:../2026-10-12/coleta-g7-candidato-9/docker-logs-reconstruido.LEIAME.txt (log vazio e reconstrução por --tail)"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:452-703 (tipos de evento)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:641-670 (a volta à mão que o voltar substitui)"
   - "docs/runbooks/versoes-conhecidas.md:323-339 (manifesto do plugin de captura)"
-atualizado: 2026-10-13
+atualizado: 2026-10-14
 ---
 
 # Voltar ao jogável
@@ -68,9 +71,10 @@ log do container antigo se perde no recreate, e a build "depois" é lida normalm
 ## O que ele faz, na ordem
 
 1. Salva `docker logs -t cs2-spike` em `logs/jogavel/<data>_<hora>-voltar/`, porque o
-   recreate descarta o log do container antigo. Daí sai a build do CS2 "antes"
-   (`GC Connection established for server version N`). Com `--agora` e partida em curso, pula
-   este passo.
+   recreate descarta o log do container antigo. A build do CS2 "antes" (`GC Connection
+   established for server version N`) não sai desse arquivo: sai do log lido pelo fim, e só
+   de linha com carimbo do StartedAt em diante, a do boot atual (B0.7h; veja
+   [leitura pelo fim](#leitura-pelo-fim)). Com `--agora` e partida em curso, pula este passo.
 2. Protege o `docker/match_config.spike.json`, que o `start_match` reescreve a cada partida:
    copia para a mesma pasta, tira do caminho (`git checkout --` se rastreado; apaga se não
    rastreado e a tag o rastreia) e, depois da troca, restaura a cópia se a tag o rastreia. Se
@@ -88,8 +92,9 @@ log do container antigo se perde no recreate, e a build "depois" é lida normalm
    e a conferência é à mão, pelo [manifesto](versoes-conhecidas.md#manifesto-do-plugin-de-captura).
 6. Se a infra difere entre o commit de antes e a tag (compose, `docker/plugins/` ou fonte de
    bind tirada de `docker compose config`), roda `docker compose up -d --force-recreate`,
-   espera a linha do GC no log novo (até 10 min) e imprime a build "depois". Se `docker compose
-   config` falhar, todo arquivo mudado conta como infra. Sem infra diferente, não recria.
+   espera a linha do GC do boot novo, lida pelo fim (até 10 min), e imprime a build "depois".
+   Se `docker compose config` falhar, todo arquivo mudado conta como infra. Sem infra
+   diferente, não recria.
 
 **Build mudou** (`ATENÇÃO: a build do CS2 mudou`): o SteamCMD atualizou o jogo no boot. São
 duas variáveis, e o cliente do Victor precisa da mesma build. A build não volta por git.
@@ -175,17 +180,45 @@ em `D` (ou `logs/jogavel/<data>_<hora>-coletar/`) o `docker-logs.txt` (`docker l
 no checkout. Quem julga o G7 é o QA, pelo `evidencia_partida.py`.
 
 Depois de gravar tudo, ele confere o log salvo (B0.7f). Vazio (0 bytes ou só espaço), ou sem
-nenhuma linha carimbada do StartedAt em diante, sai com 8 e `coleta INCOMPLETA`. Linha sem
-carimbo não conta: com `-t` toda linha vem carimbada, e sem carimbo não se prova que é desta
-subida. Os arquivos ficam como estão, o vazio também, porque ele é a evidência da falha.
+nenhuma linha carimbada do StartedAt em diante, é log incompleto. Linha sem carimbo não conta:
+com `-t` toda linha vem carimbada, e sem carimbo não se prova que é desta subida. O
+`docker-logs.txt` fica como está, o vazio também, porque ele é a evidência da falha.
+
+Com o log incompleto, ele o reconstrói sozinho pelo fim (B0.7h), só lendo: grava ao lado o
+`docker-logs-reconstruido.txt` e o `docker-logs-reconstruido.LEIAME.txt` (os N lidos, o
+intervalo coberto, por que parou, as fronteiras e as perdas) e confere o reconstruído pela
+mesma regra. Tem linha do StartedAt em diante: sai com 0 e um `AVISO` que manda julgar o G7
+pelo reconstruído e citar o LEIAME; se a leitura não chegou a uma linha de antes do StartedAt
+(nem ao começo do json-file), um segundo `AVISO` diz que o começo da subida pode faltar. Só se
+a reconstrução também falhar (nada desta subida, ou `docker logs --tail` com erro) ele sai com
+8 e `coleta INCOMPLETA`, e aí vale a [reconstrução à mão](#coleta-incompleta).
+
+### Leitura pelo fim
+
+O `docker logs --tail N` conta N linhas de trás para a frente no json-file e decodifica para a
+frente dali; numa entrada corrompida ele para em silêncio, com código 0. A saída é então só o
+trecho do segmento legível (o pedaço entre duas paradas bruscas) em que o N caiu, até o fim
+dele, e a última linha da saída diz que segmento é. O `jogavel.py` dobra o N a partir de 1 até
+a última linha mudar (uma fronteira), acha por busca binária o maior N que ainda lê o segmento
+inteiro e segue para o segmento de antes; um N que cai bem na entrada corrompida devolve nada,
+e ela conta como perda. Para na primeira linha de antes do StartedAt (o boot desta subida está
+inteiro), no começo do json-file ou no teto de 1048576 linhas. A união das leituras, sem
+duplicata e na ordem do carimbo, é o reconstruído.
+
+A mesma leitura dá a build do CS2 do `recriar`, do `voltar` e do `restaurar`, antes e depois do
+recreate: a última linha `GC Connection established` com carimbo do StartedAt em diante. Lido
+do começo, o log mostraria a de um boot de antes da primeira parada brusca (na janela do B1.9b,
+"antes 2000924" quando o boot era da 2000930). O `docker-logs.txt` que o `recriar` salva antes
+do recreate continua sendo o `docker logs -t` lido do começo.
 
 ### Coleta incompleta
 
 Em 12/10 o `docker-logs.txt` saiu com 0 bytes e código 0: o json-file do container tinha uma
 entrada corrompida depois de cada parada brusca (05/10 e 06/10, sem linhas de desligamento), e
 o `docker logs` lendo para a frente (sem `--tail`, ou com `--since`) para em silêncio na
-primeira delas. Não julgue o G7 por esse log; reconstrua-o lendo do fim. Ainda é à mão: o
-modo `--tail-reconstruir` ficou fora do B0.7f.
+primeira delas. Não julgue o G7 por esse log; reconstrua-o lendo do fim. Desde o B0.7h o
+`coletar` faz isso sozinho ([leitura pelo fim](#leitura-pelo-fim)); os passos abaixo são para
+quando ele sai com 8 mesmo assim, com a reconstrução automática falha.
 
 1. Não apague nada da pasta da coleta e não recrie o container: o recreate descarta o
    json-file, e com ele as linhas que ainda se leem.
@@ -223,4 +256,4 @@ modo `--tail-reconstruir` ficou fora do B0.7f.
 | 5 | recusado por regra: infra sem janela, confirmação errada, branch que não é a `main`, recreate ou janela fora do checkout principal, janela já aberta ou sem `--por`, checklist pendente |
 | 6 | `docker/pre.sh` com `\r` depois da troca |
 | 7 | janela vencida (teto da marca ou 45 min pelo mtime) |
-| 8 | coleta incompleta: `docker-logs.txt` vazio ou sem linha do StartedAt em diante; veja [Coleta incompleta](#coleta-incompleta) |
+| 8 | coleta incompleta: `docker-logs.txt` vazio ou sem linha do StartedAt em diante, e a reconstrução pelo fim também; veja [Coleta incompleta](#coleta-incompleta) |
