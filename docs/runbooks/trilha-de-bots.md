@@ -358,7 +358,7 @@ nas [Notas por passo](#notas-por-passo), como lida (com o sha e a hora) ou infer
 | 5 · B1.7 | — | — | — | — | — | pulado | — |
 | 6 · B1.8 | events_67_map0, de_dust2 (partida 30, 5x13) | não | 0 | 0 | sim | **OK** · cegueiras de bot 10,17/rd (ref. 3,33) | jogavel-2026-09-27-5 |
 | 7 · B1.9 | events_68_map0, de_dust2 (partida 31, 3x13) | não | 0 | 0 | sim | **OK** · skins confirmadas pelo Victor | jogavel-2026-09-28 |
-| 5b · B1.7 | events_83_map0, de_nuke (partida 83, 13x3, 5x5) | não (MD1; o `loadmatch` trocou de_mirage → de_nuke) | 0 | 0 | sim (id 48) | **OK** (`--build-esperada 2000931`) · BotAI 40/40 do boot ao fim; 12 bombas plantadas e 2 defuses de bot | jogavel-2026-10-14-3 (build 2000931) |
+| 5b · B1.7 | events_83_map0, de_nuke (partida 83, 13x3, 5x5) | não (MD1; o `loadmatch` trocou de_mirage → de_nuke) | 0 | 0 | sim (id 48) | **OK** (`--build-esperada 2000931`) · BotAI 40/40 do boot ao fim; 12 bombas plantadas (3 por bot, 9 pelo Victor) e 2 defuses, os dois de bot | jogavel-2026-10-14-3 (build 2000931) |
 
 ### Notas por passo
 
@@ -415,7 +415,7 @@ Card B1.10, em 28/09, offline. Fontes: o registro acima, os registros das janela
 | BotBuy (BotBuyPatch) | 4 · B1.6 | religado | 1.0.12, do volume |
 | BotAI | 5 · B1.7 (pulado em 27/09) e 5b · B1.7 | religado em 14/10 (5b), 40/40 | fork 1.8.12-b1.7b (`412416b`), bind mount |
 | NadeSystem | 6 · B1.8 | religado | 1.2.1, do volume |
-| BotRandomizer | 7 · B1.9 | religado | 1.3.2, upstream `276f1ce`, bind mount |
+| BotRandomizer | 7 · B1.9 (e B1.9b, 14/10: [sobra 7](#sobras)) | religado | 1.3.2, upstream `276f1ce` com o `4628750` (B1.9b), bind mount |
 | RayTrace/RayTraceImpl, BotHider/BotHiderImpl | fora da B1 | mascarado | — |
 | BotVision, BotController | fora da B1 | ausentes do volume (do BotController, só a API compartilhada) | — |
 
@@ -448,19 +448,19 @@ upstream. O BotAI ficou fora deste fechamento; o fork o religou em 14/10, com 40
    na 2000919, sem G7.
 6. **Fora da trilha:** o GOTV não grava `.dem` desde 21/09
    (`CDemoFile::Open: couldn't open file ... for writing`). Já é a Q12, no S1.2.
-7. **BotRandomizer na build 2000930:** desde o boot de 12/10 (21:37Z), as armas dos bots vêm
-   sem skin, e as facas seguem com skin (relato do Victor, card K1.12). O log tem um erro só, no
-   primeiro `GiveNamedItem` do boot (12/10 21:38:43Z): `Failed to prepare a weapon item view`,
-   com `NativeException: Invalid function pointer` em `WeaponItemViewStore.cs:57`, a chamada
-   do construtor de `CEconItemView`. O catch loga uma vez por boot, por isso a janela da partida
-   80 não tem linha. Nos boots de 04/10 e 05/10 (2000924), nenhum erro do BotRandomizer. Fontes:
-   `skins-extrato.txt` da coleta `2026-10-13/coleta-g7-p1.1/` e o log reconstruído da
-   `2026-10-12/coleta-g7-candidato-9/` (boot de 04/10). Leitura, por inferência e não
-   conferida no binário: a assinatura do construtor deixou de casar na 2000930 e a CSSharp
-   devolveu handle zero sem `signature failed`, como no passo 7, acima; faca e luva vão pelo
-   `CosmeticApplicator` (`BotRandomizer.cs:445-452`), que só usa a de
-   `SetOrAddAttributeValueByName`. Sem crash: as partidas 79 e 80 saíram 0 no
-   `evidencia_partida.py`. O conserto (correção upstream, com OK do Victor, G5) é card próprio.
+7. **BotRandomizer na build 2000930, corrigido pelo B1.9b em 14/10:** do boot de 12/10 (21:37Z)
+   à janela do B1.9b, as armas dos bots vinham sem skin, e as facas com skin (relato do Victor,
+   card K1.12). O log tinha um erro só por boot, no primeiro `GiveNamedItem` (12/10 21:38:43Z):
+   `Failed to prepare a weapon item view`, com `NativeException: Invalid function pointer` em
+   `WeaponItemViewStore.cs:57`, a chamada do construtor de `CEconItemView`. Nos boots de 04/10 e
+   05/10 (2000924), nenhum erro do BotRandomizer. Fontes: `skins-extrato.txt` da coleta
+   `2026-10-13/coleta-g7-p1.1/` e o log reconstruído da `2026-10-12/coleta-g7-candidato-9/`.
+   Mecanismo, conferido no `libserver.so` da 2000930 pelo [B1.9b](b1.9b-botrandomizer-2000930.md):
+   a assinatura do construtor deixou de casar, e a CSSharp devolveu handle zero sem `signature
+   failed`; faca e luva vão pelo `CosmeticApplicator` (`BotRandomizer.cs:445-452`), que só usa
+   a de `SetOrAddAttributeValueByName`. Sem crash nas partidas 79, 80 e 81. O `4628750` do
+   upstream trouxe a assinatura nova, e com ele a janela de 14/10 e a partida 82 saíram sem o
+   erro (`jogavel-2026-10-14-2`, [versões conhecidas](versoes-conhecidas.md)). Não é mais sobra.
 
 ### Recomendação para a Q16 (etapa 2: nativos)
 
@@ -486,8 +486,8 @@ de VPK, que já aconteceu duas vezes. A decisão é do Victor.
 
 ### Recomendação para a Q17 (o que sobrou quebrado)
 
-(A) para as três sobras de plugin. Para o BotAI, é o que o Victor já escolheu na prática em
-27/09: pular e esperar.
+(A) para as três sobras de plugin. Para o BotAI, a recomendação de 28/09 era a escolha de 27/09,
+pular e esperar; é histórico desde 14/10, quando o fork religou o BotAI (abaixo).
 
 - **BotAI:** ficou mascarado até o B1.7a achar o offset deslocado na 2000930 (`0x5100` → `0x50F8`).
   Voltou em 14/10 pelo fork corrigido fora do repo, num passo próprio (5b), com smoke só de
@@ -565,7 +565,7 @@ Fontes: o registro da janela de 14/10 (`logs/janelas/2026-10-14.md`, cópia em
 e em [versões conhecidas](versoes-conhecidas.md).
 
 - **Janela** 20:57–21:24 (-03), aberta por "pode mexer no servidor". Build do fork `412416b`
-  (manifesto no runbook do B1.7b), conferência na 2000930 com `RESULTADO: OK` e ff do checkout
+  (manifesto em [build de 14/10](b1.7b-botai-fork-assinatura.md#build-de-1410-janela-do-b17)), conferência na 2000930 com `RESULTADO: OK` e ff do checkout
   principal para o `2619d70` (candidato-13).
 - **Build nova no 1º recreate.** O SteamCMD trouxe a **2000931** (PatchVersion 1.41.9.1). O fork
   carregou com 40/40, mas sem conferência na build nova: o servidor voltou à máscara
@@ -577,8 +577,8 @@ e em [versões conhecidas](versoes-conhecidas.md).
   segfault, 9 plugins, sha256 dos montados igual ao checkout (17/17), config-hash novo
   `837cbcbc…`. Smoke só de bots OK, sem prova de bomba plantada no log.
 - **G7:** partida 83 (de_nuke 13x3, 5x5), `evidencia_partida.py --build-esperada 2000931` saiu 0.
-  BotAI 40/40 do boot ao fim, sem nenhuma linha dele depois do boot; 12 `bomb_planted` e 2
-  `bomb_defused` de bot, o que exercita o `OnBombPlanted` e o TBot. Os 3 `Error invoking
+  BotAI 40/40 do boot ao fim, sem nenhuma linha dele depois do boot; 12 `bomb_planted` (3 de
+  bot, 9 do Victor) e 2 `bomb_defused`, os dois de bot, o que exercita o `OnBombPlanted` e o TBot. Os 3 `Error invoking
   callback` no changelevel são do BotBuyPatch ([sobra 3](#sobras)), já vistos com o BotAI
   mascarado. Partida ingerida (id 48). Tag `jogavel-2026-10-14-3` no `2619d70`.
 - **Veredito:** religado. Com ele, todos os plugins de bot da B1 estão no ar.

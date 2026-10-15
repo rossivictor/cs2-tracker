@@ -6,9 +6,9 @@ fontes:
   - "start_match.py:194-213"
   - "start_match.py:313-413"
   - "start_match.py:528-653"
-  - "watcher.py:124-165"
+  - "watcher.py:158-199"
   - "docs/features/M0.5-placar.md:138-162"
-atualizado: 2026-10-13
+atualizado: 2026-10-15
 ---
 
 # Armadilhas da MatchZy
@@ -56,19 +56,19 @@ partida da MatchZy 0.8.15 com um humano contra bots, e o que dá para ler do log
 - **Sintoma:** fim de partida não detectado (matchid 9 teve só o `MAP ENDED`).
 - **Causa:** a linha de fim de série com placar é irregular, mesmo em BO1.
 - **Contorno:** o gatilho é o `[WritePlayerStatsToCsv]` do mesmo matchid, último passo do pipeline da MatchZy; o vencedor vem do `[SetMatchEndData]` anterior.
-- **Fonte:** `watcher.py:124-152`
+- **Fonte:** `watcher.py:158-186`
 
 ### 21. `Match_Start` não existe no log do container
 - **Sintoma:** mapa sem nome (o `World triggered "Match_Start"` do modo nativo nunca chega).
 - **Causa:** o log da MatchZy não tem a linha; o nome vem do `[ChangeMap]`, e com `--tail 0` só a partir do mapa 2.
 - **Contorno:** três fontes, nesta ordem: `[ChangeMap]`, `maplist` do `match_config` por número do mapa, nome do `.dem`.
-- **Fonte:** `watcher.py:162-164` · `watcher.py:415-431`
+- **Fonte:** `watcher.py:196-198` · `watcher.py:449-465`
 
 ### 22. A MatchZy só loga no stdout do container
 - **Sintoma:** nenhum arquivo de log no host para o watcher seguir.
 - **Causa:** a MatchZy não grava log em arquivo.
 - **Contorno:** seguir `docker logs -f` (watcher) e ler `docker logs --tail` (estado dos times).
-- **Fonte:** `watcher.py:322-325` · `start_match.py:225-228`
+- **Fonte:** `watcher.py:356-359` · `start_match.py:225-228`
 
 ### 23. `mp_teamscore_1/2` é o placar da série
 - **Sintoma:** o placar lido não muda round a round.

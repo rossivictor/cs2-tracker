@@ -19,19 +19,19 @@ fontes:
   - "backup:../2026-10-02/janela0/voltar.txt"
   - "backup:../2026-10-01/janela0/volume-overrides-2350.tgz.sha256 (cópia dos VPK)"
   - "backup:../2026-09-27/b1.3r/volume-addons-0144.tgz.sha256"
-  - "tools/jogavel.py:1219-1229 (itens do snapshot e exclusões da restauração)"
-  - "tools/jogavel.py:1287-1324 (tirar_snapshot)"
-  - "tools/jogavel.py:1368-1396 (cmd_restaurar)"
-  - "watcher.py:476-483 (demo_name events_<matchid>_map<N> e o arquivamento)"
-  - "docker-compose.yml:149 (bind do BotAimImprover)"
-  - "docker-compose.yml:157 (bind do BotRandomizer)"
-  - "docker-compose.yml:196-205 (cs2-data external; B0.8)"
+  - "tools/jogavel.py:1602-1610 (itens do snapshot e exclusões da restauração)"
+  - "tools/jogavel.py:1668-1705 (tirar_snapshot)"
+  - "tools/jogavel.py:1749-1777 (cmd_restaurar)"
+  - "watcher.py:523-562 (demo_name events_<matchid>_map<N>, a colisão do P1.1a e o arquivamento)"
+  - "docker-compose.yml:152 (bind do BotAimImprover)"
+  - "docker-compose.yml:160 (bind do BotRandomizer)"
+  - "docker-compose.yml:199-208 (cs2-data external; B0.8)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:387-416 (snapshot só leitura)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:697-710 (exclude do matchzy.db e do gameinfo.gi)"
   - "docs/runbooks/reconstruir-volume.md:123-133 (o que a semente não tem)"
   - "commit 214b25b"
   - "PR #38"
-atualizado: 2026-10-02
+atualizado: 2026-10-15
 ---
 
 # Inventário do volume
@@ -112,7 +112,7 @@ registro de 02/10). No volume há `addons/RayTrace/` (`RayTrace.so`, `gamedata.j
 
 ## Deps: o BotRandomizer do volume
 
-O compose monta `./docker/plugins/BotRandomizer` por cima da pasta (`docker-compose.yml:157`).
+O compose monta `./docker/plugins/BotRandomizer` por cima da pasta (`docker-compose.yml:160`).
 A pasta do volume, que é a instalação manual de 05/09, segue lá embaixo e só reaparece se o bind
 sair. Ela tem 6 arquivos, contra os 5 do bind (o bind não tem `BotHiderApi.dll`):
 
@@ -143,10 +143,11 @@ bind, com 4 arquivos (`BotAimImprover.dll`, `.deps.json`, `.pdb` e `RayTraceApi.
 - O banco também guarda nomes de time e `server_ip`. Nenhuma linha dele entra no repo: daqui,
   só o nome da tabela, o esquema da coluna e o contador.
 
-Por que importa: o watcher nomeia a partida `events_<matchid>_map<N>` e só arquiva o
-`current.jsonl` se o `events_<matchid>_map<N>.jsonl` ainda não existir (`watcher.py:476-483`).
-Um contador que volta reusa um `matchid`, e a partida nova se perde
-([B1.3r](b1.3-cssharp-1.0.375.md), exclusões da restauração).
+Por que importa: o watcher nomeia a partida `events_<matchid>_map<N>`. Até o P1.1a, ele só
+arquivava o `current.jsonl` se esse nome ainda não existisse, e um contador que volta (reusa um
+`matchid`) fazia a partida nova se perder. Desde o P1.1a, a partida nova vai como
+`events_<matchid>_map<N>__<utc>` e a antiga fica intacta (`watcher.py:523-562`); a exclusão da
+restauração continua, para o `matchid` não se repetir ([B1.3r](b1.3-cssharp-1.0.375.md)).
 
 ## VPK
 
@@ -192,15 +193,15 @@ Só leitura, em dois caminhos:
   `C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/jogavel.py snapshot --destino <pasta>`,
   que roda `docker run --rm --pull=never --user 0:0 --entrypoint tar` com o volume `:ro`,
   grava o `.sha256` e a `.lista.txt` ao lado e confere as contagens de `metamod/` e
-  `counterstrikesharp/` (`tools/jogavel.py:1287-1324`). O `overrides/` não entra no snapshot: em
+  `counterstrikesharp/` (`tools/jogavel.py:1668-1705`). O `overrides/` não entra no snapshot: em
   02/10 o servidor o leu com outro `docker run ... :ro` (comando exato não registrado), e em
   01/10 tirou o `volume-overrides-2350.tgz`.
 
 ## Restauração e o contador
 
-O `tools/jogavel.py restaurar --de <tgz>` (`tools/jogavel.py:1368-1396`) confere o sha256 do
+O `tools/jogavel.py restaurar --de <tgz>` (`tools/jogavel.py:1749-1777`) confere o sha256 do
 tgz, tira um snapshot `queda-` do estado atual, para o container, extrai por cima e recria. A
-extração **exclui** (`tools/jogavel.py:1226-1229`):
+extração **exclui** (`tools/jogavel.py:1607-1610`):
 
 - `game/csgo/addons/counterstrikesharp/plugins/MatchZy/matchzy.db*`: o contador de `matchid`
   fica o do volume, e nenhum `matchid` se repete;

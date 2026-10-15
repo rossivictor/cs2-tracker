@@ -6,13 +6,13 @@ fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (judgements[1].must_fix[1], runtime file)"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.playability_protocol, seção 8, janelas)"
   - "tools/jogavel.py:1-46"
-  - "tools/jogavel.py:59-66 (eventos de round)"
-  - "tools/jogavel.py:238-305 (partida em curso)"
-  - "tools/jogavel.py:310-354 (runtime file e volta do merge falho)"
-  - "tools/jogavel.py:385-415 (recreate só do checkout principal)"
+  - "tools/jogavel.py:93-100 (eventos de round)"
+  - "tools/jogavel.py:297-356 (partida em curso)"
+  - "tools/jogavel.py:379-423 (runtime file e volta do merge falho)"
+  - "tools/jogavel.py:454-484 (recreate só do checkout principal)"
   - "tools/jogavel.py:563-726 (voltar: pasta do plugin pelo manifesto em 563-618, pre.sh antes dela em 700-708)"
-  - "tools/jogavel.py:910-1298 (janela abrir, fechar, vigiar e aborto; timeouts do ciclo no B0.7c)"
-  - "tools/jogavel.py:1058-1210 (python sem linha confirmado na releitura e árvore do servidor, B0.7e)"
+  - "tools/jogavel.py:915-1300 (janela abrir, fechar, vigiar e aborto; timeouts do ciclo no B0.7c)"
+  - "tools/jogavel.py:1072-1213 (python sem linha confirmado na releitura e árvore do servidor, B0.7e)"
   - "tools/jogavel.py:1324-1357 (conferência do log salvo, B0.7f)"
   - "tools/jogavel.py:1359-1504 (leitura pelo fim, build do boot atual e LEIAME, B0.7h)"
   - "tools/jogavel.py:426-451 (build antes e depois do recreate, lida pelo fim, B0.7h)"
@@ -20,8 +20,8 @@ fontes:
   - "backup:../2026-10-12/coleta-g7-candidato-9/docker-logs-reconstruido.LEIAME.txt (log vazio e reconstrução por --tail)"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:452-703 (tipos de evento)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:641-670 (a volta à mão que o voltar substitui)"
-  - "docs/runbooks/versoes-conhecidas.md:323-339 (manifesto do plugin de captura)"
-atualizado: 2026-10-14
+  - "docs/runbooks/versoes-conhecidas.md:400-416 (manifesto do plugin de captura)"
+atualizado: 2026-10-15
 ---
 
 # Voltar ao jogável

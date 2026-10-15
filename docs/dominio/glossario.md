@@ -13,12 +13,12 @@ fontes:
   - "start_match.py:327-340 (camadas da proteção de round)"
   - "start_match.py:52-59 (órfão real)"
   - "tools/evidencia_partida.py:86-89 (cauda)"
-  - "tools/jogavel.py:1503-1538 (snapshot do volume)"
+  - "tools/jogavel.py:1668-1705 (snapshot do volume)"
   - "docs/runbooks/trilha-de-bots.md:375-380 (épocas)"
-  - "watcher.py:144-161 (matchid e número do mapa no log da MatchZy)"
+  - "watcher.py:178-195 (matchid e número do mapa no log da MatchZy)"
   - "parser.py:65-80 (demo_name e source)"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (Q10: partidas órfãs; cards V1.2 a V1.4)"
-atualizado: 2026-10-13
+atualizado: 2026-10-15
 ---
 
 # Glossário
@@ -41,11 +41,11 @@ seção. O formato do JSONL em si está no [contrato](../arquitetura/contrato-ev
 | **cauda** | **cauda normal**: o que o plugin grava depois do arquivamento numa partida que terminou (`snapshot`, e o `round_stats` e o `round_officially_ended` do último round) | captura, G7 | `tools/evidencia_partida.py:86-89` |
 | | os últimos bytes de um arquivo, lidos sem abrir o resto (4 MB do `current.jsonl`; `docker logs --tail`) | `jogavel.py`, `watcher.py` | `tools/jogavel.py:105` |
 | **snapshot** | evento `snapshot` do plugin: posição de todos os jogadores a ~2 Hz | captura | `docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:350-409` |
-| | cópia `.tgz`, só lendo, dos addons, das versões e do `gameinfo.gi` do volume, tirada antes de mexer nele; é a volta pelo caminho 2 | servidor, janela | `tools/jogavel.py:1439-1441`, `:1503-1538` |
+| | cópia `.tgz`, só lendo, dos addons, das versões e do `gameinfo.gi` do volume, tirada antes de mexer nele; é a volta pelo caminho 2 | servidor, janela | `tools/jogavel.py:1604-1606`, `:1668-1705` |
 | **janela** | **janela de manutenção**: até 45 min abertos pela frase do Victor, só para o papel servidor | servidor | `AGENTS.md:47-55` |
 | | **Janela 0**: a primeira, que ensaiou o `jogavel.py` na B0 | B0 | `docs/agents/sprints.md:55` |
 | | **janela de dados**: escrita no banco real com o watcher parado e backup antes | V1.4 | `docs/agents/sprints.md:60` |
-| | o intervalo entre o fim do mapa e o próximo `OnMapStart`, único momento de arquivar | `watcher.py` | `watcher.py:465-467` |
+| | o intervalo entre o fim do mapa e o próximo `OnMapStart`, único momento de arquivar | `watcher.py` | `watcher.py:512-514` |
 | **candidato** | merge de um degrau que espera partida, com a tag `candidato-N`; um por vez | programa | `AGENTS.md:126` |
 | | `data/candidato.json`, que faz o `run_match` imprimir a linha `[INFO]` do candidato em teste | `start_match` | `start_match.py:135-138` |
 | **trilho** | **trilho único**: no máximo uma mudança não validada no caminho de jogo | programa | `AGENTS.md:14` |
@@ -83,15 +83,15 @@ seção. O formato do JSONL em si está no [contrato](../arquitetura/contrato-ev
 - **Humano**: o único jogador que não é bot; o resto da partida é bot com perfil de pro.
   (`docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:455-458`)
 - **Série, MD1, MD3, MD5**: partida de 1, 3 ou 5 mapas. `num_maps` no `match_config.json`,
-  `series_num_maps` no banco. (`docs/SPEC.md:58`, `watcher.py:409-413`)
+  `series_num_maps` no banco. (`docs/SPEC.md:58`, `watcher.py:443-447`)
 - **matchid**: o id inteiro da série na MatchZy. O `match_config.json` não o fixa, e o contador
   é da MatchZy: restaurar snapshot não pode voltá-lo.
-  ([matchzy](../armadilhas/matchzy.md), item 17; `watcher.py:150-161`;
+  ([matchzy](../armadilhas/matchzy.md), item 17; `watcher.py:184-195`;
   `docs/adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md:61`)
 - **Número do mapa** (map index): a posição do mapa na série, de base 0, como a MatchZy dá
-  (`currentMapNumber`, `match_data_map<N>`). O mapa 1 de uma MD3 é o `map0`. (`watcher.py:378-393`)
+  (`currentMapNumber`, `match_data_map<N>`). O mapa 1 de uma MD3 é o `map0`. (`watcher.py:412-427`)
 - **demo_name**: chave única de cada mapa no banco. Na captura é `events_<matchid>_map<N>`; o nome
-  vem do tempo em que a fonte era a demo. (`parser.py:67`, `watcher.py:476`)
+  vem do tempo em que a fonte era a demo. (`parser.py:67`, `watcher.py:523`)
 - **round_num**: o contador de rounds ao vivo do plugin, que recomeça a cada mapa; não é o round
   oficial. ([contrato](../arquitetura/contrato-events-jsonl.md), seção 8)
 - **Round fantasma**: round encerrado na hora, com bot ainda sem spawn contado como morto.
@@ -109,9 +109,10 @@ seção. O formato do JSONL em si está no [contrato](../arquitetura/contrato-ev
   pelos tipos, campos e BOM. ([contrato](../arquitetura/contrato-events-jsonl.md), seção 3)
 - **current.jsonl**: o arquivo em que o plugin grava agora, truncado a cada mapa.
 - **Arquivamento**: o rename do `current.jsonl` para `events_<matchid>_map<N>.jsonl` pelo watcher,
-  no fim do mapa. (`watcher.py:476-485`)
+  no fim do mapa; se o nome já existe em disco ou no banco, desde o P1.1a a partida nova vai
+  como `events_<matchid>_map<N>__<utc>.jsonl`, e o arquivo antigo fica intacto. (`watcher.py:523-562`)
 - **Partida abandonada**: `current.jsonl` com rounds de uma partida que o log mostra sem fim; no
-  G7 é SEM EVIDÊNCIA, não RUIM. (`tools/evidencia_partida.py:832-847`)
+  G7 é SEM EVIDÊNCIA, não RUIM. (`tools/evidencia_partida.py:874-889`)
 - **round_stats**: evento do fim de round com os contadores do engine (`CSMatchStats_t`)
   acumulados na partida; o parser guarda o delta. (`parser.py:961-989`)
 - **BOM**: os 3 bytes do UTF-8 no começo dos arquivos da v0.2; todo leitor abre com `utf-8-sig`.

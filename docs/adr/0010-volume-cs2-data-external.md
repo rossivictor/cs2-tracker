@@ -6,15 +6,15 @@ fontes:
   - "commit c2a90e4"
   - "commit e715253"
   - "docker-compose.yml:66-69 (mount do cs2-data)"
-  - "docker-compose.yml:196-205 (cs2-data external, name cs2-tracker_cs2-data)"
+  - "docker-compose.yml:199-208 (cs2-data external, name cs2-tracker_cs2-data)"
   - "AGENTS.md:32"
   - "AGENTS.md:35"
   - "docs/runbooks/reconstruir-volume.md:1-25"
-  - "docs/runbooks/versoes-conhecidas.md:178 (candidato-8, B0.8)"
+  - "docs/runbooks/versoes-conhecidas.md:229 (candidato-8, B0.8)"
   - ".github/workflows/ci.yml:31-49 (job compose)"
   - "tools/hooks/guarda.py:1723 (compose down)"
   - "tools/hooks/guarda.py:1810-1814 (volume rm/prune e system prune)"
-atualizado: 2026-10-13
+atualizado: 2026-10-15
 ---
 
 # ADR-0010: O volume do servidor é external, com nome fixo
@@ -27,7 +27,7 @@ O volume `cs2-data` guarda o jogo e os addons do servidor ([ADR-0007](0007-servi
 
 Decidido no `c2a90e4` (B0.8, 01/10):
 
-- **O `cs2-data` é `external: true`, com `name: cs2-tracker_cs2-data`** (`docker-compose.yml:196-205`). O compose nunca cria nem apaga esse volume: se ele não existir, o `up` falha.
+- **O `cs2-data` é `external: true`, com `name: cs2-tracker_cs2-data`** (`docker-compose.yml:199-208`). O compose nunca cria nem apaga esse volume: se ele não existir, o `up` falha.
 - **O projeto continua sem `name:`.** A chave do serviço e os mounts não mudaram (`docker-compose.yml:66-69`).
 - **O compose roda só do checkout principal, pelo papel servidor.** A proibição já existia; o `e715253` (B0.8b) trocou o motivo: com o volume external, um compose de outra pasta não cria mais volume vazio, mas monta o volume vivo e sobe com os binds daquela pasta (AGENTS.md:35).
 
@@ -44,7 +44,7 @@ Decidido no `c2a90e4` (B0.8, 01/10):
 
 ## Status
 
-Aceito na prática desde 01/10/2026 (`c2a90e4`), na `main`. No servidor, entrou como `candidato-8` na Janela 0 e foi validado na partida que deu a `jogavel-2026-10-03` (`docs/runbooks/versoes-conhecidas.md:178`). ADR retroativo, escrito pelo K1.6 em 13/10 a partir dos commits; confirmado pelo Victor em 13/10.
+Aceito na prática desde 01/10/2026 (`c2a90e4`), na `main`. No servidor, entrou como `candidato-8` na Janela 0 e foi validado na partida que deu a `jogavel-2026-10-03` (`docs/runbooks/versoes-conhecidas.md:229`). ADR retroativo, escrito pelo K1.6 em 13/10 a partir dos commits; confirmado pelo Victor em 13/10.
 
 ## Fontes
 

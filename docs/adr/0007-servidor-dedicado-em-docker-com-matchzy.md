@@ -13,14 +13,14 @@ fontes:
   - "docker/SPIKE.md:10-21 (resultado e as duas ressalvas)"
   - "docker/SPIKE.md:46-52 (por que a imagem pronta)"
   - "docker-compose.yml:14-15"
-  - "docker-compose.yml:189-191"
+  - "docker-compose.yml:192-195"
   - "start_match.py:535-539 (bots não contam como time pronto; css_start)"
   - "start_match.py:869 (matchzy_loadmatch)"
-  - "docs/runbooks/versoes-conhecidas.md:68 (imagem sem tag no compose)"
+  - "docs/runbooks/versoes-conhecidas.md:83 (imagem sem tag no compose)"
   - "docs/armadilhas/legado-gotv-e-nativo.md:24-28 (item 54, modo nativo)"
   - "backup:temp-artifacts/eb5adec0/audit/arch.json (integracao: controle do jogo em três canais)"
   - "docs/agents/sprints.md:68 (S7: 0 regex sobre docker logs)"
-atualizado: 2026-10-13
+atualizado: 2026-10-15
 ---
 
 # ADR-0007: Servidor dedicado em Docker, com a MatchZy conduzindo a partida
@@ -35,10 +35,10 @@ Em 06/09, o `start_match.py` passou a fazer os passos do spike por RCON (`8a3ff2
 
 ## Decisão
 
-- **O servidor é o container `cs2-spike`, da imagem `xbird/cs2-matchzy`** (`docker-compose.yml:14-15`), na porta 27015 da máquina do Victor (`docker-compose.yml:189-191`). É a D7 da SPEC ("Docker Desktop + localhost").
+- **O servidor é o container `cs2-spike`, da imagem `xbird/cs2-matchzy`** (`docker-compose.yml:14-15`), na porta 27015 da máquina do Victor (`docker-compose.yml:192-195`). É a D7 da SPEC ("Docker Desktop + localhost").
 - **A MatchZy conduz a partida.** O app carrega a configuração com `matchzy_loadmatch` (`start_match.py:869`) e força o início com `css_start`, porque bots não contam como time pronto (`start_match.py:535-539`). Contagem de rounds, fim de mapa e placar da série são da MatchZy.
 - **O app fala com o jogo por três canais:** RCON para comandos, `docker logs` para estado e arquivos em bind mount para dados.
-- **A imagem não tem tag no compose** e vale a `latest` local (`docs/runbooks/versoes-conhecidas.md:68`). Os addons dentro dela têm versão fixa ([ADR-0009](0009-versoes-fixas-de-metamod-cssharp-e-matchzy.md)). Por que a imagem ficou sem tag: motivo não registrado.
+- **A imagem não tem tag no compose** e vale a `latest` local (`docs/runbooks/versoes-conhecidas.md:83`). Os addons dentro dela têm versão fixa ([ADR-0009](0009-versoes-fixas-de-metamod-cssharp-e-matchzy.md)). Por que a imagem ficou sem tag: motivo não registrado.
 
 ## Alternativas consideradas
 
