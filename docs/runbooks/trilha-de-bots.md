@@ -37,7 +37,7 @@ O estado de cada alvo no fim da trilha está no [Fechamento](#fechamento).
 |---|---|---|---|
 | 101 | `counterstrikesharp/plugins/RayTraceImpl` | CSSharp | fora da B1 (B2, Q16) |
 | 108 | `RayTrace` | Metamod nativo | fora da B1 (B2) |
-| 141 | `counterstrikesharp/plugins/BotAI` | CSSharp | B1.7 (vira bind de `./docker/plugins/BotAI`, o fork do B1.7b: [religar pelo fork](#religar-o-botai-pelo-fork)) |
+| 141 | `counterstrikesharp/plugins/BotAI` | CSSharp | B1.7: religado em 14/10 pelo bind de `./docker/plugins/BotAI`, o fork do B1.7b ([religar pelo fork](#religar-o-botai-pelo-fork)) |
 | 142 | `counterstrikesharp/plugins/BotAimImprover` | CSSharp | B1.4 |
 | 143 | `counterstrikesharp/plugins/BotBuy` | CSSharp | B1.6 |
 | 144 | `counterstrikesharp/plugins/BotHiderImpl` | CSSharp | fora da B1 (B2) |
@@ -328,11 +328,10 @@ A via rápida (Q0=A) valeu para o passo 1. Enquanto o `tools/jogavel.py` (B0.7/B
 
 ## Registro
 
-Preencha uma linha por passo, na janela e depois da partida. Se o passo voltar e for
-refeito, use uma linha nova com o mesmo passo e sufixo (ex.: `2b`). A coluna "Smoke só de
-bots" traz o resultado do [runbook do smoke](smoke-partida-de-bots.md#resultado). A variante
-do VPK e a época (critério 8) entram nas [Notas por passo](#notas-por-passo), como lida (com o
-sha e a hora) ou inferida (com a origem).
+Preencha uma linha por passo, na janela e depois da partida. Se o passo voltar e for refeito, use uma
+linha nova com o mesmo passo e sufixo (ex.: `2b`). A coluna "Smoke só de bots" traz o resultado do
+[runbook do smoke](smoke-partida-de-bots.md#resultado). A variante do VPK e a época (critério 8) entram
+nas [Notas por passo](#notas-por-passo), como lida (com o sha e a hora) ou inferida (com a origem).
 
 ### Janela (G6)
 
@@ -346,6 +345,7 @@ sha e a hora) ou inferida (com a origem).
 | 5 · B1.7 | — | **pulado** (decisão do Victor, 27/09): BotAI escreve por offset fixo do CCSBot (`0x5100+0x0C`), da build 14172 e não conferido depois do update de 23/09 (B1.7a, 13/10: deslocado −8, `0x50F8` na 2000930); upstream sem correção desde 27/08 | — | — | — | — |
 | 6 · B1.8 | 27/09 21:17–21:28 ("terminei") | máscara do NadeSystem removida (volume) | igual | não precisa | NadeSystem 1.2.1, "3703 grenades in DB"; sem EmitSoundFilter | OK: 5 rounds, 0 crash, replays de smoke/flash; 182 cegueiras |
 | 7 · B1.9 | 27/09 22:29–22:37 ("pode aplicar", Victor no PC) | BotRandomizer do upstream `276f1ce` (com a correção `18d1510`) por bind mount, no lugar da máscara | igual | não precisa (bind mount) | BotRandomizer 1.3.2, "Catalog loaded: 35 weapons, 1456 weapon paints, 10565 stickers, 81 charms"; 0 `signature failed`; sha no container = manifesto (5/5) | OK: 10 bots em mirage e de novo após a troca para inferno (readição); 0 crash, 0 exceção do BotRandomizer |
+| 5b · B1.7 | 14/10 20:57–21:24 ("pode mexer no servidor", Victor no PC) | máscara do BotAI trocada pelo bind de `./docker/plugins/BotAI` (fork 1.8.12-b1.7b, `412416b`) | 2000930 → **2000931** (SteamCMD no 1º recreate; volta à máscara, conferência do fork na 2000931 com `RESULTADO: OK`, 2º recreate) | não precisa (bind mount) | `B1.7b: m_gameState = 0x50F8`, `Applied 40/40 patches.`; 0 `FAILED`, `patch disabled` ou `NAO resolvido`; 9 plugins carregados; sha no container = checkout (17/17), BotAI = manifesto | OK: 10 bots em mirage e de novo após a troca para inferno (readição); 0 crash, 0 exceção do BotAI; bomba plantada sem evidência no log (ficou para o G7) |
 
 ### Partida (G7)
 
@@ -358,17 +358,17 @@ sha e a hora) ou inferida (com a origem).
 | 5 · B1.7 | — | — | — | — | — | pulado | — |
 | 6 · B1.8 | events_67_map0, de_dust2 (partida 30, 5x13) | não | 0 | 0 | sim | **OK** · cegueiras de bot 10,17/rd (ref. 3,33) | jogavel-2026-09-27-5 |
 | 7 · B1.9 | events_68_map0, de_dust2 (partida 31, 3x13) | não | 0 | 0 | sim | **OK** · skins confirmadas pelo Victor | jogavel-2026-09-28 |
+| 5b · B1.7 | events_83_map0, de_nuke (partida 83, 13x3, 5x5) | não (MD1; o `loadmatch` trocou de_mirage → de_nuke) | 0 | 0 | sim (id 48) | **OK** (`--build-esperada 2000931`) · BotAI 40/40 do boot ao fim; 12 bombas plantadas e 2 defuses de bot | jogavel-2026-10-14-3 (build 2000931) |
 
 ### Notas por passo
 
-Assinaturas que falharam, pelo nome; plugins recusados no `meta list`; impressão do Victor,
-se vier (não bloqueia).
+Assinaturas que falharam, pelo nome; plugins recusados no `meta list`; impressão do Victor, se vier (não bloqueia).
 
 - **1 · B1.3r:** nenhuma assinatura falhou. RoundDamageRecap (ed0ard) carregado e sem máscara. O container reiniciou às 13:48 sem recreate (config-hash igual). Jogo "liso" na impressão do Victor.
 - **2 · B1.4:** o BotAimImprover do volume (05/09) não carrega na build atual; a correção veio do upstream (B1.4b). Bots da partida 27 (com B1.4b + Medium): 14 utility + 19 flash, 63 cegueiras. Impressão do Victor: "bem desafiador e bem maneiro de jogar".
 - **3 · B1.5:** Victor: K/D 0,41, ADR 46 na partida 28 (média até 26/09: K/D 2,93, ADR 130) — "beeem mais desafiador". BotController não disponível: do volume só consta a API compartilhada (`counterstrikesharp/shared/BotControllerApi/BotControllerApi.dll`), sem o plugin nem o nativo (ver [Sobras](#sobras), 2): recursos do Smarter-Bot que dependem dele ficam desligados até a B2. No smoke, depois do `changelevel` a quota volta a zero no load: é preciso readicionar os bots para testar a entrada deles no mapa novo ([smoke só de bots](smoke-partida-de-bots.md#armadilhas), armadilha 2).
 - **4 · B1.6:** CTs trocaram a AUG pela M4A1 (146 vs 30 hits); entropia de armas 3,18 bits (ref. 2,54). Com BotState + BotBuy os bots deixaram de usar granada (0 dano/cegueira nas partidas 28 e 29).
-- **5 · B1.7:** pulado. Religar só com correção upstream do offset `m_gameState` do CCSBot, ou após verificação do offset na build atual. **Verificação do B1.7a** (13/10, offline, só leitura), na build **2000930** (PatchVersion 1.41.9.0, VersionDate Oct 08 2026), a do container na janela de diagnóstico de 13/10 e das partidas 79 e 80 ([versoes-conhecidas](versoes-conhecidas.md)): **DESLOCADO −8**, o `m_gameState` passou de `0x5100` para `0x50F8`; o `+0x0C` é **igual**. *Insumo:* a cópia do `libserver.so` da janela de 13/10 (B1.12b), `C:/Users/Victor/cs2-tracker-backups/2026-10-13/janela-diag/libserver-2000930/libserver.so`, 41724600 bytes, sha256 `c7741272…3cac5a` conferido antes da análise ([hashes](versoes-conhecidas.md#hashes-completos)). *Método, para reproduzir:* sem disassembler na máquina, busca de padrão em bytes com a biblioteca padrão do Python da `.venv`, num script fora do repo. O parse do ELF64 dá a `.text` no offset de arquivo `0x9fdbc0`, com `0x1af73df` bytes (VA = offset de arquivo + `0x1000`). O binário não tem `.symtab`, só `.dynsym`: os nomes de função vêm dos comentários do upstream (`LinuxPatchDefinitions.cs:17`, `:330` e `:349`), e o número sai sempre do `disp32`. As assinaturas são as do próprio BotAI com o `disp32` em curinga (`?`), e só a instrução que carrega o offset é decodificada à mão; cada padrão abaixo casa uma única vez na `.text`. *`m_gameState`, 1ª fonte:* `DefuseBombState::OnUpdate` (`LinuxPatchDefinitions.cs:351` com curinga), `55 48 8D BE ? ? ? ? 48 89 E5 41 54 53 48 89 F3 E8 ? ? ? ? BE 02 00 00 00 48 89 DF 49 89 C4 E8 ? ? ? ?`, casa no arquivo `0xc8c380` (VA `0xc8d380`) com `55 48 8d be f8 50 00 00`, ou seja, `lea rdi,[rsi+0x50F8]`, em que `rsi` é o `CCSBot *me`. *2ª fonte:* `CSGameState::OnBombPlanted` (`:335` com curinga), `48 8B 83 ? ? ? ? 48 8B 40 18 80 B8 24 06 00 00 02 0F 84 ? ? ? ? 48 8B 7B 18`, casa no arquivo `0xc20c89` (VA `0xc21c89`) com `48 8b 83 f8 50 00 00` (`mov rax,[rbx+0x50F8]`). As duas assinaturas exatas do 1.8.9 (`00 51 00 00`) não casam nenhuma vez. *Contraprova:* entre os `lea`/`mov` (`8D`/`8B`/`89`, modrm mod=10, sem SIB) da `.text`, o `disp32` `0x50F8` aparece 20 vezes, o `0x5100` nenhuma e o `0x5104` (`0x50F8+0x0C`) 6. O `0x5100` só aparece como `disp32` em dois acessos de byte, `c6 83 00 51 00 00 01` (arquivo `0xbeb547`) e `80 b8 00 51 00 00 00` (arquivo `0xc12a8d`): é o `m_isRoundOver`, `0x50F8+0x08`, e não o início do `CSGameState`. *Campo em `+0x0C`:* o `CSGameState::Reset` de `LinuxPatchDefinitions.cs:19` casa exato, `C6 47 08 00 48 89 07 48 C7 47 0C 00 00 00 00 C7 47 14 00 00 00 00 C3`, no arquivo `0x14f4ca7` (VA `0x14f5ca7`), e com os três offsets em curinga o casamento único é o mesmo: `m_isRoundOver` em `+0x08` e `m_bombState` em `+0x0C` (`BotAI.cs:21-22`), sem mudança. Na 2000930, o `m_bombState` do CCSBot fica em `0x5104`. *Controle da técnica:* o `PickNewAimSpot` do BotAimImprover em uso (bullseye, `BotAimImprover.cs:116-117`): a assinatura `55 48 89 E5 41 55 41 54 53 48 89 FB 48 83 EC 58 8B 8F ? ? 00 00 83 F9 FF` casa uma vez, no arquivo `0xbf6c10` (VA `0xbf7c10`), com `disp32` `0x59D8`, o `m_enemy` do fix `2e27900`/`c3d10f5` (antes, `0x59E0`); no corpo, `80 BB DC 59 00 00 00` (o bool `m_isEnemyVisible` em `0x59DC`) aparece duas vezes, o antigo `0x59E4` nenhuma, e o `m_targetSpot` é gravado em `0x596C`. Os campos que o BotAimImprover corrigiu batem na 2000930, e isso valida a técnica. *Comparação:* o `m_gameState` era `0x5108` antes do update de 09/07 e passou a `0x5100` na build que o upstream chama de 14172: as assinaturas `48 8B 83 08 51 00 00` e `55 48 8D BE 08 51 00 00` viraram `00 51 00 00` no `eedceee` (19/07) do CS2-Bot-Improver (clone `cbi/`), e a constante virou `0x5100` no `f746074` (30/07); no 1.8.9 (clone `botai/`, `1bcd6db`) ela está em `BotAI.cs:17-19`. Na 2000930 vale `0x50F8`: **deslocado −8**, o mesmo −8 que o fix do BotAimImprover (`2e27900`, mergeado no `c3d10f5`) aplicou à faixa `0x59xx` (`0x5974`/`0x59E0`/`0x59E4` → `0x596C`/`0x59D8`/`0x59DC`) e que o update de 09/07 já tinha aplicado de `0x4F5C` a `0x5E10` (`eedceee`). O campo que o BotAI zera (`0x5100+0x0C = 0x510C`) **não é mais o `m_bombState`** (`0x5104`). *Efeito do 1.8.9 como está, na 2000930:* as duas assinaturas com o offset (`OnBombPlanted_AllBotsLearnSite` e `DefuseBombState_OnUpdate_EngageAndInvestigate`) não casam e caem limpas, com `signature not found`, mas o `UpdateBotBombState` não tem assinatura (`BotAI.cs:224-240`): a cada spawn de bot ele leria o byte em `0x5108` (`m_gameState+0x10`, não o `m_isRoundOver`) e zeraria o Int32 em `0x510C` (`m_gameState+0x14`, um campo real do `CSGameState`, que o `Reset` também zera com `C7 47 14 00 00 00 00`). É corrupção silenciosa, e o `m_bombState` nem chega a ser tocado. *BotAI.dll do volume:* está disponível offline no snapshot `volume-addons-0144.tgz` do B1.3r (`C:/Users/Victor/cs2-tracker-backups/2026-09-27/b1.3r/`), em `counterstrikesharp/plugins/BotAI/BotAI.dll` (39424 bytes, mtime 04/09 22:19, sha256 `389814db…5e694b`). Extraído fora do repo e lido, tem `ModuleVersion` "1.8.9" (string UTF-16 única, nenhum "1.8.8"), as constantes `ldc.i4 0x5100` e `ldc.i4 0x5128` uma vez cada (sem `0x5108` nem `0x50F8`) e as assinaturas `48 8B 83 00 51 00 00` e `55 48 8D BE 00 51 00 00` em texto: é o 1.8.9 do clone `botai/`, e o efeito acima vale para ele. *Prévia offline, sem valor de G6:* das 43 assinaturas Linux do 1.8.9, 26 casam na 2000930 e 17 não (`Idle_IsSafeAlwaysFalse`, `EscapeFromBomb_OnEnter_NoEquipKnife`, `EscapeFromFlames_OnEnter_NoEquipKnife`, `SprayAllDistances_ForceHoldTrigger`, `AttackState_RetreatOnSniper_Disable`, `AttackState_SkipSniperSpreadCheck`, `AttackState_CanStrafe_jne`, `Vision_AlwaysWatchApproachPoints_Cave`, `Vision_AlwaysWatchApproachPoints`, `Vision_ApproachBody_SkipHidingSpotCheck`, `InViewCone_RemoveOuterFOV`, `OnAudibleEvent_GlobalHearRange`, `TBot_BombsiteSearch_UseKnownPlantedSite`, `OnBombPlanted_AllBotsLearnSite`, `DefuseBombState_OnUpdate_EngageAndInvestigate`, `DefuseBombState_OnEnter_EngageAndInvestigate` e `FlashbangAvoidance_Disable`); a lista que vale para o card continua sendo a do log da janela do B1.7. **Recomendação para o B1.7: não religar o DLL do volume como está, e manter mascarado até existir o fork corrigido compilado fora do repo**, como no B1.4b e no B1.9: o 1.8.9 lendo o `m_gameState` no load, pelo `disp32` da assinatura do `DefuseBombState::OnUpdate` com curinga e não pela constante, com o `UpdateBotBombState` desligado se ela não casar e com as duas assinaturas do offset também em curinga. Trocar só a constante por `0x50F8` volta a deixar a escrita sem guarda no próximo update do SteamCMD, que já trouxe quatro builds sem OK prévio ([Épocas](#épocas)). Antes da partida do Victor, um smoke só de bots. Com 17 dos 43 patches já perdidos na 2000930, cabe ao Victor decidir se o fork compensa.
+- **5 · B1.7:** pulado. Religar só com correção upstream do offset `m_gameState` do CCSBot, ou após verificação do offset na build atual. **Verificação do B1.7a** (13/10, offline, só leitura), na build **2000930** (PatchVersion 1.41.9.0, VersionDate Oct 08 2026), a do container na janela de diagnóstico de 13/10 e das partidas 79 e 80 ([versoes-conhecidas](versoes-conhecidas.md)): **DESLOCADO −8**, o `m_gameState` passou de `0x5100` para `0x50F8`; o `+0x0C` é **igual**. *Insumo:* a cópia do `libserver.so` da janela de 13/10 (B1.12b), `C:/Users/Victor/cs2-tracker-backups/2026-10-13/janela-diag/libserver-2000930/libserver.so`, 41724600 bytes, sha256 `c7741272…3cac5a` conferido antes da análise ([hashes](versoes-conhecidas.md#hashes-completos)). *Método, para reproduzir:* sem disassembler na máquina, busca de padrão em bytes com a biblioteca padrão do Python da `.venv`, num script fora do repo. O parse do ELF64 dá a `.text` no offset de arquivo `0x9fdbc0`, com `0x1af73df` bytes (VA = offset de arquivo + `0x1000`). O binário não tem `.symtab`, só `.dynsym`: os nomes de função vêm dos comentários do upstream (`LinuxPatchDefinitions.cs:17`, `:330` e `:349`), e o número sai sempre do `disp32`. As assinaturas são as do próprio BotAI com o `disp32` em curinga (`?`), e só a instrução que carrega o offset é decodificada à mão; cada padrão abaixo casa uma única vez na `.text`. *`m_gameState`, 1ª fonte:* `DefuseBombState::OnUpdate` (`LinuxPatchDefinitions.cs:351` com curinga), `55 48 8D BE ? ? ? ? 48 89 E5 41 54 53 48 89 F3 E8 ? ? ? ? BE 02 00 00 00 48 89 DF 49 89 C4 E8 ? ? ? ?`, casa no arquivo `0xc8c380` (VA `0xc8d380`) com `55 48 8d be f8 50 00 00`, ou seja, `lea rdi,[rsi+0x50F8]`, em que `rsi` é o `CCSBot *me`. *2ª fonte:* `CSGameState::OnBombPlanted` (`:335` com curinga), `48 8B 83 ? ? ? ? 48 8B 40 18 80 B8 24 06 00 00 02 0F 84 ? ? ? ? 48 8B 7B 18`, casa no arquivo `0xc20c89` (VA `0xc21c89`) com `48 8b 83 f8 50 00 00` (`mov rax,[rbx+0x50F8]`). As duas assinaturas exatas do 1.8.9 (`00 51 00 00`) não casam nenhuma vez. *Contraprova:* entre os `lea`/`mov` (`8D`/`8B`/`89`, modrm mod=10, sem SIB) da `.text`, o `disp32` `0x50F8` aparece 20 vezes, o `0x5100` nenhuma e o `0x5104` (`0x50F8+0x0C`) 6. O `0x5100` só aparece como `disp32` em dois acessos de byte, `c6 83 00 51 00 00 01` (arquivo `0xbeb547`) e `80 b8 00 51 00 00 00` (arquivo `0xc12a8d`): é o `m_isRoundOver`, `0x50F8+0x08`, e não o início do `CSGameState`. *Campo em `+0x0C`:* o `CSGameState::Reset` de `LinuxPatchDefinitions.cs:19` casa exato, `C6 47 08 00 48 89 07 48 C7 47 0C 00 00 00 00 C7 47 14 00 00 00 00 C3`, no arquivo `0x14f4ca7` (VA `0x14f5ca7`), e com os três offsets em curinga o casamento único é o mesmo: `m_isRoundOver` em `+0x08` e `m_bombState` em `+0x0C` (`BotAI.cs:21-22`), sem mudança. Na 2000930, o `m_bombState` do CCSBot fica em `0x5104`. *Controle da técnica:* o `PickNewAimSpot` do BotAimImprover em uso (bullseye, `BotAimImprover.cs:116-117`): a assinatura `55 48 89 E5 41 55 41 54 53 48 89 FB 48 83 EC 58 8B 8F ? ? 00 00 83 F9 FF` casa uma vez, no arquivo `0xbf6c10` (VA `0xbf7c10`), com `disp32` `0x59D8`, o `m_enemy` do fix `2e27900`/`c3d10f5` (antes, `0x59E0`); no corpo, `80 BB DC 59 00 00 00` (o bool `m_isEnemyVisible` em `0x59DC`) aparece duas vezes, o antigo `0x59E4` nenhuma, e o `m_targetSpot` é gravado em `0x596C`. Os campos que o BotAimImprover corrigiu batem na 2000930, e isso valida a técnica. *Comparação:* o `m_gameState` era `0x5108` antes do update de 09/07 e passou a `0x5100` na build que o upstream chama de 14172: as assinaturas `48 8B 83 08 51 00 00` e `55 48 8D BE 08 51 00 00` viraram `00 51 00 00` no `eedceee` (19/07) do CS2-Bot-Improver (clone `cbi/`), e a constante virou `0x5100` no `f746074` (30/07); no 1.8.9 (clone `botai/`, `1bcd6db`) ela está em `BotAI.cs:17-19`. Na 2000930 vale `0x50F8`: **deslocado −8**, o mesmo −8 que o fix do BotAimImprover (`2e27900`, mergeado no `c3d10f5`) aplicou à faixa `0x59xx` (`0x5974`/`0x59E0`/`0x59E4` → `0x596C`/`0x59D8`/`0x59DC`) e que o update de 09/07 já tinha aplicado de `0x4F5C` a `0x5E10` (`eedceee`). O campo que o BotAI zera (`0x5100+0x0C = 0x510C`) **não é mais o `m_bombState`** (`0x5104`). *Efeito do 1.8.9 como está, na 2000930:* as duas assinaturas com o offset (`OnBombPlanted_AllBotsLearnSite` e `DefuseBombState_OnUpdate_EngageAndInvestigate`) não casam e caem limpas, com `signature not found`, mas o `UpdateBotBombState` não tem assinatura (`BotAI.cs:224-240`): a cada spawn de bot ele leria o byte em `0x5108` (`m_gameState+0x10`, não o `m_isRoundOver`) e zeraria o Int32 em `0x510C` (`m_gameState+0x14`, um campo real do `CSGameState`, que o `Reset` também zera com `C7 47 14 00 00 00 00`). É corrupção silenciosa, e o `m_bombState` nem chega a ser tocado. *BotAI.dll do volume:* está disponível offline no snapshot `volume-addons-0144.tgz` do B1.3r (`C:/Users/Victor/cs2-tracker-backups/2026-09-27/b1.3r/`), em `counterstrikesharp/plugins/BotAI/BotAI.dll` (39424 bytes, mtime 04/09 22:19, sha256 `389814db…5e694b`). Extraído fora do repo e lido, tem `ModuleVersion` "1.8.9" (string UTF-16 única, nenhum "1.8.8"), as constantes `ldc.i4 0x5100` e `ldc.i4 0x5128` uma vez cada (sem `0x5108` nem `0x50F8`) e as assinaturas `48 8B 83 00 51 00 00` e `55 48 8D BE 00 51 00 00` em texto: é o 1.8.9 do clone `botai/`, e o efeito acima vale para ele. *Prévia offline, sem valor de G6:* das 43 assinaturas Linux do 1.8.9, 26 casam na 2000930 e 17 não (`Idle_IsSafeAlwaysFalse`, `EscapeFromBomb_OnEnter_NoEquipKnife`, `EscapeFromFlames_OnEnter_NoEquipKnife`, `SprayAllDistances_ForceHoldTrigger`, `AttackState_RetreatOnSniper_Disable`, `AttackState_SkipSniperSpreadCheck`, `AttackState_CanStrafe_jne`, `Vision_AlwaysWatchApproachPoints_Cave`, `Vision_AlwaysWatchApproachPoints`, `Vision_ApproachBody_SkipHidingSpotCheck`, `InViewCone_RemoveOuterFOV`, `OnAudibleEvent_GlobalHearRange`, `TBot_BombsiteSearch_UseKnownPlantedSite`, `OnBombPlanted_AllBotsLearnSite`, `DefuseBombState_OnUpdate_EngageAndInvestigate`, `DefuseBombState_OnEnter_EngageAndInvestigate` e `FlashbangAvoidance_Disable`); a lista que vale para o card continua sendo a do log da janela do B1.7. **Recomendação para o B1.7: não religar o DLL do volume como está, e manter mascarado até existir o fork corrigido compilado fora do repo**, como no B1.4b e no B1.9: o 1.8.9 lendo o `m_gameState` no load, pelo `disp32` da assinatura do `DefuseBombState::OnUpdate` com curinga e não pela constante, com o `UpdateBotBombState` desligado se ela não casar e com as duas assinaturas do offset também em curinga. Trocar só a constante por `0x50F8` volta a deixar a escrita sem guarda no próximo update do SteamCMD, que já trouxe quatro builds sem OK prévio ([Épocas](#épocas)). Antes da partida do Victor, um smoke só de bots. Com 17 dos 43 patches já perdidos na 2000930, cabe ao Victor decidir se o fork compensa. **5b · B1.7 (14/10):** religado pelo fork do B1.7b (1.8.12-b1.7b, base 1.8.12 aceita pelo Victor), na build 2000931: nenhuma entrada falhou (40/40 na janela e na partida 83), e a conferência do fork na 2000931 rodou antes do G6. Impressão do Victor depois da partida 83: "não senti muita diferença nos bots" (dado para decidir manter o fork, não critério). Detalhe em [Religar o BotAI pelo fork](#religar-o-botai-pelo-fork).
 - **6 · B1.8:** granadas voltaram (324 replays na partida 30). Aviso do engine "Grenade has no weapon info" nas granadas replayed: a contagem de utility do motor não credita o bot. Victor: 9/13, K/D 0,69, primeira derrota da trilha.
 - **7 · B1.9:** nenhuma assinatura falhou (0 `signature failed` e 0 `cosmetics disabled` na janela e na partida). Skins, facas e luvas confirmadas pelo Victor. O `5dfe948` do plano é do CS2-Bot-Improver (clone `cbi/`), não do CS2-Bot-Randomizer compilado: lá a correção de assinatura é o `18d1510`, ancestral do `276f1ce`. Avisos iguais aos da partida 30: 3 `Error invoking callback` do BotBuyPatch e "Grenade has no weapon info" (ver [Sobras](#sobras)).
 - **8 · B1.10:** fechamento offline, sem janela nem partida: [Épocas](#épocas) e [Fechamento](#fechamento).
@@ -393,8 +393,8 @@ recreate ou da troca. Para as estatísticas (coluna `bot_suite`, S2.4), a fronte
 | VPK Low | 28/09 19:54:52 (VPK) e 19:59:26 (build 2000919); build 2000922 em 30/09 23:10 | VPK Medium → Low, a pedido do Victor; no mesmo boot, o steamcmd da imagem atualizou o CS2 sem OK prévio (G5); o restart da janela de 30/09 levou à 2000922 | os mesmos da 7 | Low | 2000919 → 2000922 | 36 (matchid 71, `events_71_map0`, de_ancient 13x7, 01/10, G7 OK na 2000922). Ressalva: a `events_69` (partida 32, de_dust2 13x6, 30/09 15:59) e a `events_70` (MD3, 30/09, antes da janela) já jogaram o Low na 2000919, sem G7 | **validada**: jogavel-2026-10-01; em vigor na jogavel-2026-10-03 (B0.8, só o volume external, matchid 74) |
 | Build 2000924 | 04/10 14:18, no boot que seguiu o segfault de 14:15 (B1.12) | o steamcmd da imagem atualizou o CS2 no boot, sem janela nem OK prévio (G5) | os mesmos da 7 | Low (inferido: [versões conhecidas](versoes-conhecidas.md#tags-jogáveis)) | 2000924 | 78 (matchid 78, `events_78_map0`, de_cache 13x8, 05/10, G7 OK). A 76 (04/10) já jogou nela, sem G7 | **validada**: jogavel-2026-10-12 |
 | Build 2000930 | 12/10 18:37, no boot | o steamcmd da imagem atualizou o CS2 no boot, sem janela nem OK prévio (G5) | os mesmos da 7 | Low (inferido) | 2000930 | 79 (matchid 79, de_mirage 13x2, 12/10), confirmação | **validada**: jogavel-2026-10-12 |
+| 5b · B1.7 + build 2000931 | 14/10 21:16 (candidato-13); a build 2000931 veio no recreate de 21:03, na mesma janela | BotAI do fork 1.8.12-b1.7b, por bind; a build nova é a 2ª variável (confundidor 3), coberta pela conferência do fork nela antes do G6 | os mesmos da 7 (o BotRandomizer é o b1.9b desde 14/10 19:07, `jogavel-2026-10-14-2`) + BotAI | Low (inferido) | 2000931 | 83 (matchid 83, `events_83_map0`, de_nuke 13x3, 14/10, G7 OK) | **validada**: jogavel-2026-10-14-3 |
 
-- O B1.7 não abriu época: foi pulado, e o BotAI segue mascarado.
 - A época do VPK se prova pelo sha256 do VPK ativo lido no volume (critério 8 dos
   [Critérios de sucesso](#critérios-de-sucesso-de-cada-passo)). O RoundDamageRecap faz a mesma
   comparação e anuncia, por exemplo, "BOT Difficulty: Low [1/3]", mas só no chat do jogo: é
@@ -413,7 +413,7 @@ Card B1.10, em 28/09, offline. Fontes: o registro acima, os registros das janela
 | BotAimImprover | 2 · B1.4 e 2b · B1.4b | religado (o do volume ficou inativo) | upstream `c3d10f5`, bind mount |
 | BotState (Smarter-Bot) | 3 · B1.5 | religado, sem os recursos que dependem do BotController | 1.9.4, do volume |
 | BotBuy (BotBuyPatch) | 4 · B1.6 | religado | 1.0.12, do volume |
-| BotAI | 5 · B1.7 | mascarado (pulado) | — |
+| BotAI | 5 · B1.7 (pulado em 27/09) e 5b · B1.7 | religado em 14/10 (5b), 40/40 | fork 1.8.12-b1.7b (`412416b`), bind mount |
 | NadeSystem | 6 · B1.8 | religado | 1.2.1, do volume |
 | BotRandomizer | 7 · B1.9 | religado | 1.3.2, upstream `276f1ce`, bind mount |
 | RayTrace/RayTraceImpl, BotHider/BotHiderImpl | fora da B1 | mascarado | — |
@@ -421,14 +421,14 @@ Card B1.10, em 28/09, offline. Fontes: o registro acima, os registros das janela
 
 Nenhum plugin que ficou no ar tem assinatura falhando, nem na janela nem na partida. A única
 falha da trilha foi a `PickNewAimSpot` do BotAimImprover do volume (B1.4), trocado pelo do
-upstream. O BotAI não chegou a ser testado, então as 43 assinaturas dele ficam sem lista.
+upstream. O BotAI ficou fora deste fechamento; o fork o religou em 14/10, com 40/40 (5b).
 
 ### Sobras
 
-1. **BotAI:** mascarado. Escreve Int32 zero em `CCSBot+0x5100+0x0C` a cada spawn, offset da
-   build 14172. O B1.7a (13/10) leu o `libserver.so` da 2000930, a build atual: `m_gameState`
-   deslocado −8, em `0x50F8`, e o DLL do volume (1.8.9) zeraria outro campo ([passo 5](#notas-por-passo)).
-   Só volta com fork corrigido fora do repo. Upstream sem commit desde 27/08, PR #7 aberto.
+1. **BotAI:** não é mais sobra. O 1.8.9 do volume escreve Int32 zero em `CCSBot+0x5100+0x0C` a cada
+   spawn, offset da build 14172, e o B1.7a (13/10) achou o `m_gameState` deslocado −8, em `0x50F8`,
+   na 2000930 ([passo 5](#notas-por-passo)). Religado em 14/10 pelo fork do B1.7b, que lê o offset
+   por assinatura (5b, [religar pelo fork](#religar-o-botai-pelo-fork)); o 1.8.9 não é usado.
 2. **Nativos do Metamod, para a B2:** RayTrace/RayTraceImpl e BotHider/BotHiderImpl seguem
    mascarados (no boot, `[META] Failed to load plugin ... File not found`, efeito da máscara).
    O BotVision não está no volume, e o BotController só em parte: o snapshot
@@ -489,9 +489,9 @@ de VPK, que já aconteceu duas vezes. A decisão é do Victor.
 (A) para as três sobras de plugin. Para o BotAI, é o que o Victor já escolheu na prática em
 27/09: pular e esperar.
 
-- **BotAI:** fica mascarado: o B1.7a achou o offset deslocado na 2000930 (`0x5100` → `0x50F8`). Só
-  volta com correção upstream ou fork corrigido fora do repo, num passo próprio, com smoke só de
-  bots. A (B), caçar à mão, não compensa: o risco é corromper memória em silêncio, sem guarda.
+- **BotAI:** ficou mascarado até o B1.7a achar o offset deslocado na 2000930 (`0x5100` → `0x50F8`).
+  Voltou em 14/10 pelo fork corrigido fora do repo, num passo próprio (5b), com smoke só de
+  bots. A (B), caçar à mão, não compensaria: o risco era corromper memória em silêncio, sem guarda.
 - **BotBuyPatch e NadeSystem:** aceitos como estão. Nenhum dos dois derrubou partida, e o do
   NadeSystem só distorce a contagem de utility (B1.8b).
 - A (C), PR no upstream, fica opcional e sem prazo.
@@ -540,11 +540,13 @@ precisa para registrar o passo.
   iguais aos da janela. O que o Victor deve perceber está no G7 do runbook do B1.7b.
 - **Conclusão do card**, uma destas:
   - **religado:** 40/40 patches, `m_gameState` resolvido, zero crash na janela e na partida;
-  - **degradado:** carregou com alguma entrada desligada (por exemplo o TBot no freio do
-    B1.7c, 39/40), segue ativo e sem crash; as entradas vão pelo nome para as notas;
   - **mascarado:** a máscara voltou, pela volta abaixo. Também é o caso em que o próprio fork
     se desliga (`NAO resolvido`): pelo vocabulário da trilha é **inativo**, que equivale a
     mascarado.
+  - Para o BotAI não existe **degradado** em partida: o G6 exige 40/40 (decisão do PM, 14/10).
+    Um load com alguma entrada desligada (o TBot no freio do B1.7c, 39/40, por exemplo) não vai
+    para a partida do Victor, mesmo sem crash: volta à máscara, as entradas vão pelo nome para as
+    notas e o caso vira card próprio.
 - **Rollback**, se o G6 ou o G7 sair ruim: volta à máscara `_empty`, em janela, pelo papel
   servidor, do checkout principal: `git -C C:/Users/Victor/Projetos/cs2-tracker switch --detach <última tag jogavel-*>`
   e `docker compose up -d --force-recreate` (ou `jogavel.py voltar --tag <última jogavel-*>`,
@@ -553,4 +555,33 @@ precisa para registrar o passo.
 - **Registro.** Uma linha `5b · B1.7` nas tabelas de [janela](#janela-g6) e de
   [partida](#partida-g7), uma nota em [notas por passo](#notas-por-passo) com a saída da
   conferência e, com o G7 OK, a época nova, a linha do BotAI no [Fechamento](#fechamento) e a
-  sobra 1.
+  sobra 1. Feito pelo B1.7d (14/10), com o resultado abaixo.
+
+### Resultado (14/10)
+
+Fontes: o registro da janela de 14/10 (`logs/janelas/2026-10-14.md`, cópia em
+`C:/Users/Victor/cs2-tracker-backups/2026-10-14/g7-b1.7-copia/`) e a coleta
+`2026-10-14/coleta-g7-b1.7/`. Os hashes estão no [runbook do B1.7b](b1.7b-botai-fork-assinatura.md)
+e em [versões conhecidas](versoes-conhecidas.md).
+
+- **Janela** 20:57–21:24 (-03), aberta por "pode mexer no servidor". Build do fork `412416b`
+  (manifesto no runbook do B1.7b), conferência na 2000930 com `RESULTADO: OK` e ff do checkout
+  principal para o `2619d70` (candidato-13).
+- **Build nova no 1º recreate.** O SteamCMD trouxe a **2000931** (PatchVersion 1.41.9.1). O fork
+  carregou com 40/40, mas sem conferência na build nova: o servidor voltou à máscara
+  (`jogavel.py voltar --tag jogavel-2026-10-14-2`), copiou o `libserver.so` da 2000931 e rodou a
+  conferência sobre ele (`RESULTADO: OK`, 40/40, `m_gameState` `0x50F8`, distância do TBot
+  `0x2f0`) antes do 2º recreate. É a regra de [a cada build nova](b1.7b-botai-fork-assinatura.md#a-cada-build-nova-do-cs2)
+  na prática: duas variáveis na mesma janela (confundidor 3), com a do CS2 conferida à parte.
+- **G6:** `m_gameState = 0x50F8`, `Applied 40/40 patches.`, zero linha proibida do BotAI, zero
+  segfault, 9 plugins, sha256 dos montados igual ao checkout (17/17), config-hash novo
+  `837cbcbc…`. Smoke só de bots OK, sem prova de bomba plantada no log.
+- **G7:** partida 83 (de_nuke 13x3, 5x5), `evidencia_partida.py --build-esperada 2000931` saiu 0.
+  BotAI 40/40 do boot ao fim, sem nenhuma linha dele depois do boot; 12 `bomb_planted` e 2
+  `bomb_defused` de bot, o que exercita o `OnBombPlanted` e o TBot. Os 3 `Error invoking
+  callback` no changelevel são do BotBuyPatch ([sobra 3](#sobras)), já vistos com o BotAI
+  mascarado. Partida ingerida (id 48). Tag `jogavel-2026-10-14-3` no `2619d70`.
+- **Veredito:** religado. Com ele, todos os plugins de bot da B1 estão no ar.
+- **Impressão do Victor**, depois da partida 83: "não senti muita diferença nos bots". É dado,
+  não critério: pesa na decisão de manter o fork (que pede conferência a cada build nova do CS2)
+  ou de voltar à máscara. A decisão é dele.
