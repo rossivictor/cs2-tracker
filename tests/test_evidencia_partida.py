@@ -677,6 +677,65 @@ def test_colisao_por_matchid_reusado_no_mesmo_dia_e_mapa(banco, tmp_path, played
     assert p["colisoes"] == (esperado if colide else [])
 
 
+# P1.1b: o watcher do P1.1a ingere a partida que colide como <nome>__<utc>.
+DEMO_70 = ("[MatchZy] [StartDemoRecoding] Starting demo recording, path: "
+           "MatchZy/2026-09-28_19-30-00_70_de_mirage_Jogador_vs_Bots.dem")
+SUFIXADA_70 = "events_70_map0__20260928T200010Z"
+
+
+def _log_70(tmp_path, fins=(1800,)):
+    passos = [(0, DEMO_70), (0.1, LIVE)]
+    for s in fins:
+        passos += [(s, FIM.format(70)), (s + 60, DEMO_70), (s + 60.1, LIVE)]
+    return _arquivo(tmp_path, "docker.txt", _docker_t("2026-09-28T19:30:00", passos[:-2]))
+
+
+@pytest.mark.parametrize("partidas", [(), (SUFIXADA_70,), ("events_70_map0",)])
+def test_partida_sufixada_e_achada_pelo_demo_name_do_banco_sem_colisao_falsa(
+        banco, tmp_path, partidas):
+    # A linha antiga (6 h antes, mesmo mapa) ficou com o nome sem sufixo; a
+    # da partida do log entrou sufixada 10 s depois do MAP ENDED.
+    _inserir(banco, "events_70_map0", "de_mirage", (13, 5), (8, 10),
+             played_at="2026-09-28T11:00:10")
+    _inserir(banco, SUFIXADA_70, "de_mirage", (13, 9), (9, 13),
+             played_at="2026-09-28T17:00:10")
+    res = ep.avaliar(log=_log_70(tmp_path), db=banco, partidas=partidas)
+    [p] = res["partidas"]
+    assert (p["demo_name"], p["demo_name_log"], p["mapa"]) == (
+        SUFIXADA_70, "events_70_map0", "de_mirage")
+    assert (p["ingerida"], p["colisoes"]) == (True, [])
+    assert p["banco"]["score_mine"] == 13 and p["banco"]["score_theirs"] == 9
+    assert not any("colisão" in m for m in res["veredito"]["ruim"])
+    assert f"{SUFIXADA_70} (no log: events_70_map0) · mapa do log de_mirage" in ep.formatar(res)
+
+
+def test_matchid_repetido_no_log_casa_com_a_base_e_a_sufixada(banco, tmp_path):
+    # Duas partidas do mesmo matchid na mesma sessão: a primeira ficou com a
+    # base, a segunda com o sufixo. Não é mais colisão.
+    _inserir(banco, "events_70_map0", "de_mirage", (13, 5), (8, 10),
+             played_at="2026-09-28T17:00:10")
+    _inserir(banco, SUFIXADA_70, "de_mirage", (13, 9), (9, 13),
+             played_at="2026-09-28T18:00:10")
+    res = ep.avaliar(log=_log_70(tmp_path, fins=(1800, 5400)), db=banco)
+    assert res["log"]["repetidos"] == ["events_70_map0"]
+    assert [(p["demo_name"], p["colisoes"]) for p in res["partidas"]] == [
+        ("events_70_map0", []), (SUFIXADA_70, [])]
+
+
+def test_casar_partidas_ordena_o_sufixo_e_o_contador():
+    log = [{"demo_name": "events_9_map0"}, {"demo_name": "events_9_map0"},
+           {"demo_name": "events_8_map1"}]
+    conhecidos = {"events_9_map0", "events_9_map0__20261013T150000Z-2",
+                  "events_9_map0__20261013T150000Z", "events_9_map01__20261013T150000Z",
+                  "events_8_map1"}
+    assert [dn for dn, _ in ep.casar_partidas(log, conhecidos)] == [
+        "events_9_map0__20261013T150000Z", "events_9_map0__20261013T150000Z-2",
+        "events_8_map1"]
+    # Faltando nome, a repetição fica e segue como colisão.
+    assert [dn for dn, _ in ep.casar_partidas(log[:2], {"events_9_map0"})] == [
+        "events_9_map0", "events_9_map0"]
+
+
 # ------------------------------------------------------------ eventos
 
 CURRENT_COM_ROUNDS = [

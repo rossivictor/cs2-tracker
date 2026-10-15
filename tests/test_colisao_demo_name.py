@@ -91,12 +91,15 @@ def _fim_de_mapa(w, eventos, matchid="45", mapa=0):
     w.on_matchzy_map_finished(matchid, mapa, None)
 
 
-def test_partida_normal_e_ingerida_com_o_nome_sem_sufixo(tmp_path, monkeypatch):
+def test_partida_normal_e_ingerida_com_o_nome_sem_sufixo(tmp_path, monkeypatch, capsys):
     w = _watcher(tmp_path, monkeypatch)
     _fim_de_mapa(w, PARTIDA_NOVA)
 
     assert _partidas(w) == [("events_45_map0", 3, "events_45_map0.jsonl")]
     assert sorted(p.name for p in w.events_live_dir.iterdir()) == ["events_45_map0.jsonl"]
+    # P1.1b: a partida normal não ganha aviso nem a linha de colisão.
+    saida = capsys.readouterr().out
+    assert "[AVISO]" not in saida and "já existe" not in saida
 
 
 def test_colisao_em_disco_arquiva_com_sufixo_utc_e_ingere_a_partida_nova(tmp_path, monkeypatch):
@@ -168,3 +171,100 @@ def test_demo_name_no_banco_so_le(tmp_path):
     vazio = tmp_path / "sem_tabela.db"
     sqlite3.connect(vazio).close()
     assert parser_mod.demo_name_no_banco(str(vazio), "events_1_map0") is False
+
+
+def test_demo_name_no_banco_abre_em_mode_ro(tmp_path, monkeypatch):
+    # P1.1b (nota do card): a pergunta do watcher não pode escrever no banco.
+    db = tmp_path / "t.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE matches (demo_name TEXT)")
+    conn.execute("INSERT INTO matches VALUES ('events_1_map0')")
+    conn.commit()
+    conn.close()
+    aberturas = []
+    conectar = parser_mod.sqlite3.connect
+
+    def _espiao(database, *args, **kwargs):
+        aberturas.append((str(database), kwargs.get("uri")))
+        return conectar(database, *args, **kwargs)
+
+    monkeypatch.setattr(parser_mod.sqlite3, "connect", _espiao)
+    assert parser_mod.demo_name_no_banco(str(db), "events_1_map0") is True
+    [(database, uri)] = aberturas
+    assert database.startswith("file:") and database.endswith("?mode=ro") and uri is True
+
+
+# --------------------------------------------------------------------------- #
+# P1.1b: linha fantasma e arquivo antigo fora do banco
+# --------------------------------------------------------------------------- #
+
+# Cauda real de um current.jsonl depois do arquivamento (44 snapshot, 1
+# round_stats, 1 round_officially_ended; nenhum round_end): é o que o
+# current.jsonl recriado tem quando o fim do mesmo mapa chega duas vezes.
+CAUDA_REAL = ROOT / "tests" / "fixtures" / "captura" / "current.jsonl"
+
+
+def test_fim_repetido_so_com_cauda_nao_cria_linha_fantasma(tmp_path, monkeypatch, capsys):
+    # A reprodução do QA do P1.1a: o mapa termina, é arquivado e ingerido;
+    # o fim chega de novo com o current.jsonl recriado só com a cauda.
+    w = _watcher(tmp_path, monkeypatch)
+    _fim_de_mapa(w, PARTIDA_NOVA)
+    cauda = CAUDA_REAL.read_bytes()
+    (w.events_live_dir / "current.jsonl").write_bytes(cauda)
+    capsys.readouterr()
+
+    w.on_matchzy_map_finished("45", 0, None)
+
+    # Sem linha sufixada de 0 rounds: só a partida de verdade.
+    assert _partidas(w) == [("events_45_map0", 3, "events_45_map0.jsonl")]
+    # O arquivo é guardado fora do padrão events_*, com o conteúdo intacto.
+    guardado = w.events_live_dir / "sem_round_end_events_45_map0__20261013T150000Z.jsonl"
+    assert sorted(p.name for p in w.events_live_dir.iterdir()) == [
+        "events_45_map0.jsonl", "sem_round_end_events_45_map0__20261013T150000Z.jsonl",
+    ]
+    assert guardado.read_bytes() == cauda
+    saida = capsys.readouterr().out
+    assert ("[AVISO] events_45_map0 já existe e o current.jsonl novo não tem round_end: "
+            "guardado como sem_round_end_events_45_map0__20261013T150000Z.jsonl, "
+            "sem linha no banco") in saida
+
+
+def test_fim_repetido_duas_vezes_no_mesmo_segundo_nao_sobrescreve(tmp_path, monkeypatch):
+    w = _watcher(tmp_path, monkeypatch)
+    _fim_de_mapa(w, PARTIDA_NOVA)
+    for _ in range(2):
+        (w.events_live_dir / "current.jsonl").write_bytes(CAUDA_REAL.read_bytes())
+        w.on_matchzy_map_finished("45", 0, None)
+
+    assert [nome for nome, _, _ in _partidas(w)] == ["events_45_map0"]
+    assert sorted(p.name for p in w.events_live_dir.iterdir()) == [
+        "events_45_map0.jsonl",
+        "sem_round_end_events_45_map0__20261013T150000Z-2.jsonl",
+        "sem_round_end_events_45_map0__20261013T150000Z.jsonl",
+    ]
+
+
+def test_colisao_com_arquivo_antigo_fora_do_banco_avisa(tmp_path, monkeypatch, capsys):
+    # O events_45_map0.jsonl antigo nunca foi ingerido (watcher caído, por
+    # exemplo). A partida nova entra sufixada e o log avisa do antigo.
+    w = _watcher(tmp_path, monkeypatch)
+    _escrever(w.events_live_dir / "events_45_map0.jsonl", PARTIDA_ANTIGA)
+
+    _fim_de_mapa(w, PARTIDA_NOVA)
+
+    assert _partidas(w) == [
+        ("events_45_map0__20261013T150000Z", 3, "events_45_map0__20261013T150000Z.jsonl"),
+    ]
+    saida = capsys.readouterr().out
+    assert ("[AVISO] events_45_map0.jsonl já existia e não está no banco: essa partida "
+            "antiga segue fora das estatísticas (tools/reingest_events.py)") in saida
+
+
+def test_colisao_com_antigo_no_banco_nao_avisa_do_antigo(tmp_path, monkeypatch, capsys):
+    w = _watcher(tmp_path, monkeypatch)
+    _fim_de_mapa(w, PARTIDA_ANTIGA)
+    capsys.readouterr()
+
+    _fim_de_mapa(w, PARTIDA_NOVA)
+
+    assert "[AVISO]" not in capsys.readouterr().out

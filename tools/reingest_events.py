@@ -23,7 +23,8 @@ from config import DB_PATH, EVENTS_LIVE_DIR  # noqa: E402
 from identity import resolve_identity  # noqa: E402
 from parser import init_db, store_match_from_events  # noqa: E402
 
-NAME_RE = re.compile(r"^events_(?P<matchid>\d+)_map(?P<mapnum>\d+)$")
+# Com o sufixo __<utc>[-n] que o watcher dá numa colisão (P1.1a; P1.1b).
+NAME_RE = re.compile(r"^events_(?P<matchid>\d+)_map(?P<mapnum>\d+)(?:__\d{8}T\d{6}Z(?:-\d+)?)?$")
 
 
 def main():

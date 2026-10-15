@@ -18,8 +18,8 @@ Só leitura e só biblioteca padrão. Todas as entradas são explícitas:
   --eventos DIR   CÓPIA da pasta de captura: events_<matchid>_map<N>.jsonl
                   arquivados e current.jsonl. A docker/events-live do checkout
                   principal é recusada (AGENTS.md, zonas proibidas). O sufixo
-                  __<utc> do P1.1a já é listado; casar a partida do log com o
-                  arquivo sufixado fica para o P1.1a (DoD 4).
+                  __<utc> do P1.1a é listado, e a partida do log casa com o
+                  nome sufixado mais novo (P1.1b, casar_partidas).
   --db ARQ        CÓPIA do banco SQLite pedida ao PM, aberta com mode=ro; o
                   relatório diz se o mtime ficou intacto. O banco real do
                   checkout principal é sempre recusado (AGENTS.md; runbook da
@@ -31,7 +31,7 @@ Só leitura e só biblioteca padrão. Todas as entradas são explícitas:
                   sem os dois não há OK (G7).
   --partida DEMO  julga só esta partida (repetível). Sem ela, julga as que
                   terminaram no log ("MAP ENDED"). É o demo_name do banco,
-                  events_<matchid>_map<n>: o arquivo .dem da MatchZy sai com 2.
+                  events_<matchid>_map<n>[__<utc>]; o .dem da MatchZy sai com 2.
   --build-esperada N   a build da janela. A do log (linha "GC Connection
                   established for server version N") diferente dela vira AVISO
                   na saída e na linha final, sem mudar veredito nem código: o
@@ -715,6 +715,41 @@ def _checar_eventos(pasta: Path):
                      "proibidas): use uma cópia da pasta")
 
 
+# O sufixo que o watcher dá: __AAAAMMDDTHHMMSSZ, e -2, -3... no mesmo segundo.
+_SUFIXO = re.compile(r"__(\d{8}T\d{6}Z)(?:-(\d+))?$")
+
+
+def _base(nome: str) -> str:
+    """O demo_name sem o sufixo do P1.1a: o nome que o log da MatchZy dá."""
+    m = _SUFIXO.search(nome)
+    return nome[:m.start()] if m else nome
+
+
+def _ordem(nome: str) -> tuple:
+    """Ordem de chegada dos nomes de uma base: a base sem sufixo primeiro."""
+    m = _SUFIXO.search(nome)
+    return (m.group(1), int(m.group(2) or 1)) if m else ("", 0)
+
+
+def casar_partidas(do_log, conhecidos) -> list:
+    """[(demo_name do banco ou da pasta, partida do log)], na ordem do log.
+
+    O log só diz events_<matchid>_map<N>. Numa colisão o watcher do P1.1a
+    ingere a partida nova como <nome>__<utc> (P1.1b): as k partidas do log
+    com o mesmo nome ficam com os k nomes mais novos dele entre os
+    `conhecidos`. Faltando nome, as primeiras ficam com o nome do log, e a
+    repetição segue como colisão."""
+    por_nome: dict = {}
+    for p in do_log:
+        por_nome.setdefault(p["demo_name"], []).append(p)
+    fila = {}
+    for base, ps in por_nome.items():
+        nomes = sorted({base} | {n for n in conhecidos if _base(n) == base}, key=_ordem)
+        k = len(ps)
+        fila[base] = nomes[-k:] if k <= len(nomes) else [base] * (k - len(nomes)) + nomes
+    return [(fila[p["demo_name"]].pop(0), p) for p in do_log]
+
+
 def avaliar(log=None, eventos=None, db=None, partidas=(), sha_montados=None,
             sha_referencia=None, config_hash=None, config_hash_janela=None,
             assinaturas_proibidas=(), fatais_esperados=(), build_esperada=None) -> dict:
@@ -734,9 +769,16 @@ def avaliar(log=None, eventos=None, db=None, partidas=(), sha_montados=None,
                   if sha_montados and sha_referencia else None)
     res["config_hash"] = {"agora": config_hash, "janela": config_hash_janela}
 
-    do_log = {p["demo_name"]: p for p in (res["log"] or {}).get("partidas", [])}
-    nomes = list(partidas) or list(do_log)
-    repetidos = (res["log"] or {}).get("repetidos", [])
+    # P1.1b: a partida do log vai para o demo_name do banco, sufixado ou não.
+    casadas = casar_partidas((res["log"] or {}).get("partidas", []),
+                             set(linhas or ()) | set(arquivos or ()))
+    do_log = {dn: dict(p, demo_name=dn, demo_name_log=p["demo_name"]) for dn, p in casadas}
+    do_log_por_nome = {p["demo_name"]: dn for dn, p in casadas}
+    # --partida aceita o nome do banco ou o do log.
+    nomes = [dn if dn in do_log else do_log_por_nome.get(dn, dn) for dn in partidas] \
+        or list(do_log)
+    contagem = Counter(dn for dn, _ in casadas)
+    repetidos = sorted(dn for dn, q in contagem.items() if q > 1)
     julgadas = []
     for dn in dict.fromkeys(nomes):
         p = dict(do_log.get(dn) or {"demo_name": dn, "mapa": None, "inicio_demo": None,
@@ -942,7 +984,10 @@ def formatar(res: dict) -> str:
             s.append(f"Partida sem fim no log: {sf['mapa']} desde a linha {sf['linha_inicio']}")
     s += ["", "== Partidas julgadas =="]
     for p in res["partidas"] or []:
-        s.append(f"{p['demo_name']} · mapa do log {p.get('mapa') or '?'} · "
+        no_log = p.get("demo_name_log")
+        s.append(f"{p['demo_name']}"
+                 + (f" (no log: {no_log})" if no_log and no_log != p["demo_name"] else "")
+                 + f" · mapa do log {p.get('mapa') or '?'} · "
                  f"demo {p.get('inicio_demo') or '?'}")
         b = p["banco"]
         placar = f"{b['score_mine']}x{b['score_theirs']}" if b else "-"
