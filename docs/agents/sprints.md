@@ -4,7 +4,7 @@ status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.sprints)"
   - "backup:temp-artifacts/eb5adec0/plan/plan.md (seção 3, Sequência)"
-atualizado: 2026-10-12
+atualizado: 2026-10-14
 ---
 
 # Ordem das sprints
@@ -76,15 +76,15 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 | 26–28/09 | K1.1, K1.2 e K1.3 feitos antes da T1 | sem registro de decisão | ficam como estão; não abrem precedente |
 | 04/10 | wizard_tui.py com diff antes da D13, só o placeholder do campo de jogador (dado pessoal do Victor) | Victor | T1.3c |
 
-## Posição em 12/10
+## Posição em 14/10
 
 Foto do board (`docs/board-cs2/`, fora do git) nesta data. **O status de cada card é o do board**; esta seção diz a sprint da vez, a ordem da fila e as decisões que a mudaram.
 
-- **Fechadas:** B0 (`jogavel-2026-10-03`), B1, H1 (PR #50) e **T1 (`jogavel-2026-10-12`)**: CI completo com 6 checks obrigatórios na `main` protegida (T1.8, Q20=A), suíte hermética com 0 falhas, G4, fixtures anonimizadas e o nick e o SteamID reais do Victor fora do repo (menos o `docker/match_config.spike.json`, que sai no P1.9). O T1.7 (`.gitattributes`) virou sobra de janela.
-- **Trilho: P1 (bugs de jogabilidade), semeada em 12/10 (cards 80 a 92).** Ordem aprovada pelo Victor: P1.1 → P1.1a → P1.6 → P1.2 → P1.3 → P1.4 → P1.5 → P1.7 → P1.8 → P1.9 → P1.10 → P1.11, um candidato por vez, cada um validado numa partida dele (P1.6 e P1.5 pedem MD3; P1.2, P1.9, P1.10 e P1.11, janela). O P1.5 só entra depois do relatório do B1.12.
-- **Pista paralela, sem servidor:** B1.12 (segfault na troca de mapa da MD3) primeiro, depois P1.13 (overflow no signon), H1.1c (evidência lê a build), B0.7f (coletar falha alto com log vazio) e a K1 (K1.4, K1.5, K1.6; depois K1.8 e K1.9). P1.12 e B1.7a depois.
-- **Sobras de janela:** T1.7 e B0.11, no fim da P1.
-- **Decisões do Victor em 12/10:** ordem da P1; agentes seguem trabalhando com ele jogando (opção a), parando só com janela aberta; o P1.13 mede se a carga do PC contribui para o overflow na entrada.
-- **Épocas novas de build, sem janela:** 2000924 (04/10) e 2000930 (12/10), validadas nas partidas 78 e 79.
+- **Fechadas:** B0, B1 (com as sobras de 13 a 14/10: B1.9b, skins de volta pela correção do upstream na build 2000930; B1.7, BotAI religado pelo fork 1.8.12-b1.7b com 40/40), H1, T1. A K1 só tem a poda (card 78) aberta.
+- **Trilho: P1.** P1.1 (`jogavel-2026-10-13`) e P1.1a (`jogavel-2026-10-14`) validados. Ordem aprovada pelo Victor em 14/10, porque a MD3 ainda não tem o T2: P1.1b → P1.2 (janela) → P1.3 → P1.4; o T2 (B1.12d) numa janela; depois P1.6 e P1.5 (MD3), e o resto da P1 (P1.7 a P1.11).
+- **MD3:** o T1 do B1.12 rodou 12 viradas de série sem queda; a memória do container subiu de 1,6 para 4,5 GiB em 12 ciclos (H3, acúmulo no processo). Mitigação até o T2: jogar MD1, ou reiniciar o servidor antes de uma MD3.
+- **Pista paralela:** K1.9 (poda) depois do S1-prep; V1 a semear.
+- **Épocas de build sem janela:** 2000930 (12/10) e 2000931 (14/10, no recreate da janela do B1.7, conferida antes de religar o BotAI).
+- **Decisões do Victor de 13 a 14/10:** ADRs 0007–0012 confirmados e ADR-0013 (D17); janela de diagnóstico; G5 para o BotRandomizer e para o fork do BotAI (base 1.8.12, critério do B1.7 trocado); ordem nova do trilho.
 
 Quem fecha uma sprint, abre exceção ou muda a fila atualiza esta seção no mesmo dia (PM). Sprint nova semeada no board ganha a faixa na tabela "Ordem de execução".
