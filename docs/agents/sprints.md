@@ -4,7 +4,7 @@ status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.sprints)"
   - "backup:temp-artifacts/eb5adec0/plan/plan.md (seção 3, Sequência)"
-atualizado: 2026-10-14
+atualizado: 2026-10-15
 ---
 
 # Ordem das sprints
@@ -80,11 +80,12 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 
 Foto do board (`docs/board-cs2/`, fora do git) nesta data. **O status de cada card é o do board**; esta seção diz a sprint da vez, a ordem da fila e as decisões que a mudaram.
 
-- **Fechadas:** B0, B1 (com as sobras de 13 a 14/10: B1.9b, skins de volta pela correção do upstream na build 2000930; B1.7, BotAI religado pelo fork 1.8.12-b1.7b com 40/40), H1, T1. A K1 só tem a poda (card 78) aberta.
-- **Trilho: P1.** P1.1 (`jogavel-2026-10-13`) e P1.1a (`jogavel-2026-10-14`) validados. Ordem aprovada pelo Victor em 14/10, porque a MD3 ainda não tem o T2: P1.1b → P1.2 (janela) → P1.3 → P1.4; o T2 (B1.12d) numa janela; depois P1.6 e P1.5 (MD3), e o resto da P1 (P1.7 a P1.11).
-- **MD3:** o T1 do B1.12 rodou 12 viradas de série sem queda; a memória do container subiu de 1,6 para 4,5 GiB em 12 ciclos (H3, acúmulo no processo). Mitigação até o T2: jogar MD1, ou reiniciar o servidor antes de uma MD3.
-- **Pista paralela:** K1.9 (poda) depois do S1-prep; V1 a semear.
-- **Épocas de build sem janela:** 2000930 (12/10) e 2000931 (14/10, no recreate da janela do B1.7, conferida antes de religar o BotAI).
+- **Fechadas:** B0, B1 (com as sobras de 13 a 14/10: B1.9b, skins de volta pela correção do upstream na build 2000930, `jogavel-2026-10-14-2`; B1.7, BotAI religado pelo fork 1.8.12-b1.7b com 40/40, `jogavel-2026-10-14-3`), H1, T1. Na K1 seguem abertos a poda (K1.9, card 78) e o K1.7 (card 76), adiado: o plano o deixa fora do backlog ativo.
+- **Sobras abertas das sprints fechadas**, atrás do trilho: T1.7 (`.gitattributes` completo), B0.11 (comentários falsos do compose), B1.2 (captura compilada contra a 1.0.375) e B1.12d (o T2, que já está na ordem do trilho abaixo).
+- **Trilho: P1.** P1.1 (`jogavel-2026-10-13`) e P1.1a (`jogavel-2026-10-14`) validados. Ordem aprovada pelo Victor em 14/10, porque a MD3 ainda não tem o T2: P1.1b → P1.2 (janela) → P1.3 → P1.4; o T2 (B1.12d) numa janela; depois P1.6 e P1.5 (MD3), e o resto da P1 (P1.7 a P1.12).
+- **MD3:** o T1 do B1.12 rodou 12 viradas de série sem queda; a memória do container subiu de 1,6 para 4,5 GiB em 12 ciclos (H3, acúmulo no processo). Mitigação aprovada até o T2: só jogar MD1 ([B1.12](../runbooks/b1.12-segfault-troca-de-mapa-md3.md), seções 6 e 8.5). Reiniciar o servidor antes de uma MD3 não é mitigação: processo novo contra processo velho é o que o T2 mede.
+- **Pista paralela:** K1.9 (poda), que pelo plano depende do K1.4, K1.5, K1.6, B1.10 e T1.6; V1 a semear.
+- **Épocas de build:** 2000930 (12/10, no boot, sem janela) e 2000931 (14/10, no 1º recreate da janela do B1.7, conferida antes de religar o BotAI).
 - **Decisões do Victor de 13 a 14/10:** ADRs 0007–0012 confirmados e ADR-0013 (D17); janela de diagnóstico; G5 para o BotRandomizer e para o fork do BotAI (base 1.8.12, critério do B1.7 trocado); ordem nova do trilho.
 
 Quem fecha uma sprint, abre exceção ou muda a fila atualiza esta seção no mesmo dia (PM). Sprint nova semeada no board ganha a faixa na tabela "Ordem de execução".

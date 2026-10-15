@@ -9,8 +9,8 @@ fontes:
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:434-527"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:547-567"
   - "docs/runbooks/trilha-de-bots.md:180-277"
-  - "docs/runbooks/versoes-conhecidas.md:88-89"
-  - "docs/runbooks/versoes-conhecidas.md:151-165"
+  - "docs/runbooks/versoes-conhecidas.md:103-104"
+  - "docs/runbooks/versoes-conhecidas.md:181-196"
   - "docker/pre.sh:41-44"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:107-114"
 atualizado: 2026-10-13

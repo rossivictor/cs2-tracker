@@ -25,13 +25,13 @@ Rascunho: a causa do item 6 nunca foi investigada, e a do item 13 está aberta n
 - **Sintoma:** depois do update de 23/09, `Vision_...: FAILED` (15 detours), `Fatal error during Load() (signature broken?)`, segfault no warmup e `NETWORK_DISCONNECT_OVERFLOW` no cliente.
 - **Causa:** o SteamCMD atualiza o app 730 em todo start do container. Plugin que faz patch de memória por assinatura erra o endereço na build nova e segue escrevendo.
 - **Contorno:** máscara por pasta vazia e religação de um plugin por partida ([trilha](../runbooks/trilha-de-bots.md)). Registre a build antes e depois de toda janela: build nova é uma segunda variável.
-- **Fonte:** `docker-compose.yml:110-143` · `docs/runbooks/trilha-de-bots.md:263-266` · `docs/runbooks/versoes-conhecidas.md:151-165` (auditoria: docker-compose.yml:109-155)
+- **Fonte:** `docker-compose.yml:110-143` · `docs/runbooks/trilha-de-bots.md:263-266` · `docs/runbooks/versoes-conhecidas.md:181-196` (auditoria: docker-compose.yml:109-155)
 
 ### 3. Plugin embutido tem dois lados para mascarar
 - **Sintoma:** o plugin segue carregando, e crashando, com o wrapper CSSharp já mascarado.
 - **Causa:** RayTrace e BotHider têm o wrapper .NET em `counterstrikesharp/plugins/` e um plugin Metamod nativo em `addons/<nome>/`, registrado num `.vdf`. O nativo é quem age.
 - **Contorno:** bind de `./docker/plugins/_empty` nos dois caminhos. No boot, `[META] Failed to load plugin addons/RayTrace/...: File not found` (e o mesmo do BotHider) é o esperado.
-- **Fonte:** `docker-compose.yml:94-109` · `docker-compose.yml:162-164` (auditoria: docker-compose.yml:93-108 e :147-149)
+- **Fonte:** `docker-compose.yml:94-109` · `docker-compose.yml:165-167` (auditoria: docker-compose.yml:93-108 e :147-149)
 
 ### 4. RayTrace aborta na segunda troca de mapa
 - **Sintoma:** `spdlog::spdlog_ex — logger with name 'RayTrace' already exists`, core dumped; numa BO3, entre o mapa 1 e o 2.

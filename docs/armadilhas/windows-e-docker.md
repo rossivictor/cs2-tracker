@@ -4,7 +4,7 @@ status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/audit/infra.json (findings[13], itens 36 e 47-52)"
   - "docker/SPIKE.md:150-196"
-  - "docker-compose.yml:196-205"
+  - "docker-compose.yml:199-208"
   - "docs/historico/2026-09-26-handoff-plugins-de-bot.md:101-104"
 atualizado: 2026-10-13
 ---
@@ -48,7 +48,7 @@ Windows 11 com Docker Desktop sobre WSL2, e o shell dos agentes é o Git Bash.
 - **Sintoma:** compose rodado de uma worktree criava um volume novo e vazio de 40 a 60 GB.
 - **Causa:** sem `name:` no projeto, o volume era `<pasta>_cs2-data`.
 - **Contorno:** desde o B0.8 o `cs2-data` é external com nome fixo; agora o risco inverteu: de outra pasta, o compose monta o volume VIVO. Compose só do checkout principal, pelo papel servidor.
-- **Fonte:** `docker-compose.yml:196-205` · `AGENTS.md:35` (auditoria: sem linha, "compose sem name:")
+- **Fonte:** `docker-compose.yml:199-208` · `AGENTS.md:35` (auditoria: sem linha, "compose sem name:")
 
 ### 52. Git Bash reescreve caminho de container
 - **Sintoma:** o build do plugin pelo `.sh` cria um diretório `Cs2TrackerEvents;C` (relato da auditoria, sem fonte no repo); `-C /d` vira `D:/` e `/in/...` vira `C:/Program Files/Git/in/...`.

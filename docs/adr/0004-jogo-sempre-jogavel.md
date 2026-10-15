@@ -13,7 +13,7 @@ fontes:
   - "AGENTS.md:82-89"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (princípios 1 a 6; playability_protocol §1 a §11; gates G6 e G7)"
   - "backup:temp-artifacts/eb5adec0/audit/critic.json (gaps[2] e gaps[7]; top_risks[1] e top_risks[2])"
-  - "docker-compose.yml:196-205 (cs2-data external, name cs2-tracker_cs2-data; B0.8)"
+  - "docker-compose.yml:199-208 (cs2-data external, name cs2-tracker_cs2-data; B0.8)"
 atualizado: 2026-10-03
 ---
 

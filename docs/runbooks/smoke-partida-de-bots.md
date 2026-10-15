@@ -2,9 +2,9 @@
 tipo: runbook
 status: vigente
 fontes:
-  - "docs/runbooks/trilha-de-bots.md:310-321 (registro G6, coluna do smoke)"
-  - "docs/runbooks/trilha-de-bots.md:342 (nota do passo 3, B1.5)"
-  - "docs/runbooks/trilha-de-bots.md:213-253 (confundidores)"
+  - "docs/runbooks/trilha-de-bots.md:336-348 (registro G6, coluna do smoke)"
+  - "docs/runbooks/trilha-de-bots.md:369 (nota do passo 3, B1.5)"
+  - "docs/runbooks/trilha-de-bots.md:238-277 (confundidores)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:198-225 (preparação do shell: rcon e prontos)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:278-289 (estado antes, cvars pela RCON)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:483-497 (passo 9: cvars do boot, a referência do fechamento)"
@@ -15,15 +15,15 @@ fontes:
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:114-138 (Pronto no OnMapStart)"
   - "server-configs/cfg/gamemode_competitive_server.cfg:9-11"
   - "docker-compose.yml:42"
-  - "start_match.py:345-370"
+  - "start_match.py:448-473 (zera a quota, bot_kick, um bot por vez e a quota reafirmada)"
   - "tools/preflight.py:21-25"
   - ".claude/agents/servidor.md:54-64"
-  - "docs/runbooks/voltar-ao-jogavel.md:182-188 (coleta incompleta: json-file corrompido em 05/10 e 06/10)"
+  - "docs/runbooks/voltar-ao-jogavel.md:214-221 (coleta incompleta: json-file corrompido em 05/10 e 06/10)"
   - "backup:../2026-10-13/janela-diag/janela.vars (marca, desde e esperar_padrao, usados ao vivo no T1 do B1.12b)"
   - "backup:../2026-10-13/janela-diag/t1-resumo.txt (OK do esperar_padrao para Pronto e StartWarmup nas 12 trocas; 351 a 413 linhas por ciclo)"
   - "backup:../2026-10-13/janela-diag/fechamento.txt (OK do esperar_padrao no changelevel do fechamento)"
   - "backup:../2026-10-13/janela-diag/docker-logs-antes.txt (o docker logs para a frente termina em 2026-10-05T02:44:21Z)"
-atualizado: 2026-10-13
+atualizado: 2026-10-15
 ---
 
 # Smoke só de bots
@@ -101,7 +101,7 @@ O fechamento devolve estes valores. A referência é a da **mesma** janela, pela
 | `mp_ignore_round_win_conditions` | `false` (B1.3r) | padrão |
 
 Os dois valores de `bot_quota` são jogáveis: o `start_match` zera a quota, dá `bot_kick`,
-adiciona os bots da partida um a um e reafirma a quota (`start_match.py:345-370`).
+adiciona os bots da partida um a um e reafirma a quota (`start_match.py:448-473`).
 
 ## Armadilhas
 
