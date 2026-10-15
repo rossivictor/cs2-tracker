@@ -43,7 +43,12 @@ fontes:
   - "backup:../2026-10-13/janela-diag/libserver-2000930/libserver.so.sha256 (sha256 da cópia)"
   - "backup:../2026-10-13/janela-diag/t0-2248.txt (tamanho, mtime e sha256sum do libserver.so dentro do container)"
   - "backup:../2026-10-13/janela-diag/sha-comparacao.txt (janela de diagnóstico: 19 montados iguais ao checkout)"
-atualizado: 2026-10-13
+  - "commit 2619d70 (candidato-13 e tag jogavel-2026-10-14-3; mensagem da tag)"
+  - "backup:../2026-10-14/g7-b1.7-copia/logs/janelas/2026-10-14.md (linhas 95-118: janela do B1.7, build 2000931, libserver d73f5d3b, G6 e config-hash 837cbcbc)"
+  - "backup:../2026-10-14/coleta-g7-b1.7/docker-logs.txt (build 2000931, m_gameState 0x50F8 e Applied 40/40 no boot, 3 Error invoking callback do BotBuyPatch no changelevel)"
+  - "backup:../2026-10-14/coleta-g7-b1.7/sha-montados.txt (contra sha-referencia.txt; config-hash.txt igual ao config-hash-janela.txt)"
+  - "backup:../2026-10-14/b1.7/libserver-2000931/LEIAME.txt (build 2000931, PatchVersion 1.41.9.1, VersionDate Oct 14 2026)"
+atualizado: 2026-10-14
 ---
 
 # Versões conhecidas
@@ -57,19 +62,14 @@ Convenções:
 
 - sha256 aparece abreviado (8 caracteres) nas tabelas. O valor inteiro está em [Hashes completos](#hashes-completos).
 - **não registrado** quer dizer que nenhuma fonte guardou o valor. A nota diz de onde ele viria. Nenhum valor daqui é estimado.
-- Fontes fora do git: os registros de janela em `logs/janelas/2026-09-27.md`, `2026-09-28.md`,
-  `2026-09-30.md`, `2026-10-02.md` e `2026-10-13.md` (checkout principal), as coletas em
-  `C:/Users/Victor/cs2-tracker-backups/2026-09-27/`, `2026-09-28/`, `2026-10-01/`, `2026-10-02/`, `2026-10-03/`, `2026-10-12/` e `2026-10-13/`,
-  e os Históricos do card 17 (B0.8), do card 62,7 (T1.3c) e do card 80 (P1.1) no board. Nas tabelas, `b1.x/...` é relativo a `2026-09-27/`,
-  a coleta da partida 36 aparece como `2026-10-01/g7-2000922-partida/`, a da Janela 0 como `2026-10-02/janela0/`, a do G7 do B0.8 como
-  `2026-10-03/coleta-g7-b0.8-0015/`, a do G7 do `candidato-9` como `2026-10-12/coleta-g7-candidato-9/`, a do G7 do `candidato-10` como
-  `2026-10-13/coleta-g7-p1.1/` e a da janela de diagnóstico do B1.12b como `2026-10-13/janela-diag/`.
+- Fontes fora do git: os registros de janela em `logs/janelas/2026-09-27.md`, `2026-09-28.md`, `2026-09-30.md`, `2026-10-02.md`, `2026-10-13.md` e `2026-10-14.md` (checkout principal), as coletas em `C:/Users/Victor/cs2-tracker-backups/2026-09-27/`, `2026-09-28/`, `2026-10-01/`, `2026-10-02/`, `2026-10-03/`, `2026-10-12/`, `2026-10-13/` e `2026-10-14/`, e os Históricos do card 17 (B0.8), do card 62,7 (T1.3c), do card 80 (P1.1) e do card 26 (B1.7) no board.
+  Nas tabelas, `b1.x/...` é relativo a `2026-09-27/`, a coleta da partida 36 aparece como `2026-10-01/g7-2000922-partida/`, a da Janela 0 como `2026-10-02/janela0/`, a do G7 do B0.8 como `2026-10-03/coleta-g7-b0.8-0015/`, a do G7 do `candidato-9` como `2026-10-12/coleta-g7-candidato-9/`, a do G7 do `candidato-10` como `2026-10-13/coleta-g7-p1.1/`, a da janela de diagnóstico do B1.12b como `2026-10-13/janela-diag/`, a da janela do B1.7 como `2026-10-14/b1.7/` e a do G7 do `candidato-13` como `2026-10-14/coleta-g7-b1.7/`.
 
 ## O que não mudou em nenhuma tag
 
 | Item | Valor | Fonte |
 |---|---|---|
-| Imagem | `xbird/cs2-matchzy`, sem tag no compose (vale a `latest` local). Digest `sha256:1056e003…`, o mesmo de 27/09 01:44 (antes do B1.3r) a 30/09 23:05 (janela da build 2000922). O container de 28/09 durou até a partida 36: na coleta dela (01/10) o `Created` segue `2026-09-28T01:30:07Z`. A Janela 0 (02/10, B0.8) o recriou: desde então o `Created` é `2026-10-02T03:30:20Z` (coleta de 12/10) | `b1.3r/antes-container.txt`; registros de janela; `2026-10-01/g7-2000922-partida/estado-container.txt`; `2026-10-12/coleta-g7-candidato-9/container-inspect.txt` |
+| Imagem | `xbird/cs2-matchzy`, sem tag no compose (vale a `latest` local). Digest `sha256:1056e003…`, o mesmo de 27/09 01:44 (antes do B1.3r) a 30/09 23:05 (janela da build 2000922). O container de 28/09 durou até a partida 36: na coleta dela (01/10) o `Created` segue `2026-09-28T01:30:07Z`. A Janela 0 (02/10, B0.8) o recriou: desde então o `Created` é `2026-10-02T03:30:20Z` (coleta de 12/10). As janelas de 14/10 (B1.9b e B1.7) o recriaram de novo: o da `jogavel-2026-10-14-3` é de `2026-10-15T00:15:44Z`. O digest da imagem nessas janelas: não registrado | `b1.3r/antes-container.txt`; registros de janela; `2026-10-01/g7-2000922-partida/estado-container.txt`; `2026-10-12/coleta-g7-candidato-9/container-inspect.txt` |
 | MatchZy | `0.8.15` (`MATCHZY_FIXED_VERSION`) | compose de todas as tags |
 | Captura | CS2 Tracker Events 0.4.0: DLL `697760a7…`, `.deps.json` `137a42f2…`, `.pdb` `ca994b0c…`. A DLL é de 23/09, e o checkout de 26/09 já tinha esse sha | `backup:MANIFESTO.sha256`; [manifesto](#manifesto-do-plugin-de-captura) |
 | `pre.sh` | `233e5aa0…`. Sem diff entre `efcaa42` e `origin/main` | `git diff --stat efcaa42 origin/main -- docker/pre.sh` vazio |
@@ -92,20 +92,20 @@ Convenções:
 | `jogavel-2026-10-03` | `063b8a4` | 2000922 | 2.0.0.1469 | v1.0.375 | os mesmos da `jogavel-2026-10-01`; 8 plugins carregados: MatchZy, CS2 Tracker Events, RoundDamageRecap, BotAimImprover, Smarter-Bot, BotBuyPatch, NadeSystem e BotRandomizer | Low (`02e5e958…`), por inferência: ver a ressalva abaixo | matchid 74 (id 40 no banco), `events_74_map0`, de_inferno 13x1 (03/10 em UTC, live 02:08–02:29Z; noite de 02/10 em -03) |
 | `jogavel-2026-10-12` | `abd19aa` | 2000924 na partida 78 e 2000930 na partida 79, as duas trazidas pelo SteamCMD no boot ([Épocas de build](#épocas-de-build)) | 2.0.0.1469 | v1.0.375 | os mesmos da `jogavel-2026-10-03`; 8 plugins carregados em cada boot | Low (`02e5e958…`), por inferência, como na `jogavel-2026-10-03`: ver a ressalva abaixo | partida 78 (matchid 78, id 43 no banco), `events_78_map0`, de_cache 13x8 (05/10, G7 OK); confirmação: partida 79 (matchid 79, id 44 no banco), de_mirage 13x2 (12/10) |
 | `jogavel-2026-10-13` | `40b3826` | 2000930 | 2.0.0.1469 | v1.0.375 | os mesmos da `jogavel-2026-10-12`; 8 plugins carregados no boot. O BotRandomizer carrega, mas na 2000930 as armas dos bots vêm sem skin: ver a regressão abaixo | Low (`02e5e958…`), por inferência, como na `jogavel-2026-10-12`: ver a ressalva abaixo | partida 80 (matchid 80, id 45 no banco), `events_80_map0`, de_ancient 13x5 (13/10, live 19:08Z–19:38Z, G7 OK) |
+| `jogavel-2026-10-14-3` | `2619d70` | 2000931 (SteamCMD, no 1º recreate da janela do B1.7, 14/10; [Épocas de build](#épocas-de-build)) | 2.0.0.1469 | v1.0.375 | os mesmos da `jogavel-2026-10-13`, com o BotRandomizer b1.9b (DLL `cfe7efc0…`, desde a `jogavel-2026-10-14-2`), + **BotAI** do fork 1.8.12-b1.7b por bind (DLL `8ed65092…`, [B1.7b](b1.7b-botai-fork-assinatura.md)); 9 plugins carregados no boot, BotAI com `Applied 40/40 patches.` | Low (`02e5e958…`), por inferência: as janelas de 14/10 não escreveram no volume, e a coleta não leu o VPK | partida 83 (matchid 83, id 48 no banco), `events_83_map0`, de_nuke 13x3 (14/10 em -03; live 15/10 01:43Z–02:09Z, G7 OK) |
 
-**Estado no ar:** a `jogavel-2026-10-13` (`40b3826`). Ela fecha o `candidato-10` (`db59470`, P1.1:
-órfão real preservado, log em arquivo e aviso de candidato), validado pela partida 80 (13/10,
-saída 0 do `evidencia_partida.py` com `--build-esperada 2000930`, G7 OK; Histórico do card 80).
-O `db59470` é ancestral do `40b3826`, e o delta entre os dois é só docs, tools e tests. G6 n/a:
-o card não tinha infra nem janela. O compose não mudou desde o `candidato-8`
-(`git diff abd19aa 40b3826` vazio no compose, em `docker/pre.sh`, `docker/plugins*` e `server-configs/`; blob LF
-`2a889474…`). O container é o da Janela 0, sem reinício desde o boot de 12/10 (`StartedAt`
-2026-10-12T21:37:09Z, `RestartCount` 0, `container-inspect.txt`): imagem, volume, mounts e
-config-hash (`3970b702…`) são os da `jogavel-2026-10-12`, e os 19 caminhos montados bateram com
-o checkout. Pendência: a regressão do BotRandomizer na 2000930, logo abaixo. A janela de
-diagnóstico de 13/10 (B1.12b, 22:48–23:17 em -03, depois da partida 80) não mudou nada no ar:
-checkout `c60009a`, container sem recreate nem reinício, 19 montados iguais ao checkout e
-config-hash igual (`sha-comparacao.txt` da `2026-10-13/janela-diag/`).
+**Estado no ar:** a `jogavel-2026-10-14-3` (`2619d70`). Ela fecha o `candidato-13` (o mesmo commit; B1.7: o BotAI religado pelo bind do fork do [B1.7b](b1.7b-botai-fork-assinatura.md), no compose e no `.gitignore`), aplicado na janela de 14/10 (20:57–21:24 em -03) e validado pela partida 83 (saída 0 do `evidencia_partida.py` com `--build-esperada 2000931`, `VEREDITO G7: OK`; Histórico do card 26).
+G6 na janela: BotAI com `m_gameState = 0x50F8` e `Applied 40/40 patches.`, zero segfault, 9 plugins, os 17 arquivos montados iguais ao checkout e config-hash novo `837cbcbc…`, porque o compose mudou (a máscara do BotAI virou bind).
+Na partida, o BotAI ficou em 40/40 do boot ao fim, com 12 bombas plantadas e 2 defuses de bot.
+A build mudou na mesma janela: o 1º recreate trouxe a 2000931 ([Épocas de build](#épocas-de-build)), e o fork só voltou ao ar depois da conferência dele nessa build.
+O container é o do 2º recreate (`Created` 2026-10-15T00:15:44Z).
+As tags `jogavel-2026-10-14` (`b8b492f`, P1.1a, partida 81) e `jogavel-2026-10-14-2` (`eb4cb0e`, B1.9b, a correção da regressão do BotRandomizer logo abaixo, partida 82), com os `candidato-11` e `candidato-12`, ainda não têm linha nesta nota: o registro delas é de card próprio.
+
+A `jogavel-2026-10-13` (`40b3826`) fechou o `candidato-10` (`db59470`, P1.1: órfão real preservado, log em arquivo e aviso de candidato), validado pela partida 80 (13/10, saída 0 do `evidencia_partida.py` com `--build-esperada 2000930`, G7 OK; Histórico do card 80).
+O `db59470` é ancestral do `40b3826`, e o delta entre os dois é só docs, tools e tests. G6 n/a: o card não tinha infra nem janela.
+O compose não mudou desde o `candidato-8` (`git diff abd19aa 40b3826` vazio no compose, em `docker/pre.sh`, `docker/plugins*` e `server-configs/`; blob LF `2a889474…`).
+O container era o da Janela 0, sem reinício desde o boot de 12/10 (`StartedAt` 2026-10-12T21:37:09Z, `RestartCount` 0, `container-inspect.txt`): imagem, volume, mounts e config-hash (`3970b702…`) eram os da `jogavel-2026-10-12`, e os 19 caminhos montados bateram com o checkout.
+A janela de diagnóstico de 13/10 (B1.12b, 22:48–23:17 em -03, depois da partida 80) não mudou nada no ar: checkout `c60009a`, container sem recreate nem reinício, 19 montados iguais ao checkout e config-hash igual (`sha-comparacao.txt` da `2026-10-13/janela-diag/`).
 
 **Regressão do BotRandomizer na 2000930** (desde o boot de 12/10, partidas 79 e 80): as armas
 dos bots vêm sem skin, e as facas seguem com skin (relato do Victor, card K1.12). O log tem um
@@ -167,7 +167,8 @@ Low" da [trilha](trilha-de-bots.md#épocas).
 | Build | Desde | Origem | Partida que validou | Tag |
 |---|---|---|---|---|
 | 2000924 | 04/10 17:18Z (14:18 em -03), no boot que seguiu o segfault de 17:15:26Z (B1.12) | update do SteamCMD no boot, sem janela nem OK prévio | partida 78 (05/10, de_cache 13x8, G7 OK). A partida 76 (04/10, matchid 76) já jogou nela antes do `candidato-9`, sem G7 | `jogavel-2026-10-12` |
-| 2000930 | 12/10 21:37:11Z (18:37 em -03), no boot do container; download terminado às 21:37:57Z | update do SteamCMD no boot, sem janela nem OK prévio | partida 79 (12/10, de_mirage 13x2), como confirmação: saída 0 do `evidencia_partida.py` no trecho desse boot. Na época a ferramenta não lia a linha da build e mostrava `build ?`; a build saiu do log. Desde o H1.1c (`8310527`) ela lê a build da linha `GC Connection established for server version`, e o `--build-esperada` avisa build diferente da da janela. Validada de novo pela partida 80 (13/10, de_ancient 13x5, G7 OK com `--build-esperada 2000930`). Nela o BotRandomizer perdeu as skins das armas (regressão acima) | `jogavel-2026-10-12` e `jogavel-2026-10-13` |
+| 2000930 | 12/10 21:37:11Z (18:37 em -03), no boot do container; download terminado às 21:37:57Z | update do SteamCMD no boot, sem janela nem OK prévio | partida 79 (12/10, de_mirage 13x2), como confirmação: saída 0 do `evidencia_partida.py` no trecho desse boot. Na época a ferramenta não lia a linha da build e mostrava `build ?`; a build saiu do log. Desde o H1.1c (`8310527`) ela lê a build da linha `GC Connection established for server version`, e o `--build-esperada` avisa build diferente da da janela. Validada de novo pela partida 80 (13/10, de_ancient 13x5, G7 OK com `--build-esperada 2000930`). Nela o BotRandomizer perdeu as skins das armas (regressão acima) | `jogavel-2026-10-12`, `jogavel-2026-10-13`, `jogavel-2026-10-14` e `jogavel-2026-10-14-2` |
+| 2000931 | 14/10 21:07 em -03 (download terminado às 00:07:02Z de 15/10), no 1º recreate da janela do B1.7 | update do SteamCMD no boot, dentro de uma janela, sem OK prévio para a build | partida 83 (14/10, de_nuke 13x3, G7 OK com `--build-esperada 2000931`). Antes do G6, o servidor conferiu o fork do BotAI na cópia do `libserver.so` dela (`RESULTADO: OK`, abaixo) | `jogavel-2026-10-14-3` |
 
 Os boots de 05/10 (22:25Z e 23:12Z) dizem `already up to date` e seguem na 2000924. O cliente
 do Victor precisa estar na mesma build do servidor.
@@ -183,6 +184,15 @@ do `sha256sum` dentro do container (`c7741272…`, inteiro em [Hashes completos]
 sobra 1), e de um backtrace futuro nesta build. A build não volta por git: esta cópia é o que
 resta da 2000930 quando o SteamCMD trouxer a próxima.
 
+**Binário da build 2000931 guardado:** o `libserver.so` do container (ServerVersion 2000931,
+PatchVersion 1.41.9.1, VersionDate Oct 14 2026; 41726328 bytes) foi copiado só leitura na janela
+do B1.7 (14/10 21:14, -03), para
+`C:/Users/Victor/cs2-tracker-backups/2026-10-14/b1.7/libserver-2000931/libserver.so`, fora do
+repo, com o `LEIAME.txt` e o `libserver.so.sha256` ao lado. O sha256 (`d73f5d3b…`, inteiro em
+[Hashes completos](#hashes-completos)) é o mesmo do `sha256sum` dentro do container. É o insumo
+da conferência do BotAI do fork nessa build
+([a cada build nova](b1.7b-botai-fork-assinatura.md#a-cada-build-nova-do-cs2)).
+
 ### Candidatos
 
 | Candidato | Commit | Card | Fechado por |
@@ -197,6 +207,7 @@ resta da 2000930 quando o SteamCMD trouxer a próxima.
 | `candidato-8` | `214b25b` | B0.8 (volume external), aplicado na Janela 0 | `jogavel-2026-10-03` (validado; mesmo compose, no `063b8a4`) |
 | `candidato-9` | `5a50fcb` | T1.3c (placeholder da TUI e comentário do parser sem o SteamID e o nick reais) | `jogavel-2026-10-12` (validado pela partida 78, confirmado pela 79; no `abd19aa`) |
 | `candidato-10` | `db59470` | P1.1 (órfão real preservado, log em arquivo e aviso de candidato) | `jogavel-2026-10-13` (validado pela partida 80; no `40b3826`) |
+| `candidato-13` | `2619d70` | B1.7 (BotAI religado pelo bind do fork do B1.7b: compose e `.gitignore`), aplicado na janela de 14/10 | `jogavel-2026-10-14-3` (validado pela partida 83; mesmo commit) |
 
 ## Compose e config-hash
 
@@ -219,6 +230,7 @@ do blob LF do git fica em [Hashes completos](#hashes-completos). O config-hash �
 | `jogavel-2026-10-03` | `46b77848…` (o do `candidato-8`; conferido com `sha256sum` no checkout principal em 03/10) | `3970b702…` | `2026-10-03/coleta-g7-b0.8-0015/config-hash.txt`; igual ao `config-hash-janela.txt` da mesma coleta e ao da Janela 0 |
 | `jogavel-2026-10-12` | `46b77848…` (o do `candidato-8`; conferido com `sha256sum` no checkout principal em 12/10, com o HEAD no `abd19aa`) | `3970b702…` | `2026-10-12/coleta-g7-candidato-9/config-hash.txt`; igual ao `config-hash-janela.txt` da mesma coleta |
 | `jogavel-2026-10-13` | `46b77848…` (o do `candidato-8`; conferido com `sha256sum` no checkout principal em 13/10, no K1.12) | `3970b702…` | `2026-10-13/coleta-g7-p1.1/config-hash.txt`; igual ao `config-hash-janela.txt` da mesma coleta |
+| `jogavel-2026-10-14-3` | `cc0e967e…` (o do `candidato-13`, em que a máscara do BotAI virou bind; conferido com `sha256sum` no checkout principal em 14/10, no B1.7d, com a `main` no `2619d70`) | `837cbcbc…`, novo: o compose mudou | `2026-10-14/coleta-g7-b1.7/config-hash.txt`; igual ao `config-hash-janela.txt` da mesma coleta e ao `docker compose config --hash` do G6 da janela do B1.7 |
 
 O `candidato-2` teve config-hash `c8a2a535…` (`b1.4/config-hash.txt`), e o compose dele foi
 `36ff2fe2…`.
@@ -267,6 +279,13 @@ comentário novo no mount do `cs2-data`: 102, 109, 144, 153 e 164 (mascarados), 
 (máscaras comentadas), 149 e 157 (binds). Conferido em 02/10 com
 `git grep -n -E '_empty|plugins/(BotAimImprover|BotRandomizer)' 214b25b -- docker-compose.yml`.
 
+No `candidato-13` (`2619d70`, B1.7), e portanto na `jogavel-2026-10-14-3`, a máscara do BotAI
+(linha 144) deu lugar ao bind de `./docker/plugins/BotAI` (linha 147, com três linhas de
+comentário acima), e as linhas abaixo dela descem 3: 102 e 109, 156 e 167 (mascarados); 155,
+164 e 176 (máscaras comentadas); 152 e 160 (binds de BotAimImprover e BotRandomizer). Conferido
+em 14/10 (B1.7d) com
+`git grep -n -E '_empty|plugins/(BotAimImprover|BotRandomizer|BotAI)' 2619d70 -- docker-compose.yml`.
+
 Nas tags do meio, a máscara sai uma por vez, na ordem da tabela de tags: BotAimImprover
 (`-27-2`), BotState (`-27-3`), BotBuy (`-27-4`), NadeSystem (`-27-5`) e BotRandomizer (`-28`).
 BotVision e BotController não têm máscara e não estão no volume.
@@ -290,6 +309,7 @@ pelo servidor. Em toda coleta, o valor dentro do container foi igual ao do check
 | `jogavel-2026-10-03` | G7, `2026-10-03/coleta-g7-b0.8-0015/` | `aebb5df5…` | `233e5aa0…` | `2f5fb06d…` | `697760a7…` | `137a42f2…` |
 | `jogavel-2026-10-12` | G7, `2026-10-12/coleta-g7-candidato-9/` | `aebb5df5…` | `233e5aa0…` | `4eccec34…` | `697760a7…` | `137a42f2…` |
 | `jogavel-2026-10-13` | G7, `2026-10-13/coleta-g7-p1.1/` | `aebb5df5…` | `233e5aa0…` | `a1e4ca22…` | `697760a7…` | `137a42f2…` |
+| `jogavel-2026-10-14-3` | G7, `2026-10-14/coleta-g7-b1.7/` | `aebb5df5…` | `233e5aa0…` | `52bf794a…` | `697760a7…` | `137a42f2…` |
 
 - O `match_config.spike.json` é estado de runtime: o `start_match` o reescreve a cada partida, e
   o sha muda com ela. Ele não identifica a combinação e fica aqui só como registro.
@@ -317,6 +337,11 @@ pelo servidor. Em toda coleta, o valor dentro do container foi igual ao do check
 - Na coleta de 13/10 (`candidato-10`), do mesmo jeito: os 19 caminhos bateram com os 15 arquivos
   do checkout. O `match_config` `a1e4ca22…` é o que o checkout tinha depois da partida 80. Os 5
   arquivos do BotRandomizer seguem iguais ao manifesto do B1.9, com as armas sem skin na 2000930.
+- Na coleta de 14/10 (`candidato-13`), os 21 caminhos de `sha-montados.txt` bateram com os 18
+  arquivos do checkout (`sha-referencia.txt`): os 5 da tabela, o `.pdb` da captura,
+  BotAimImprover (3), BotRandomizer (5, os do B1.9b: DLL `cfe7efc0…`), **BotAI (3, iguais ao
+  manifesto do [B1.7b](b1.7b-botai-fork-assinatura.md))** e as 4 máscaras (o mesmo
+  `_empty/.gitkeep`). O `match_config` `52bf794a…` é o que o checkout tinha depois da partida 83.
 
 ### Como preencher na Janela 0 (B0.9)
 
@@ -366,8 +391,8 @@ dentro do container e a partida. O que a coleta não trouxe entra como **não re
 
 A tag em si sai do `tools/jogavel.py marcar` (com o registro em `logs/jogavel/tags.md`, fora do
 git). Este registro é à mão, num PR de docs com card próprio (a `jogavel-2026-10-01` foi o
-B0.3b, a `jogavel-2026-10-03`, o B0.3c, a `jogavel-2026-10-12`, o T1.9, e a `jogavel-2026-10-13`,
-o K1.12).
+B0.3b, a `jogavel-2026-10-03`, o B0.3c, a `jogavel-2026-10-12`, o T1.9, a `jogavel-2026-10-13`,
+o K1.12, e a `jogavel-2026-10-14-3`, o B1.7d).
 
 ## Hashes completos
 
@@ -385,8 +410,10 @@ jogavel-2026-10-01    86d9abd66ce0f6e939a0db41a0b0e862d2c56e1df0b3a509b635ca1fcf
 jogavel-2026-10-03    46b77848b093402604970cf197a35c0c2d34769a8532f2ad7bfcc1fd0ad2b4c6 · 2a88947413497d434de821142c11498132662e5ce11af2a7c31d948047486cf5
 jogavel-2026-10-12    46b77848b093402604970cf197a35c0c2d34769a8532f2ad7bfcc1fd0ad2b4c6 · 2a88947413497d434de821142c11498132662e5ce11af2a7c31d948047486cf5
 jogavel-2026-10-13    46b77848b093402604970cf197a35c0c2d34769a8532f2ad7bfcc1fd0ad2b4c6 · 2a88947413497d434de821142c11498132662e5ce11af2a7c31d948047486cf5
+jogavel-2026-10-14-3  cc0e967e03a54d258258d2ba2268e352ceafab2756fd0dfba2a5371d959d87b4 · 807b940db01811b62999fd703b4b5b8216d05a0d5e17910e7e4a0f36282f14f7
 candidato-2           36ff2fe29210820d59c8b82cab7675c9f10be47bccaa6392ab78d4420cef85a8 · 8cb6674414bc5f5e4cf0c01b363736de4168b0a0a30c6be26a2f000e89fc5f13
 candidato-8           46b77848b093402604970cf197a35c0c2d34769a8532f2ad7bfcc1fd0ad2b4c6 · 2a88947413497d434de821142c11498132662e5ce11af2a7c31d948047486cf5
+candidato-13          cc0e967e03a54d258258d2ba2268e352ceafab2756fd0dfba2a5371d959d87b4 · 807b940db01811b62999fd703b4b5b8216d05a0d5e17910e7e4a0f36282f14f7
 ```
 
 O CRLF do `candidato-8` é o da Janela 0 (`depois-medicoes.txt`); o blob LF saiu de
@@ -395,7 +422,9 @@ mesmos: o CRLF lido no checkout principal em 03/10 e o blob LF de
 `git show 063b8a4:docker-compose.yml | sha256sum`. Os da `jogavel-2026-10-12` também: o CRLF
 lido no checkout principal em 12/10 e o blob LF de `git show abd19aa:docker-compose.yml |
 sha256sum`. Os da `jogavel-2026-10-13` também: o CRLF lido no checkout principal em 13/10 (K1.12)
-e o blob LF de `git show 40b3826:docker-compose.yml | sha256sum`.
+e o blob LF de `git show 40b3826:docker-compose.yml | sha256sum`. Os da `jogavel-2026-10-14-3` e do
+`candidato-13` (o mesmo commit): o CRLF lido no checkout principal em 14/10 (B1.7d), com a `main`
+no `2619d70`, e o blob LF de `git show 2619d70:docker-compose.yml | sha256sum`.
 
 config-hash:
 
@@ -410,8 +439,10 @@ jogavel-2026-10-01    3970b702027592f02ad17e304f76ba8c19148bc9eedd060b9a679870da
 jogavel-2026-10-03    3970b702027592f02ad17e304f76ba8c19148bc9eedd060b9a679870da44fa37
 jogavel-2026-10-12    3970b702027592f02ad17e304f76ba8c19148bc9eedd060b9a679870da44fa37
 jogavel-2026-10-13    3970b702027592f02ad17e304f76ba8c19148bc9eedd060b9a679870da44fa37
+jogavel-2026-10-14-3  837cbcbcb6a2544a4ff1452864c92802463b181286114e5baec427d691e5e48b
 candidato-2           c8a2a53512439ea4f9baa7cbe2e598e2c4b24b1c0725738593c42e3b2f860ac5
 candidato-8           3970b702027592f02ad17e304f76ba8c19148bc9eedd060b9a679870da44fa37  (Janela 0)
+candidato-13          837cbcbcb6a2544a4ff1452864c92802463b181286114e5baec427d691e5e48b  (janela do B1.7, 14/10)
 ```
 
 Arquivos montados e imagem:
@@ -430,6 +461,10 @@ f8eeeaf7fb2913f0d6baf1dd712631b5ddc137b075266e2f1c6e13b45657074f  match_config.s
 2000bf4e864826f24678f4cbb0e381f1399341f9a4bc54b01ab6debf8d89a7cf  match_config.spike.json (Janela 0, 02/10)
 4eccec340c7ba883aeeceafdaf6323880c2304e9c3180bac3a7412a542d95de9  match_config.spike.json (coleta de 12/10, depois da partida 79)
 a1e4ca2276832a174bdbe15647670ebaf1a2980b7d1bc683f0c68f36ffef7752  match_config.spike.json (coleta de 13/10, depois da partida 80)
+52bf794a33fc6475b795cf91e4ff61794c264cdb03ee2429ae2d0dc38b8102a0  match_config.spike.json (coleta de 14/10, depois da partida 83)
+8ed65092390b11f46f89512756b0c3c3b426d0f5141c2703bcb8580e2e60cc9b  BotAI.dll (fork 1.8.12-b1.7b, bind; manifesto do B1.7b)
+289b24434de6eb1d42a8a7d2b4d48d2b56973bc4a2791c80d4ea5fb8d938d0a3  BotAI.deps.json
+5cb31900c202ac767e39f7a9b07db02005e57a1bf7659fe8188c7430c3f865d8  BotAI.pdb
 7075101b5d7ac0369eac102b04d23561611b88d5ce44ea0fcc68ff1fe55ad71b  RoundDamageRecap.dll (volume)
 sha256:1056e0031e44709aa5e30a0a0a8f3d5de86c7ee16aa6fee1ec29726a7940ad04  xbird/cs2-matchzy
 ```
@@ -438,6 +473,7 @@ Binários do servidor (cópia só leitura, fora do repo, em `C:/Users/Victor/cs2
 
 ```
 c7741272b76f16e936d6224dc121105e8051e1bc4d834be016c35ee3c63cac5a  libserver.so build 2000930 (PatchVersion 1.41.9.0, VersionDate Oct 08 2026; 41724600 B) em 2026-10-13/janela-diag/libserver-2000930/
+d73f5d3b360fce87708451a239f8961399b34a2f7e4354326a5948c8676cfad2  libserver.so build 2000931 (PatchVersion 1.41.9.1, VersionDate Oct 14 2026; 41726328 B) em 2026-10-14/b1.7/libserver-2000931/
 ```
 
 VPK (`overrides/<variante>/botprofile.vpk`, no volume):
