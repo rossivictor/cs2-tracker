@@ -996,11 +996,11 @@ def demo_name_no_banco(db_path, demo_name) -> bool:
     ("já está no banco"). O watcher pergunta antes de arquivar para escolher
     um nome livre (P1.1a): sem isso, um matchid repetido descartava a partida
     nova em silêncio. Só lê: banco inexistente ou sem a tabela conta como
-    "não está", e nada é criado aqui.
+    "não está", e nada é criado aqui. Abre em mode=ro (P1.1b).
     """
     if not Path(db_path).exists():
         return False
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=ro", uri=True)
     try:
         linha = conn.execute(
             "SELECT 1 FROM matches WHERE demo_name = ?", (demo_name,)

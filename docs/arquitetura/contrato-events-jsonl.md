@@ -8,7 +8,7 @@ fontes:
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:360-712 (os onze tipos)"
   - "parser.py:1037-1055 (leitura em utf-8-sig)"
   - "parser.py:1103-1199 (despacho por type)"
-  - "watcher.py:455-494 (arquivamento)"
+  - "watcher.py:502-587 (arquivamento e colisão, P1.1a e P1.1b)"
   - "start_match.py:52-106 (órfão real, P1.1)"
   - "start_match.py:823-831"
   - "tools/evidencia_partida.py:86-89 (TIPOS_DA_CAUDA)"
@@ -22,7 +22,7 @@ fontes:
   - "backup:temp-artifacts/eb5adec0/audit/dead_captura.json (captura-29: gerações e formato)"
   - "backup:temp-artifacts/eb5adec0/audit/harness.json (findings[6]: tipos por geração e 14 arquivos com BOM)"
   - "backup:temp-artifacts/eb5adec0/audit/infra.json (findings[4] item 10 e findings[6])"
-atualizado: 2026-10-13
+atualizado: 2026-10-15
 ---
 
 # Contrato do events JSONL
@@ -44,13 +44,13 @@ Fora da seção 4, `:N` sozinho é linha do último arquivo citado por inteiro.
 | Quem | O que faz com o arquivo | Fonte |
 |---|---|---|
 | Plugin `Cs2TrackerEvents` | único escritor; grava `current.jsonl` em append, uma linha por evento | `docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:251-337` |
-| `watcher.py` | arquiva: renomeia `current.jsonl` no fim do mapa e manda ingerir | `watcher.py:455-494` |
+| `watcher.py` | arquiva: renomeia `current.jsonl` no fim do mapa e manda ingerir | `watcher.py:502-587` |
 | `parser.store_match_from_events` | ingere no SQLite | `parser.py:992-1199` |
 | `start_match.preservar_orfao` | antes da partida, preserva o `current.jsonl` com round real | `start_match.py:79-106` |
 | `tools/evidencia_partida.py` | G7: classifica o `current.jsonl` e os arquivados, sobre cópia | `tools/evidencia_partida.py:465-487` |
 | `tools/jogavel.py` | recusa o `voltar` com partida em curso | `tools/jogavel.py:296-322` |
 | `tools/preflight.py` | só o mtime do `current.jsonl` (menos de 10 min = Victor jogando) | `tools/preflight.py:317-330` |
-| `tools/reingest_events.py` | reingere os arquivados `events_<matchid>_map<N>` | `tools/reingest_events.py:26` |
+| `tools/reingest_events.py` | reingere os arquivados `events_<matchid>_map<N>`, com ou sem `__<utc>` | `tools/reingest_events.py:26-27` |
 
 ## 2. A linha
 
@@ -157,20 +157,24 @@ proibida para agentes: os arquivos têm SteamID64 e nicks reais.
 | Arquivo | Quem cria | Quando |
 |---|---|---|
 | `current.jsonl` | plugin | truncado (vazio) no `Load` e em todo `OnMapStart` (`docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:107-114`, `:137`; item 46); recriado em append quando some (`:324-337`) |
-| `events_<matchid>_map<N>.jsonl` | `watcher.py`, por rename do `current.jsonl` | na linha `WritePlayerStatsToCsv` da MatchZy, fim do mapa (`watcher.py:378-393`, `:476-485`) |
+| `events_<matchid>_map<N>.jsonl` (`__<utc>`, `-2`… na colisão) | `watcher.py`, por rename do `current.jsonl` | na linha `WritePlayerStatsToCsv` da MatchZy, fim do mapa (`watcher.py:412-427`, `:530-562`) |
 | `orphan_<AAAAMMDDTHHMMSSZ>.jsonl` (`-2`, `-3`… se o nome existe) | `start_match.preservar_orfao`, por rename, com cópia de reserva | no `run_match`, antes do `compose_up` e do `loadmatch`, se houver órfão real (seção 7) (`start_match.py:79-106`, `:823-831`) |
 
 - `<matchid>` é o id da partida na MatchZy. `<N>` é o número do mapa que a MatchZy dá
   (`currentMapNumber`, `match_data_map<N>`), de base 0: o mapa 1 de uma MD3 é `map0`. Sem
-  número no log, o watcher usa 0 (`watcher.py:469-472`).
+  número no log, o watcher usa 0 (`watcher.py:516-519`).
 - O nome sem extensão é o `demo_name`, chave única de `matches` (`parser.py:67`, `:1019`).
   `demo_name` já gravado faz o parser pular a ingestão (`parser.py:1024-1032`).
-- Colisão: se o `events_<matchid>_map<N>.jsonl` já existe, o watcher não renomeia e manda ingerir
-  o antigo (`watcher.py:483`). O sufixo `__<utc>` do P1.1a ainda não existe no watcher; o
-  `evidencia_partida` já o aceita (`tools/evidencia_partida.py:424-425`), e o `reingest_events`
-  não (`tools/reingest_events.py:26`).
-- `orphan_*` não é ingerido por ninguém de forma automática: o watcher só olha o nome do
-  arquivado e o `reingest_events` só casa `events_*`.
+- Colisão (P1.1a, P1.1b): se o nome já existe em disco ou no banco e o `current.jsonl` tem uma
+  partida, ela vira `events_<matchid>_map<N>__<AAAAMMDDTHHMMSSZ>` (`-2`, `-3`… no mesmo segundo),
+  e o antigo fica intacto (`watcher.py:528-556`). Arquivo antigo fora do banco ganha `[AVISO]` no
+  log da partida. Sem nenhum `round_end`, o `current.jsonl` não é partida (é a cauda de um fim
+  repetido): vira `sem_round_end_<nome>__<utc>.jsonl`, com `[AVISO]` e sem linha no banco.
+  O `evidencia_partida` casa a partida do log com o nome sufixado mais novo
+  (`tools/evidencia_partida.py:718-750`), e o `reingest_events` reingere o sufixado
+  (`tools/reingest_events.py:26-27`). A partida sem colisão segue sem sufixo e sem aviso.
+- `orphan_*` e `sem_round_end_*` não são ingeridos por ninguém de forma automática: o watcher
+  só olha o nome do arquivado e o `reingest_events` só casa `events_*`.
 - Num leitor do Windows, o `current.jsonl` aberto impede o rename do watcher
   (`tools/evidencia_partida.py:711-715`). Leia sempre uma cópia.
 
@@ -203,7 +207,7 @@ Quatro leitores classificam o `current.jsonl`, e cada um com a própria regra:
 
 Com `com_rounds`, o `evidencia_partida` separa a **partida abandonada** (o log tem uma partida
 sem fim: SEM EVIDÊNCIA) da falha de arquivamento (todas terminaram: RUIM)
-(`tools/evidencia_partida.py:832-847`).
+(`tools/evidencia_partida.py:874-889`).
 
 ### Limite conhecido: a morte pelo `world` sem `round_start`
 
@@ -221,7 +225,7 @@ há caso real disso nas caudas da fixture.
 ## 8. O que o contrato não garante
 
 - Versão, schema, mapa, matchid e placar não estão no arquivo. Mapa, matchid e número do mapa
-  vêm do log da MatchZy e do `match_config.json` (`watcher.py:415-453`).
+  vêm do log da MatchZy e do `match_config.json` (`watcher.py:433-487`).
 - `round_num` não é o round oficial: conta todo round ao vivo, inclusive o round fantasma e o
   reiniciado ([matchzy](../armadilhas/matchzy.md), item 31; captura, item 39), e recomeça a cada mapa.
 - `human_side` às vezes vem vazio no round 1; o parser infere pela primeira kill

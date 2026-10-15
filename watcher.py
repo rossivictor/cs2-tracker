@@ -115,6 +115,33 @@ def _carimbo_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
+# Prefixo do current.jsonl guardado sem round_end numa colisão (P1.1b). Não
+# começa com "events_": nem o watcher, nem o reingest_events, nem o
+# evidencia_partida o tomam por partida.
+PREFIXO_SEM_ROUND_END = "sem_round_end_"
+
+
+def _tem_round_end(caminho) -> bool:
+    """True se o JSONL tem pelo menos um round_end (P1.1b). Sem nenhum, o
+    arquivo não é partida: é a cauda pós-partida (snapshot, round_stats) de
+    um fim de mapa que chegou duas vezes, e ingerir criava a linha fantasma
+    de 0 rounds."""
+    try:
+        with open(caminho, encoding="utf-8-sig", errors="replace") as arq:
+            for linha in arq:
+                if '"round_end"' not in linha:
+                    continue
+                try:
+                    evento = json.loads(linha)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(evento, dict) and evento.get("type") == "round_end":
+                    return True
+    except OSError:
+        return False
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Padrões de log — CONFIRME e ajuste com os logs reais das suas partidas.
 # Rode com --debug pra imprimir linhas não reconhecidas e calibrar aqui.
@@ -459,13 +486,14 @@ class MatchWatcher:
         )
         return achou.group("map") if achou else None
 
-    def _demo_name_livre(self, base):
-        """`base__<utc>`, livre em disco e no banco. Dois fins no mesmo
-        segundo ganham -2, -3... (mesma regra do orphan_* do start_match)."""
+    def _demo_name_livre(self, base, prefixo=""):
+        """`base__<utc>`, livre em disco (com o `prefixo` no nome do arquivo)
+        e no banco. Dois fins no mesmo segundo ganham -2, -3... (mesma regra
+        do orphan_* do start_match)."""
         carimbo = _carimbo_utc()
         nome = f"{base}__{carimbo}"
         n = 2
-        while ((self.events_live_dir / f"{nome}.jsonl").exists()
+        while ((self.events_live_dir / f"{prefixo}{nome}.jsonl").exists()
                or demo_name_no_banco(self.db_path, nome)):
             nome = f"{base}__{carimbo}-{n}"
             n += 1
@@ -503,8 +531,25 @@ class MatchWatcher:
         # banco"): a partida nova sumia no truncamento do mapa seguinte. Agora
         # ela ganha um nome livre, events_<matchid>_map<N>__<utc>, e o antigo
         # fica intacto.
-        if tem_eventos and (archived.exists() or demo_name_no_banco(self.db_path, demo_name)):
+        no_banco = tem_eventos and demo_name_no_banco(self.db_path, demo_name)
+        if tem_eventos and (archived.exists() or no_banco):
             antigo = demo_name
+            if not no_banco:
+                # P1.1b: o arquivo antigo nunca foi ingerido e ninguém avisava.
+                print(f"[AVISO] {antigo}.jsonl já existia e não está no banco: essa "
+                      f"partida antiga segue fora das estatísticas (tools/reingest_events.py)")
+            if not _tem_round_end(current):
+                # P1.1b: sem round_end não é partida (linha fantasma de 0
+                # rounds). Guarda o arquivo fora do padrão events_* e não
+                # ingere nada.
+                guardado = self.events_live_dir / (
+                    PREFIXO_SEM_ROUND_END
+                    + self._demo_name_livre(antigo, PREFIXO_SEM_ROUND_END) + ".jsonl")
+                current.rename(guardado)
+                print(f"[AVISO] {antigo} já existe e o current.jsonl novo não tem round_end: "
+                      f"guardado como {guardado.name}, sem linha no banco")
+                print(f"[MATCH] matchid={matchid} finalizado (vencedor: {winner or '?'})")
+                return
             demo_name = self._demo_name_livre(antigo)
             archived = self.events_live_dir / f"{demo_name}.jsonl"
             print(f"[PIPELINE] {antigo} já existe; a partida nova vai como {demo_name}")
