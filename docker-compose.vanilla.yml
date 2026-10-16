@@ -1,0 +1,31 @@
+# Válvula vanilla (card P1.2): override empilhado DEPOIS do docker-compose.yml
+# (`-f docker-compose.yml -f docker-compose.vanilla.yml`) quando o
+# data/servidor.json tem "vanilla": true. A lista de -f sai só de
+# config.compose_files(); quem liga e desliga é o `tools/jogavel.py vanilla
+# on|off`, na janela, que já recria (docs/runbooks/voltar-ao-jogavel.md).
+#
+# Volta os bots ao estado de antes da trilha de bots (jogavel-2026-09-26,
+# ADR-0005): IA e mira vanilla, sem nenhum plugin de bot do CSSharp. Cada
+# linha cobre com a pasta vazia um plugin que o base carrega, do fork/upstream
+# (bind) ou do volume. No merge do compose, volumes de serviço se juntam pelo
+# destino no container: a linha daqui substitui a do base no mesmo destino, e
+# as dos plugins que vêm do volume ganham a máscara que o base comentou.
+#
+# NÃO mascara (o base continua valendo): MatchZy (o loadmatch), Cs2TrackerEvents
+# (a captura: sem ele a partida não é ingerida), as pastas de demo, stats e
+# events-live, o cfg, o pre.sh e o runtime file. RayTrace, RayTraceImpl,
+# BotHider e BotHiderImpl já vêm mascarados pelo base, ligado ou não.
+
+services:
+  cs2-server:
+    volumes:
+      # B1.7: BotAI do fork local (bind no base).
+      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAI
+      # B1.4b: BotAimImprover do upstream (bind no base).
+      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAimImprover
+      # B1.9: BotRandomizer do upstream (bind no base).
+      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotRandomizer
+      # B1.6, B1.5 e B1.8: BotBuy, BotState e NadeSystem do volume (máscara comentada no base).
+      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotBuy
+      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotState
+      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/NadeSystem

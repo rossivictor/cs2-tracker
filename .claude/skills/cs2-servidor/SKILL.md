@@ -22,7 +22,7 @@ O significado de cada saída do preflight está no AGENTS.md (Preflight); o `sta
 - Janela: `janela abrir --por "<frase>"`, `janela vigiar`, `janela fechar`.
 - Tags: `marcar candidato|jogavel <commit> -m "<card e evidência>"`.
 - Pós-partida, só leitura: `coletar`.
-- Só com a janela aberta: `recriar`, `parar`, `rcon "<cmd>"`, `snapshot --destino <D>`, `restaurar --de <tgz>`, `soak`.
+- Só com a janela aberta: `recriar`, `parar`, `rcon "<cmd>"`, `snapshot --destino <D>`, `restaurar --de <tgz>`, `soak`, `vanilla on|off` (grava o estado em data/servidor.json e recria; `vanilla status` só lê).
 
 Todos têm `--seco`; as saídas e opções estão no topo de `tools/jogavel.py` e em `--help`.
 

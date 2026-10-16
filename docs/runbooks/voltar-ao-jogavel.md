@@ -5,23 +5,26 @@ fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.playability_protocol, seções 2, 5 e 7)"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (judgements[1].must_fix[1], runtime file)"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.playability_protocol, seção 8, janelas)"
-  - "tools/jogavel.py:1-46"
-  - "tools/jogavel.py:93-100 (eventos de round)"
-  - "tools/jogavel.py:297-356 (partida em curso)"
-  - "tools/jogavel.py:379-423 (runtime file e volta do merge falho)"
-  - "tools/jogavel.py:454-484 (recreate só do checkout principal)"
-  - "tools/jogavel.py:563-726 (voltar: pasta do plugin pelo manifesto em 563-618, pre.sh antes dela em 700-708)"
-  - "tools/jogavel.py:915-1300 (janela abrir, fechar, vigiar e aborto; timeouts do ciclo no B0.7c)"
-  - "tools/jogavel.py:1072-1213 (python sem linha confirmado na releitura e árvore do servidor, B0.7e)"
-  - "tools/jogavel.py:1324-1357 (conferência do log salvo, B0.7f)"
-  - "tools/jogavel.py:1359-1504 (leitura pelo fim, build do boot atual e LEIAME, B0.7h)"
-  - "tools/jogavel.py:426-451 (build antes e depois do recreate, lida pelo fim, B0.7h)"
-  - "tools/jogavel.py:1507-1595 (coletar e a reconstrução automática, B0.7h)"
+  - "tools/jogavel.py:1-52"
+  - "tools/jogavel.py:101-108 (eventos de round)"
+  - "tools/jogavel.py:311-370 (partida em curso)"
+  - "tools/jogavel.py:393-437 (runtime file e volta do merge falho)"
+  - "tools/jogavel.py:468-499 (recreate só do checkout principal)"
+  - "tools/jogavel.py:578-742 (voltar: pasta do plugin pelo manifesto em 578-633, pre.sh antes dela em 716-724)"
+  - "tools/jogavel.py:931-1316 (janela abrir, fechar, vigiar e aborto; timeouts do ciclo no B0.7c)"
+  - "tools/jogavel.py:1088-1229 (python sem linha confirmado na releitura e árvore do servidor, B0.7e)"
+  - "tools/jogavel.py:1340-1373 (conferência do log salvo, B0.7f)"
+  - "tools/jogavel.py:1375-1520 (leitura pelo fim, build do boot atual e LEIAME, B0.7h)"
+  - "tools/jogavel.py:440-465 (build antes e depois do recreate, lida pelo fim, B0.7h)"
+  - "tools/jogavel.py:1523-1611 (coletar e a reconstrução automática, B0.7h)"
   - "backup:../2026-10-12/coleta-g7-candidato-9/docker-logs-reconstruido.LEIAME.txt (log vazio e reconstrução por --tail)"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:452-703 (tipos de evento)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:641-670 (a volta à mão que o voltar substitui)"
   - "docs/runbooks/versoes-conhecidas.md:400-416 (manifesto do plugin de captura)"
-atualizado: 2026-10-15
+  - "config.py:50-99 (compose_files e data/servidor.json, P1.2)"
+  - "tools/jogavel.py:1724-1782 (vanilla on, off e status, P1.2)"
+  - "docker-compose.vanilla.yml:1-31 (o que o override mascara)"
+atualizado: 2026-10-16
 ---
 
 # Voltar ao jogável
@@ -42,7 +45,8 @@ C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/jogavel.py v
 
 - O `--seco` mostra, com o prefixo `[seco]`, o que mudaria (switch, `docker logs`, recreate) e
   não muda nada. O que só lê roda: `git diff`, `docker compose config` e a lista de processos.
-- `--tag X` escolhe outra tag. A válvula vanilla, até o P1.2, é `voltar --tag jogavel-2026-09-26`.
+- `--tag X` escolhe outra tag. O recreate do `voltar` mantém o estado da
+  [válvula vanilla](#válvula-vanilla): ele usa os mesmos `-f`.
 
 ## Quando ele recusa
 
@@ -244,6 +248,42 @@ quando ele sai com 8 mesmo assim, com a reconstrução automática falha.
    mesmo carimbo podem sair em ordem diferente da original.
 5. O QA julga o G7 pelo reconstruído e cita o LEIAME. O modelo é a coleta de 12/10, em
    `C:/Users/Victor/cs2-tracker-backups/2026-10-12/coleta-g7-candidato-9/`.
+
+## Válvula vanilla
+
+Card P1.2. Bots com IA e mira vanilla, sem plugin de bot do CSSharp, como antes da trilha de
+bots (`jogavel-2026-09-26`), mas com o código, a CSSharp e a captura de hoje. Até o P1.2 era
+`voltar --tag jogavel-2026-09-26`, que voltava o código inteiro; sem janela, essa volta
+continua valendo numa emergência.
+
+```
+C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/jogavel.py vanilla status
+C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/jogavel.py vanilla on --seco
+C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/jogavel.py vanilla on
+C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/jogavel.py vanilla off
+```
+
+- `vanilla on|off` é comando do servidor, só na janela (como o `recriar`): salva os logs,
+  para se o `pre.sh` tem `\r`, grava `"vanilla": true|false` em `data/servidor.json` (ignorado
+  pelo git; escrita atômica, as outras chaves ficam) e roda `docker compose up -d
+  --force-recreate`. Depois, o G6 do runbook do passo.
+- Grava e recria juntos de propósito: o estado gravado sem recreate deixaria o container
+  diferente do checkout, e o `start_match`, achando o container parado, rodaria o `compose up
+  -d`, que recria fora da janela.
+- `--seco` mostra o estado que gravaria e o `docker compose` com os `-f`, sem gravar nem recriar.
+- `vanilla status` e o `status` só leem. `data/servidor.json` ausente, ilegível, que não é
+  objeto ou com `vanilla` que não é `true`/`false` conta como off, com aviso.
+- A lista de `-f` sai só de `config.compose_files()`: o `docker-compose.yml` e, ligado, o
+  `docker-compose.vanilla.yml` depois dele. Usam essa lista o `compose up -d` do `start_match`
+  (container parado), o `recriar`, o `voltar`, o `coletar` (`compose config` e config-hash) e o
+  `status`. Desligado, o argv é o de antes do P1.2: `-f docker-compose.yml` no `start_match` e
+  sem `-f` no `jogavel.py`.
+- O override cobre com `./docker/plugins/_empty` o BotAI, o BotAimImprover, o BotRandomizer, o
+  BotBuy, o BotState e o NadeSystem; RayTrace e BotHider o base já mascara. A MatchZy e a
+  captura (Cs2TrackerEvents) ficam: sem a captura a partida não é ingerida.
+- Ligado num checkout sem o override (um `voltar` para tag anterior ao P1.2), sobe só o base,
+  com aviso. Um `docker compose up` digitado à mão, sem os `-f`, também sobe sem o override: na
+  janela, recrie pelo `jogavel.py`.
 
 ## Saídas
 
