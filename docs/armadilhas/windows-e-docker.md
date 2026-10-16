@@ -6,13 +6,21 @@ fontes:
   - "docker/SPIKE.md:150-196"
   - "docker-compose.yml:199-208"
   - "docs/historico/2026-09-26-handoff-plugins-de-bot.md:101-104"
-atualizado: 2026-10-13
+  - "docs/runbooks/versoes-conhecidas.md:169 (json-file com entradas corrompidas depois das paradas de 05/10 e 06/10)"
+  - "docs/runbooks/b1.3-cssharp-1.0.375.md:733-737 (o compose não tem restart policy)"
+  - "start_match.py:845-849 (a TUI sobe o container parado ao iniciar a partida)"
+  - "tools/jogavel.py:1573-1580 (reconstrução do log pelo fim, B0.7h)"
+  - "backup:../2026-10-01/g7-vpk-low-2000922/NOTA.txt (linhas 3-5: exit 0x40010004 na suspensão de 30/09 23:56 em -03)"
+  - "backup:../2026-10-15/coleta-g7-p1.1b/docker-logs-reconstruido.LEIAME.txt (--since vazio, reconstrução desde o StartedAt 2026-10-16T00:30:01Z, 1 entrada ilegível na fronteira)"
+  - "backup:../2026-10-15/coleta-g7-p1.1b/docker-logs-reconstruido.txt (linhas 1-188: última entrada antes da parada de 15/10, SteamCMD e Success)"
+atualizado: 2026-10-16
 ---
 
 # Armadilhas do Windows e do Docker Desktop
 
-Itens 36 e 47 a 52 da lista de 54 da auditoria de 26/09 ([índice](README.md)): o host é
-Windows 11 com Docker Desktop sobre WSL2, e o shell dos agentes é o Git Bash.
+Itens 36 e 47 a 52 da lista de 54 da auditoria de 26/09 ([índice](README.md)), e a parada
+noturna do Docker Desktop, que veio depois dela: o host é Windows 11 com Docker Desktop sobre
+WSL2, e o shell dos agentes é o Git Bash.
 
 ### 36. Não-ASCII pela RCON e pelo pipe do Windows
 - **Sintoma:** o `say` no chat do jogo sai quebrado; arquivo escrito no container por `docker exec` chega com acento trocado.
@@ -55,3 +63,15 @@ Windows 11 com Docker Desktop sobre WSL2, e o shell dos agentes é o Git Bash.
 - **Causa:** a conversão automática de caminhos POSIX do MSYS.
 - **Contorno:** `export MSYS_NO_PATHCONV=1` e caminhos `C:/...`; o `.ps1` de build funciona sem isso.
 - **Fonte:** `docs/historico/2026-09-26-handoff-plugins-de-bot.md:101-104` · `docs/runbooks/b1.3-cssharp-1.0.375.md:228-233` (auditoria: sem linha)
+
+## Depois da auditoria
+
+Itens que apareceram depois de 26/09. Não têm número: a numeração é a dos 54 da auditoria ([índice](README.md)).
+
+### Docker Desktop para de madrugada (exit 0x40010004)
+- **Sintoma:** o container `cs2-spike` amanhece parado, sem nenhuma linha de desligamento no log. Registrado em 29/09, 01/10, 05/10, 06/10, 14/10 e 15/10 (na de 15/10, o backend saiu às 04:07:55Z). O efeito aparece em dois lugares:
+  - no json-file de logs: a parada é brusca, e o segmento dela fica com entrada ilegível na fronteira, onde o `docker logs` lendo para a frente para em silêncio. As de 05/10 e 06/10 esvaziaram o `docker-logs.txt` da coleta de 12/10; na de 15/10, o `docker logs --since <StartedAt>` da coleta da partida 84 voltou vazio, e o log só saiu reconstruído pelo fim, desde o `StartedAt`, com 1 entrada ilegível na fronteira;
+  - na TUI: nada avisa a parada. O container só volta quando a TUI inicia a partida e roda o `docker compose up -d`, e o problema aparece na hora de jogar: esse boot roda o SteamCMD, que pode trazer build nova sem janela (a 2000933, em 15/10) e esticar a espera (~2 min 48 s do `StartedAt` ao `Pronto`).
+- **Causa:** o backend do Docker Desktop sai com exit `0x40010004`, e o container cai junto; o compose não tem restart policy, e o container não sobe sozinho quando o Docker Desktop volta. O gatilho só foi lido na de 01/10 (30/09 23:56 em -03, junto de uma suspensão do PC); nas outras não foi investigado: fica como pendência.
+- **Contorno:** na coleta, o `jogavel.py coletar` reconstrói o log pelo fim (`docker logs -t --tail N`, B0.7h), e o G7 se julga pelo `docker-logs-reconstruido.txt` citando o LEIAME. Antes de jogar, conte com o boot inteiro do SteamCMD, e confira a build no `GC Connection established for server version` da coleta ([épocas de build](../runbooks/versoes-conhecidas.md#épocas-de-build)).
+- **Fonte:** `docs/runbooks/versoes-conhecidas.md:169` · `docs/runbooks/b1.3-cssharp-1.0.375.md:733-737` · `start_match.py:845-849` · `tools/jogavel.py:1573-1580` · `backup:../2026-10-01/g7-vpk-low-2000922/NOTA.txt` (linhas 3-5: a de 01/10) · `backup:../2026-10-15/coleta-g7-p1.1b/docker-logs-reconstruido.LEIAME.txt` (a de 15/10) · `backup:../2026-10-15/coleta-g7-p1.1b/docker-logs-reconstruido.txt` (linhas 1-2: a última entrada antes da parada e a primeira do boot pela TUI) (as datas de 29/09, 05/10, 06/10 e 14/10 e a hora de 15/10: Histórico do card 80,7 no board, K1.14)
