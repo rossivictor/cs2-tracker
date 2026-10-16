@@ -29,6 +29,12 @@ de 26/09). Runbook: docs/runbooks/voltar-ao-jogavel.md.
              com logs/janelas/ABERTA dentro dos 45 min, preflight 4 e cwd e
              --raiz no checkout principal (protocolo 9). Cada uso vira uma
              linha no registro da janela.
+  vanilla    on|off [--seco]: grava `vanilla` em data/servidor.json e recria
+             (comando do servidor, card P1.2); `vanilla status` só lê.
+
+Todo `docker compose` leva os -f de config.compose_files() (card P1.2). Com
+a lista padrão (só o docker-compose.yml) vai sem -f, como antes: sem -f o
+compose lê esse mesmo arquivo da raiz.
 
 Todo git, docker e preflight passa pelo Executor, o único ponto que roda
 processo: os testes o trocam por um docker falso e um repo em tmp_path. Com
@@ -62,12 +68,14 @@ from pathlib import Path
 from typing import Callable, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(1, str(Path(__file__).resolve().parent.parent))
+import config  # noqa: E402
 import preflight  # noqa: E402
 
 OK, FALHA, USO, PARTIDA, RECUSA, CRLF, VENCIDA, INCOMPLETA = 0, 1, 2, 3, 5, 6, 7, 8
 
 CONTAINER = "cs2-spike"
-COMPOSE = "docker-compose.yml"
+COMPOSE = "docker-compose.yml"  # o que o docker compose lê sem -f
 PRE_SH = Path("docker/pre.sh")
 # Estado de runtime do start_match, rastreado até o P1.6 (docker/runtime/).
 RUNTIME = Path("docker/match_config.spike.json")
@@ -176,6 +184,12 @@ class Executor:
     def docker(self, *args, **kw) -> Chamada:
         return self("docker", *args, **kw)
 
+    def compose(self, *args, vanilla: Optional[bool] = None, **kw) -> Chamada:
+        """`docker compose` com os -f de config.compose_files() (card P1.2)."""
+        arquivos = config.compose_files(raiz=self.raiz, vanilla=vanilla, avisar=print)
+        flags = [] if arquivos == [COMPOSE] else [x for a in arquivos for x in ("-f", a)]
+        return self.docker("compose", *flags, *args, **kw)
+
     def para_preflight(self, argv, **kw):
         """Adapta o executor ao `executar` do preflight.listar_processos,
         com o timeout dele (30 s), não o de 120 s do executor."""
@@ -245,7 +259,7 @@ def conserto_cr(raiz: Path) -> str:
 def servicos_do_compose(ex: Executor) -> Optional[dict]:
     """Os `services` de `docker compose config`. A saída traz o .env
     interpolado: nunca é impressa nem salva."""
-    ch = ex.docker("compose", "config", "--format", "json")
+    ch = ex.compose("config", "--format", "json")
     if not ch.ok:
         return None
     try:
@@ -288,7 +302,7 @@ def infra_no_delta(ex: Executor, mudados: list) -> list:
         print("aviso: `docker compose config` falhou; sem a lista de binds, todo "
               "arquivo mudado conta como infra")
         return list(mudados)
-    return [a for a in mudados if a == COMPOSE or a.startswith(PLUGINS)
+    return [a for a in mudados if a in (COMPOSE, config.COMPOSE_VANILLA) or a.startswith(PLUGINS)
             or any(a == f or a.startswith(f.rstrip("/") + "/") for f in fontes)]
 
 
@@ -463,14 +477,15 @@ def eh_checkout_principal(raiz: Path) -> bool:
         return False
 
 
-def recriar(ex: Executor, build_antes: Optional[str], sem_build: str = "não registrada") -> int:
+def recriar(ex: Executor, build_antes: Optional[str], sem_build: str = "não registrada",
+            vanilla: Optional[bool] = None) -> int:
     if not eh_checkout_principal(ex.raiz):
         # Numa worktree ou num clone avulso (--raiz) o compose criaria
         # projeto e volume novos, vazios (AGENTS.md, zonas proibidas).
         print(f"recreate recusado: {ex.raiz} não é o checkout principal")
         return RECUSA
     print(f"build do CS2 antes: {build_antes or sem_build}")
-    ch = ex.docker("compose", "up", "-d", "--force-recreate", muda=True, timeout=900)
+    ch = ex.compose("up", "-d", "--force-recreate", vanilla=vanilla, muda=True, timeout=900)
     if not ch.ok:
         print(f"falhou: docker compose up -d --force-recreate ({ch.segundos:.0f} s)\n{ch.erro.strip()}")
         return FALHA
@@ -644,6 +659,7 @@ def cmd_status(args, ex: Executor, agora: float, **_kw) -> int:
     print(f"pre.sh: {cr} '\\r' (conserto: {conserto_cr(ex.raiz)})" if cr else "pre.sh: LF")
     modificado = ex.git("status", "--porcelain", "--", RUNTIME.as_posix()).saida.strip()
     print(f"runtime file: {modificado or 'sem mudança local'}")
+    print(f"vanilla: {'on' if config.vanilla_ligado(ex.raiz, print) else 'off'} ({config.SERVIDOR_JSON})")
     candidato = ex.raiz / CANDIDATO
     if candidato.is_file():
         print(f"candidato: {candidato.read_text(encoding='utf-8').strip()}")
@@ -1542,7 +1558,7 @@ def cmd_coletar(args, ex: Executor, **_kw) -> int:
     rotulo = ex.docker("inspect", CONTAINER, "--format",
                        '{{index .Config.Labels "com.docker.compose.config-hash"}}').saida.strip()
     servico = next((n for n, s in servicos.items() if s.get("container_name") == CONTAINER), None)
-    agora_hash = ex.docker("compose", "config", "--hash", servico).saida.strip() if servico else ""
+    agora_hash = ex.compose("config", "--hash", servico).saida.strip() if servico else ""
     salvar("config-hash-janela.txt", rotulo + "\n")
     salvar("config-hash.txt", agora_hash + "\n")
     do_compose = (agora_hash.split() or [""])[-1]
@@ -1706,12 +1722,64 @@ def tirar_snapshot(ex: Executor, destino: Path, rotulo: str, agora: float) -> Op
 
 
 def cmd_recriar(args, ex: Executor, **_kw) -> int:
-    build = salvar_logs(ex, _pasta(ex, "recriar"))  # o recreate descarta o log
+    return recriar_salvando(ex, "recriar")
+
+
+def recriar_salvando(ex: Executor, nome: str, vanilla: Optional[bool] = None) -> int:
+    """Salva os logs (o recreate os descarta), para se o pre.sh tem CR e
+    recria. Com `vanilla`, grava antes o estado em data/servidor.json."""
+    build = salvar_logs(ex, _pasta(ex, nome))
     cr = contar_cr(ex.raiz)
     if cr:
         print(f"ABORTADO antes do recreate: docker/pre.sh tem {cr} '\\r'. Conserte com\n  {conserto_cr(ex.raiz)}")
         return CRLF
-    return recriar(ex, build)
+    if vanilla is not None and ex.seco:
+        print(f"[seco] {config.SERVIDOR_JSON}: vanilla {str(vanilla).lower()}")
+    elif vanilla is not None:
+        gravar_vanilla(ex.raiz, vanilla)
+    return recriar(ex, build, vanilla=vanilla)
+
+
+def gravar_vanilla(raiz: Path, ligado: bool) -> None:
+    """Grava `vanilla` em data/servidor.json sem perder as outras chaves;
+    escrita atômica (temporário ao lado e os.replace)."""
+    arquivo = Path(raiz) / config.SERVIDOR_JSON
+    estado, _aviso = config.estado_servidor(raiz)
+    estado["vanilla"] = ligado
+    arquivo.parent.mkdir(parents=True, exist_ok=True)
+    temporario = arquivo.with_name(arquivo.name + ".tmp")
+    temporario.write_text(json.dumps(estado, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(temporario, arquivo)
+
+
+def cmd_vanilla_trocar(args, ex: Executor, **_kw) -> int:
+    """Válvula vanilla (card P1.2): grava o estado e recria na mesma janela.
+    Estado sem recreate deixaria o container diferente do checkout, e o
+    `compose up -d` do start_match, achando o container parado, recriaria
+    fora da janela. Override ausente ou pre.sh com CR: nada muda."""
+    ligar = args.acao == "on"
+    if ligar and not (ex.raiz / config.COMPOSE_VANILLA).is_file():
+        print(f"vanilla on recusado: {config.COMPOSE_VANILLA} não existe em {ex.raiz}")
+        return FALHA
+    print(f"vanilla: {'on' if config.vanilla_ligado(ex.raiz, print) else 'off'} -> {args.acao}")
+    codigo = recriar_salvando(ex, f"vanilla-{args.acao}", vanilla=ligar)
+    if codigo == OK and not ex.seco:
+        print(f"vanilla {args.acao}: container recriado. Siga o G6 do runbook antes de fechar a janela")
+    elif codigo not in (OK, CRLF):
+        print(f"o estado ficou vanilla {args.acao}, mas o recreate falhou: repita com `jogavel.py "
+              f"recriar` ou volte com `jogavel.py vanilla {'off' if ligar else 'on'}`")
+    return codigo
+
+
+def cmd_vanilla(args, ex: Executor, agora: float, **kw) -> int:
+    """`vanilla status` só lê; on e off são comando do servidor (janela)."""
+    if args.acao != "status":
+        return do_servidor(cmd_vanilla_trocar)(args, ex, agora=agora, **kw)
+    ligado = config.vanilla_ligado(ex.raiz, print)
+    arquivos = config.compose_files(raiz=ex.raiz, vanilla=ligado, avisar=print)
+    print(f"vanilla: {'on' if ligado else 'off'} ({config.SERVIDOR_JSON}); compose: {' + '.join(arquivos)}")
+    print("o container só muda no recreate: `vanilla on|off` ou `recriar`, na janela")
+    return OK
 
 
 def cmd_parar(args, ex: Executor, **_kw) -> int:
@@ -1786,7 +1854,8 @@ def do_servidor(funcao: Callable) -> Callable:
             return barrado
         codigo = funcao(args, ex, agora=agora)
         t = relogio()
-        detalhe = f" {args.texto!r}" if getattr(args, "texto", None) else ""
+        detalhe = f" {args.texto!r}" if getattr(args, "texto", None) else \
+            (f" {args.acao}" if getattr(args, "acao", None) else "")
         registrar(ex, ler_marca(ex.raiz), f"- {_hora(t)} jogavel.py {args.comando}{detalhe}: saída {codigo}", t)
         return codigo
     return comando
@@ -1854,6 +1923,10 @@ def montar_parser() -> argparse.ArgumentParser:
         p = sub.add_parser(nome, aliases=apelidos, help=f"{ajuda} (janela)")
         p.add_argument("--seco", action="store_true", help="só mostra o que faria")
     sub.choices["rcon"].add_argument("texto", help='comando, entre aspas: "get5_status"')
+    vanilla = sub.add_parser("vanilla", help="válvula vanilla: on|off grava data/servidor.json e "
+                             "recria (janela); status só lê")
+    vanilla.add_argument("acao", choices=("on", "off", "status"))
+    vanilla.add_argument("--seco", action="store_true", help="só mostra o que faria")
     sub.choices["snapshot"].add_argument("--destino", type=Path, required=True,
                                          help="pasta fora do volume (o BK do passo)")
     sub.choices["restaurar"].add_argument("--de", type=Path, required=True,
@@ -1862,7 +1935,8 @@ def montar_parser() -> argparse.ArgumentParser:
 
 
 COMANDOS = {"status": cmd_status, "voltar": cmd_voltar, "atualizar": cmd_atualizar,
-            "janela": cmd_janela, "marcar": cmd_marcar, "coletar": cmd_coletar}
+            "janela": cmd_janela, "marcar": cmd_marcar, "coletar": cmd_coletar,
+            "vanilla": cmd_vanilla}
 for _nomes, _funcao in ((("recriar", "up", "recreate"), cmd_recriar), (("parar", "stop"), cmd_parar),
                         (("rcon",), cmd_rcon), (("snapshot",), cmd_snapshot),
                         (("restaurar",), cmd_restaurar), (("soak",), cmd_soak)):

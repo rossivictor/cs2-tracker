@@ -38,7 +38,7 @@ try:
 except ImportError:
     RconClient = None
 
-from config import COMPOSE_FILE, CONTAINER_NAME, EVENTS_LIVE_DIR, MATCH_CONFIG_FILE, load_env
+from config import COMPOSE_FILE, CONTAINER_NAME, EVENTS_LIVE_DIR, MATCH_CONFIG_FILE, compose_files, load_env
 
 ROOT = Path(__file__).resolve().parent
 
@@ -160,9 +160,13 @@ def container_running(container_name: str) -> bool:
 
 
 def compose_up(compose_file: Path, log: Sink = print):
-    log(f"[DOCKER] Subindo servidor ({compose_file.name})...")
+    """`docker compose up -d` com os -f de config.compose_files() (card
+    P1.2): o compose_file e, com o vanilla ligado, o override dele. Com o
+    vanilla off o argv é o de antes: só o `-f <compose_file>`."""
+    arquivos = [ROOT / a for a in compose_files(raiz=ROOT, base=compose_file, avisar=log)]
+    log(f"[DOCKER] Subindo servidor ({' + '.join(a.name for a in arquivos)})...")
     subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "up", "-d"],
+        ["docker", "compose", *[x for a in arquivos for x in ("-f", str(a))], "up", "-d"],
         check=True, cwd=ROOT,
     )
 

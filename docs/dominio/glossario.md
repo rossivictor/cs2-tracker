@@ -10,15 +10,15 @@ fontes:
   - "docs/agents/sprints.md:24 (trilho e pista paralela)"
   - "docs/adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md:45-52 (camadas do produto)"
   - "docs/adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md:76 (Camada 1/2 tem dois sentidos)"
-  - "start_match.py:327-340 (camadas da proteção de round)"
+  - "start_match.py:331-344 (camadas da proteção de round)"
   - "start_match.py:52-59 (órfão real)"
   - "tools/evidencia_partida.py:86-89 (cauda)"
-  - "tools/jogavel.py:1668-1705 (snapshot do volume)"
+  - "tools/jogavel.py:1684-1721 (snapshot do volume)"
   - "docs/runbooks/trilha-de-bots.md:375-380 (épocas)"
   - "watcher.py:178-195 (matchid e número do mapa no log da MatchZy)"
   - "parser.py:65-80 (demo_name e source)"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (Q10: partidas órfãs; cards V1.2 a V1.4)"
-atualizado: 2026-10-15
+atualizado: 2026-10-16
 ---
 
 # Glossário
@@ -39,9 +39,9 @@ seção. O formato do JSONL em si está no [contrato](../arquitetura/contrato-ev
 | | **par órfão**: patch de memória gravado pela metade, que o BotAI desfaz | plugins de bot | `docs/runbooks/trilha-de-bots.md:131-133` |
 | | **socket órfão**: socket do Docker Desktop que trava o boot dele | Windows | `docs/armadilhas/windows-e-docker.md:35` |
 | **cauda** | **cauda normal**: o que o plugin grava depois do arquivamento numa partida que terminou (`snapshot`, e o `round_stats` e o `round_officially_ended` do último round) | captura, G7 | `tools/evidencia_partida.py:86-89` |
-| | os últimos bytes de um arquivo, lidos sem abrir o resto (4 MB do `current.jsonl`; `docker logs --tail`) | `jogavel.py`, `watcher.py` | `tools/jogavel.py:105` |
+| | os últimos bytes de um arquivo, lidos sem abrir o resto (4 MB do `current.jsonl`; `docker logs --tail`) | `jogavel.py`, `watcher.py` | `tools/jogavel.py:113` |
 | **snapshot** | evento `snapshot` do plugin: posição de todos os jogadores a ~2 Hz | captura | `docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:350-409` |
-| | cópia `.tgz`, só lendo, dos addons, das versões e do `gameinfo.gi` do volume, tirada antes de mexer nele; é a volta pelo caminho 2 | servidor, janela | `tools/jogavel.py:1604-1606`, `:1668-1705` |
+| | cópia `.tgz`, só lendo, dos addons, das versões e do `gameinfo.gi` do volume, tirada antes de mexer nele; é a volta pelo caminho 2 | servidor, janela | `tools/jogavel.py:1620-1622`, `:1684-1721` |
 | **janela** | **janela de manutenção**: até 45 min abertos pela frase do Victor, só para o papel servidor | servidor | `AGENTS.md:47-55` |
 | | **Janela 0**: a primeira, que ensaiou o `jogavel.py` na B0 | B0 | `docs/agents/sprints.md:55` |
 | | **janela de dados**: escrita no banco real com o watcher parado e backup antes | V1.4 | `docs/agents/sprints.md:60` |
@@ -52,7 +52,7 @@ seção. O formato do JSONL em si está no [contrato](../arquitetura/contrato-ev
 | | **trilho do jogo**: a pista das sprints que mexem no caminho de jogo (B0, B1, P1, S1…S7), contra a pista paralela (H1, T1, K1, V1) | `sprints.md` | `docs/agents/sprints.md:24` |
 | **trilha de bots** | outra palavra: a B1, que religa os plugins de bot um por partida | B1 | `AGENTS.md:50` |
 | **Camada 1, 2, 3** | camadas do modo carreira: 1 orquestração de campeonato, 2 cara de campeonato, 3 bots com personalidade | produto, ADR-0001 | `docs/adr/0001-visao-partidas-avulsas-carreira-horizonte-longo.md:47-52` |
-| | camadas da proteção contra o round fantasma: 1 reafirmar `bot_quota`, 2 `mp_ignore_round_win_conditions 1`, que precisa ser desligada | `start_match` | `start_match.py:327-340` |
+| | camadas da proteção contra o round fantasma: 1 reafirmar `bot_quota`, 2 `mp_ignore_round_win_conditions 1`, que precisa ser desligada | `start_match` | `start_match.py:331-344` |
 | **fonte** | `matches.source`, de onde veio a partida: `demo`, `csv` ou `events` (plugin) | banco | `parser.py:79` |
 | | entrada de `fontes` no frontmatter de uma nota, com gramática própria | KB | `docs/README.md:68-74` |
 
@@ -64,8 +64,10 @@ seção. O formato do JSONL em si está no [contrato](../arquitetura/contrato-ev
   (`AGENTS.md:87`)
 - **Jogável**: o estado em que a `main` joga. A tag `jogavel-AAAA-MM-DD` marca o commit que passou
   pelo G7. **Voltar ao jogável** é o `jogavel.py voltar`, sem agente. (`AGENTS.md:9`, `:103`, `:126`)
-- **Válvula vanilla**: voltar à tag sem plugins de bot (`voltar --tag jogavel-2026-09-26`); o
-  `jogavel vanilla on|off` é do P1.2. (`docs/runbooks/voltar-ao-jogavel.md:42`)
+- **Válvula vanilla**: bots com IA e mira vanilla, sem plugin de bot do CSSharp, como na
+  `jogavel-2026-09-26`: `jogavel.py vanilla on|off`, na janela, grava `data/servidor.json` e
+  recria com o `docker-compose.vanilla.yml` empilhado pelo `config.compose_files()` (P1.2).
+  (`docs/runbooks/voltar-ao-jogavel.md:252-286`)
 - **Preflight**: `tools/preflight.py`; 0 livre, 3 Victor jogando, 4 janela aberta. (`AGENTS.md:57-65`)
 - **"terminei"**: o Victor fechou a TUI e o jogo; na trilha de bots, libera o próximo passo.
   (`AGENTS.md:50`)
@@ -126,7 +128,7 @@ seção. O formato do JSONL em si está no [contrato](../arquitetura/contrato-ev
 - **Metamod**: o carregador de plugins nativos do Source 2, base do CSSharp.
 - **GOTV, CSTV, SourceTV**: o espectador de transmissão do servidor (`TV_ENABLE`). Ocupa um slot e
   aparece como jogador sem time: o **bot do GOTV**, que a ingestão descarta.
-  (`start_match.py:833-835`; [captura](../armadilhas/captura-e-eventos.md), item 45)
+  (`start_match.py:837-839`; [captura](../armadilhas/captura-e-eventos.md), item 45)
 - **Bot profile**: o `botprofile.vpk` com os perfis nomeados dos bots, nas variantes Low, Medium
   e High; hoje Low, trocado só em janela. (`AGENTS.md:15`)
 - **RCON**: o console remoto do servidor; só o papel servidor, em janela. (`AGENTS.md:48`)

@@ -257,3 +257,22 @@ def test_tui_lanca_run_match_com_compose_e_loadmatch_certos(
         "--container", "cs2-spike",
         "--match-config", str(tmp_path / "docker" / "match_config.spike.json"),
     ]]
+
+
+def test_tui_com_vanilla_ligado_sobe_o_compose_com_o_override(servidor, launch_vigiado, tmp_path):
+    """Card P1.2: com "vanilla": true no data/servidor.json, o mesmo clique da
+    TUI (sem diff nela) sobe o compose com o override empilhado depois do
+    base. Com o vanilla off, o argv é o do teste acima, o de antes do P1.2."""
+    (tmp_path / "docker-compose.vanilla.yml").write_text("services: {}\n", encoding="utf-8")
+    (tmp_path / "data").mkdir(exist_ok=True)
+    (tmp_path / "data" / "servidor.json").write_text('{"vanilla": true}', encoding="utf-8")
+    lancar_pela_tui("bo1", ["de_nuke"], ["t"], launch_vigiado)
+
+    compose = [(argv, kw) for argv, kw in servidor.docker if argv[1] == "compose"]
+    assert compose == [(
+        ["docker", "compose", "-f", str(tmp_path / "docker-compose.yml"),
+         "-f", str(tmp_path / "docker-compose.vanilla.yml"), "up", "-d"],
+        {"check": True, "cwd": tmp_path},
+    )]
+    assert [c for c in servidor.rcon if c.startswith("matchzy_loadmatch")] == \
+        ["matchzy_loadmatch match_config.spike.json"]
