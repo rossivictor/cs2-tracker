@@ -19,7 +19,10 @@ Só leitura e só biblioteca padrão. Todas as entradas são explícitas:
                   arquivados e current.jsonl. A docker/events-live do checkout
                   principal é recusada (AGENTS.md, zonas proibidas). O sufixo
                   __<utc> do P1.1a é listado, e a partida do log casa com o
-                  nome sufixado mais novo (P1.1b, casar_partidas).
+                  nome sufixado mais novo (P1.1b, casar_partidas). Os
+                  sem_round_end_*.jsonl do P1.1b não são partida: a saída
+                  mostra os da janela da partida, do começo dela ao começo da
+                  seguinte no log (H1.1d).
   --db ARQ        CÓPIA do banco SQLite pedida ao PM, aberta com mode=ro; o
                   relatório diz se o mtime ficou intacto. O banco real do
                   checkout principal é sempre recusado (AGENTS.md; runbook da
@@ -45,14 +48,23 @@ Veredito, na última linha:
                  reiniciou), Fatal error de plugin não esperado, overflow
                  depois de SIGNONSTATE_FULL + 60 s, assinatura proibida, mapa
                  NULL, placar fora do MR12, times fora de 5x5, colisão de
-                 demo_name, current.jsonl com rounds não arquivados quando
-                 todas as partidas do log terminaram em MAP ENDED;
+                 demo_name (matchid reusado de verdade: cada partida com a
+                 própria demo ou StartLive, sem nome sufixado para todas),
+                 current.jsonl com rounds não arquivados quando todas as
+                 partidas do log terminaram em MAP ENDED;
   SEM EVIDÊNCIA  falta entrada, nenhuma partida terminou, partida abandonada
                  (current.jsonl com os rounds da partida sem fim), partida não
                  arquivada ou não ingerida, placar parcial, log sem as linhas
                  de carga, timeline do live_watch, overflow sem carimbo, sha
-                 ou config-hash não conferido;
+                 ou config-hash não conferido, colisão possível sem -t (o
+                 MAP ENDED sem carimbo absoluto e a base com nome sufixado
+                 ou sem_round_end_*: o played_at não separa a partida de
+                 hoje de um nome antigo; H1.1d);
   OK             nenhum dos dois.
+O fim repetido (o mesmo MAP ENDED de novo sem demo nem StartLive no meio, a
+linha fantasma do P1.1b) não é partida nem matchid reusado: vai à parte, como
+NOTA. Também são NOTA, sem mudar veredito nem código, o nome julgado com sufixo
+__<utc> e o sem_round_end_* na janela da partida (H1.1d).
 RUIM vence SEM EVIDÊNCIA, menos quando a evidência é inválida: sha montado
 divergente, arquivo da referência que não foi conferido no container, build
 que mudou no log ou config-hash diferente do da janela. Aí o servidor não
@@ -100,9 +112,15 @@ SOMA_CONFERE = frozenset({"rounds", "rounds-reconciled"})
 # MAP ENDED (reingestão mantém o original). Linha mais velha que o fim da
 # partida menos isto é de outra partida: matchid reusado.
 TOLERANCIA_PLAYED_AT_S = 15 * 60
+# O carimbo do sufixo e do sem_round_end_* é a hora do Windows (UTC) quando o
+# watcher age, segundos depois da linha do log: folga da janela da partida.
+TOLERANCIA_CARIMBO_S = 120
 # Fuso do Windows onde rodam o watcher (played_at) e o live_watch (cabeçalho
 # da sessão). None = o fuso desta máquina, que é a do Victor.
 FUSO_LOCAL = None
+
+
+MOTIVO_SEM_T = "colisão possível sem docker logs -t"
 
 
 class Recusa(Exception):
@@ -284,7 +302,10 @@ def _plugin(corpo: str) -> str:
 
 
 def _novo_trecho(inicio):
-    return {"inicio": inicio, "mapa": None, "mapa_demo": None, "demo": None, "live": False}
+    # t_inicio: a primeira linha com carimbo absoluto do trecho; t_live: a
+    # primeira de demo ou StartLive, o começo da partida (janela do H1.1d).
+    return {"inicio": inicio, "mapa": None, "mapa_demo": None, "demo": None, "live": False,
+            "t_inicio": None, "t_live": None}
 
 
 def analisar_log(texto: str) -> dict:
@@ -294,9 +315,14 @@ def analisar_log(texto: str) -> dict:
     assinaturas: dict[str, Counter] = {}
     carregados, versoes = {}, {}
     boots = prontos = 0
-    sinais, overflows, partidas = [], [], []
+    sinais, overflows, partidas, fins_repetidos = [], [], [], []
+    ultimo_epoch = None
     trecho = _novo_trecho(1)
     for n, t, corpo, absoluto in linhas:
+        if absoluto and t is not None:
+            ultimo_epoch = t if ultimo_epoch is None else max(ultimo_epoch, t)
+            if trecho["t_inicio"] is None:
+                trecho["t_inicio"] = t
         for chave, _, rx in _CRASH:
             if rx.search(corpo):
                 crash[chave] += 1
@@ -331,19 +357,35 @@ def analisar_log(texto: str) -> dict:
             overflows.append((n, t, corpo))
         if m := _TROCA_MAPA.search(corpo):
             trecho["mapa"] = m.group(1)
+        comeco = False
         if m := _DEMO.search(corpo):
             data, hh, mm, ss = m.group(1, 2, 3, 4)
             trecho["demo"] = f"{data}T{hh}:{mm}:{ss}"
             trecho["mapa_demo"] = m.group(6)
+            comeco = True
         if _LIVE.search(corpo):
-            trecho["live"] = True
+            trecho["live"] = comeco = True
+        if comeco and absoluto and t is not None and trecho["t_live"] is None:
+            trecho["t_live"] = t
         if m := _FIM_MAPA.search(corpo):
             matchid, num = int(m.group(1)), int(m.group(2))
+            nome = f"events_{matchid}_map{num}"
+            if (partidas and partidas[-1]["demo_name"] == nome
+                    and not (trecho["live"] or trecho["demo"])):
+                # Fim repetido (H1.1d): o mesmo MAP ENDED de novo sem demo nem
+                # StartLive no meio, o cenário da linha fantasma do P1.1b. Não
+                # é partida nova nem matchid reusado; o trecho segue aberto.
+                partidas[-1]["fins_repetidos"].append(n)
+                fins_repetidos.append({"demo_name": nome, "linha": n,
+                                       "linha_do_fim": partidas[-1]["linha_fim"]})
+                continue
             partidas.append({
-                "demo_name": f"events_{matchid}_map{num}", "matchid": matchid, "mapa_num": num,
+                "demo_name": nome, "matchid": matchid, "mapa_num": num,
                 "mapa": trecho["mapa_demo"] or trecho["mapa"], "inicio_demo": trecho["demo"],
                 "fim_epoch": t if absoluto else None,
-                "linha_inicio": trecho["inicio"], "linha_fim": n,
+                "inicio_epoch": trecho["t_live"] if trecho["t_live"] is not None
+                else trecho["t_inicio"],
+                "linha_inicio": trecho["inicio"], "linha_fim": n, "fins_repetidos": [],
             })
             trecho = _novo_trecho(n + 1)
     sem_fim = None
@@ -360,7 +402,10 @@ def analisar_log(texto: str) -> dict:
         "prontos": prontos, "versoes": versoes, "builds": builds,
         "overflow": _episodios(overflows, sinais, partidas, sem_fim),
         "partidas": partidas, "partida_sem_fim": sem_fim,
+        # Só o matchid reusado de verdade: cada partida com a própria demo ou
+        # StartLive. O fim repetido fica à parte, em fins_repetidos.
         "repetidos": sorted(n for n, q in nomes.items() if q > 1),
+        "fins_repetidos": fins_repetidos, "ultimo_epoch": ultimo_epoch,
     }
 
 
@@ -447,6 +492,27 @@ def ler_jsonl(caminho):
 def arquivados(pasta: Path) -> dict:
     return {p.stem: p for p in sorted(pasta.iterdir())
             if _ARQUIVADO.match(p.name) and p.is_file()}
+
+
+# P1.1b: o current.jsonl sem round_end de uma colisão, guardado fora do padrão
+# events_* como sem_round_end_<demo_name>__<utc>[-n].jsonl, sem linha no banco.
+_SEM_ROUND_END = re.compile(r"^sem_round_end_(events_\d+_map\d+)__(\d{8}T\d{6}Z)(?:-\d+)?\.jsonl$")
+
+
+def _epoch_do_carimbo(carimbo: str):
+    """AAAAMMDDTHHMMSSZ (UTC, o carimbo do watcher) -> epoch, ou None."""
+    try:
+        return datetime.strptime(carimbo, "%Y%m%dT%H%M%SZ").replace(
+            tzinfo=timezone.utc).timestamp()
+    except ValueError:
+        return None
+
+
+def sem_round_end(pasta: Path) -> list:
+    """[{arquivo, base, epoch}] dos sem_round_end_* da pasta (P1.1b)."""
+    return [{"arquivo": p.name, "base": m.group(1), "epoch": _epoch_do_carimbo(m.group(2))}
+            for p in sorted(pasta.iterdir())
+            if (m := _SEM_ROUND_END.match(p.name)) and p.is_file()]
 
 
 def _tipo(evento) -> str:
@@ -750,17 +816,40 @@ def casar_partidas(do_log, conhecidos) -> list:
     return [(fila[p["demo_name"]].pop(0), p) for p in do_log]
 
 
+def _sufixo(nome: str):
+    m = _SUFIXO.search(nome)
+    return m.group(0) if m else None
+
+
+def janelas(casadas, ultimo_epoch) -> dict:
+    """{demo_name: (de, até) em epoch ou None}: do começo da partida (demo ou
+    StartLive) ao começo da seguinte no log, ou à última linha do log, com
+    TOLERANCIA_CARIMBO_S dos dois lados. O fim repetido e o sem_round_end
+    que ele gera caem depois do MAP ENDED e antes da partida seguinte. Sem
+    carimbo absoluto no começo ou no MAP ENDED (log sem -t), None."""
+    saida = {}
+    for i, (dn, p) in enumerate(casadas):
+        de = p.get("inicio_epoch")
+        ate = casadas[i + 1][1].get("inicio_epoch") if i + 1 < len(casadas) else ultimo_epoch
+        if de is None or ate is None or p.get("fim_epoch") is None:
+            saida[dn] = None
+        else:
+            saida[dn] = (de - TOLERANCIA_CARIMBO_S, max(ate, p["fim_epoch"]) + TOLERANCIA_CARIMBO_S)
+    return saida
+
+
 def avaliar(log=None, eventos=None, db=None, partidas=(), sha_montados=None,
             sha_referencia=None, config_hash=None, config_hash_janela=None,
             assinaturas_proibidas=(), fatais_esperados=(), build_esperada=None) -> dict:
     res = {"entradas": {"log": log and str(log), "eventos": eventos and str(eventos),
                         "db": db and str(db)}, "build_esperada": build_esperada}
     res["log"] = analisar_log(ler_texto(log)) if log else None
-    linhas = arquivos = None
+    linhas = arquivos = guardados = None
     if eventos:
         pasta = Path(eventos)
         _checar_eventos(pasta)
         arquivos = arquivados(pasta)
+        guardados = sem_round_end(pasta)
         res["current"] = analisar_current(pasta)
     if db:
         linhas, res["entradas"]["banco_intacto"] = ler_matches(db)
@@ -770,8 +859,9 @@ def avaliar(log=None, eventos=None, db=None, partidas=(), sha_montados=None,
     res["config_hash"] = {"agora": config_hash, "janela": config_hash_janela}
 
     # P1.1b: a partida do log vai para o demo_name do banco, sufixado ou não.
-    casadas = casar_partidas((res["log"] or {}).get("partidas", []),
-                             set(linhas or ()) | set(arquivos or ()))
+    conhecidos = set(linhas or ()) | set(arquivos or ())
+    casadas = casar_partidas((res["log"] or {}).get("partidas", []), conhecidos)
+    janela = janelas(casadas, (res["log"] or {}).get("ultimo_epoch"))
     do_log = {dn: dict(p, demo_name=dn, demo_name_log=p["demo_name"]) for dn, p in casadas}
     do_log_por_nome = {p["demo_name"]: dn for dn, p in casadas}
     # --partida aceita o nome do banco ou o do log.
@@ -790,6 +880,7 @@ def avaliar(log=None, eventos=None, db=None, partidas=(), sha_montados=None,
             "id", "map", "played_at", "score_mine", "score_theirs", "score_ct", "score_t",
             "score_source", "demo_path")}
         p["colisoes"] = colisoes(p, linha, repetidos)
+        _sufixo_e_sem_round_end(p, conhecidos, guardados, janela.get(dn))
         p["times_5x5"], p["fora_de_5x5"], p["granadas_bot"] = None, {}, None
         if p["arquivado"]:
             evs, _ = ler_jsonl(arquivos[dn])
@@ -798,7 +889,35 @@ def avaliar(log=None, eventos=None, db=None, partidas=(), sha_montados=None,
         julgadas.append(p)
     res["partidas"] = julgadas
     res["veredito"] = veredito(res, set(assinaturas_proibidas), set(fatais_esperados))
+    res["notas"] = notas(res)
     return res
+
+
+def _sufixo_e_sem_round_end(p: dict, conhecidos, guardados, janela_da_partida):
+    """O que a fase 2 conferia à mão (card H1.1d): o sufixo __<utc> do nome
+    julgado, os sem_round_end_* da janela da partida e, sem -t no log, os
+    nomes com que a partida pode ter colidido."""
+    p["sufixo"] = _sufixo(p["demo_name"])
+    p.setdefault("fins_repetidos", [])
+    base = p.get("demo_name_log")
+    mesmos = [g for g in guardados or () if g["base"] == base] if base else []
+    p["janela"] = janela_da_partida and [round(x, 1) for x in janela_da_partida]
+    if guardados is None or not base:
+        p["sem_round_end"] = None   # sem --eventos ou partida fora do log: não conferido
+    elif janela_da_partida is None:
+        p["sem_round_end"] = [g["arquivo"] for g in mesmos]
+    else:
+        de, ate = janela_da_partida
+        p["sem_round_end"] = [g["arquivo"] for g in mesmos
+                              if g["epoch"] is not None and de <= g["epoch"] <= ate]
+    # Sem o carimbo do MAP ENDED, o played_at não separa a partida de hoje
+    # de um nome sufixado antigo da mesma base, nem de um que perdeu a vez
+    # para um sem_round_end: a colisão é possível e não dá para descartar.
+    grupo = sorted(n for n in conhecidos if base and _base(n) == base)
+    p["colisao_possivel"] = []
+    if base and p.get("fim_epoch") is None and (
+            any(_sufixo(n) for n in grupo) or mesmos):
+        p["colisao_possivel"] = grupo + [g["arquivo"] for g in mesmos]
 
 
 def veredito(res: dict, proibidas: set, fatais_esperados: set) -> dict:
@@ -871,6 +990,10 @@ def veredito(res: dict, proibidas: set, fatais_esperados: set) -> dict:
             sem.append(f"{dn}: JSONL sem round_stats nem freeze_end para conferir o 5x5")
         for c in p["colisoes"]:
             ruim.append(f"{dn}: colisão: {c}")
+        if possivel := p.get("colisao_possivel"):
+            sem.append(f"{dn}: {MOTIVO_SEM_T}: {p['demo_name_log']} já colidiu "
+                       f"({', '.join(possivel)}) e sem a hora do MAP ENDED não dá para saber "
+                       "se a linha julgada é a desta partida; salve o log com docker logs -t")
     if res["entradas"]["eventos"] is None:
         sem.append("sem --eventos")
     elif res["current"]["estado"] == "com_rounds":
@@ -909,6 +1032,25 @@ def veredito(res: dict, proibidas: set, fatais_esperados: set) -> dict:
     g7 = SEM if invalidam else RUIM if ruim else SEM if sem else OK
     return {"g7": g7, "ruim": ruim, "sem_evidencia": sem, "invalidam": invalidam,
             "avisos": avisos_de_build(res)}
+
+
+def notas(res: dict) -> list:
+    """O que a fase 2 conferia à mão (card H1.1d): não muda veredito nem
+    código, só aparece na saída e na linha final."""
+    saida = []
+    for p in res["partidas"]:
+        dn, base = p["demo_name"], p.get("demo_name_log") or _base(p["demo_name"])
+        if suf := p.get("sufixo"):
+            saida.append(f"{dn}: julgada pelo nome sufixado {suf} (colisão com {base} no "
+                         "watcher, P1.1a)")
+        if fins := p.get("fins_repetidos"):
+            saida.append(f"{dn}: fim repetido no log (linha {', '.join(map(str, fins))}): o "
+                         "mesmo MAP ENDED sem partida nova, não é matchid reusado")
+        if guardados := p.get("sem_round_end"):
+            onde = ("na janela da partida" if p.get("janela")
+                    else "da mesma base (log sem -t: janela não conferida)")
+            saida.append(f"{dn}: sem_round_end {onde}: {', '.join(guardados)}")
+    return saida
 
 
 def avisos_de_build(res: dict) -> list:
@@ -1001,6 +1143,14 @@ def formatar(res: dict) -> str:
             s.append(f"  granadas de bot ({g['bots']} bots): {motor} · dano de granada "
                      f"{g['dano_de_granada']} · cegueiras {g['cegueiras']}")
         s.append("  colisão: " + _lista(p["colisoes"], "nenhuma"))
+        if p.get("sufixo"):
+            s.append(f"  sufixo: {p['sufixo']} (o watcher renomeou numa colisão de demo_name)")
+        if p.get("fins_repetidos"):
+            s.append("  fim repetido no log: linha "
+                     + ", ".join(map(str, p["fins_repetidos"])) + " (não é matchid reusado)")
+        if p.get("sem_round_end") is not None:
+            rotulo = "na janela" if p.get("janela") else "da mesma base (sem -t, sem janela)"
+            s.append(f"  sem_round_end {rotulo}: {_lista(p['sem_round_end'])}")
     if not res["partidas"]:
         s.append("nenhuma")
     if cur := res.get("current"):
@@ -1030,17 +1180,20 @@ def formatar(res: dict) -> str:
     s += [f"  RUIM{' (anulado: evidência inválida)' if anulado else ''}: {m}" for m in v["ruim"]]
     s += [f"  sem evidência{' (invalida)' if m in v['invalidam'] else ''}: {m}"
           for m in v["sem_evidencia"]]
-    avisos = v.get("avisos", [])
+    avisos, nota = v.get("avisos", []), res.get("notas", [])
     s += [f"  AVISO: {a}" for a in avisos]
+    s += [f"  NOTA: {n}" for n in nota]
     # A linha final traz os motivos que decidiram: os que invalidam a
     # evidência, os de RUIM, ou os de sem evidência.
     if anulado:
         motivos = v["invalidam"] + ["RUIM anulado: " + "; ".join(v["ruim"])]
     else:
         motivos = v["ruim"] or v["sem_evidencia"]
-    # O aviso vai na linha final, mas não muda o veredito nem o código de saída.
+    # O aviso e a nota vão na linha final, mas não mudam o veredito nem o
+    # código de saída.
     s.append(f"VEREDITO G7: {v['g7']}" + (" — " + "; ".join(motivos) if motivos else "")
-             + "".join(f" · AVISO: {a}" for a in avisos))
+             + "".join(f" · AVISO: {a}" for a in avisos)
+             + "".join(f" · NOTA: {n}" for n in nota))
     return "\n".join(s)
 
 

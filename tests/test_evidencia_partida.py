@@ -736,6 +736,183 @@ def test_casar_partidas_ordena_o_sufixo_e_o_contador():
         "events_9_map0", "events_9_map0"]
 
 
+# ------------------------------------------------------------ H1.1d
+
+# Partida 70 completa (carga, sha, config-hash, 5x5): só o caso muda o veredito.
+CARGA = ["[MatchZy 0.8.15 LOADED]", "[Cs2TrackerEvents] Pronto"]
+# 5 CT e 5 T no round_stats: o 5x5 confere.
+JSONL_5X5 = [{"type": "round_stats", "round_num": 1,
+              "players": [{"side": "ct"}] * 5 + [{"side": "t"}] * 5}]
+CAUDA = [{"type": "snapshot", "round_num": 22, "tick": 1, "players": []}]
+# Sufixada de manhã (15:00:10Z = 12:00:10 em UTC-3): antiga, mas do mesmo dia.
+SUFIXADA_ANTIGA = "events_70_map0__20260928T150010Z"
+# Guardado pelo watcher 30 s depois do MAP ENDED das 20:00:00Z (fim repetido).
+SRE_NA_JANELA = "sem_round_end_events_70_map0__20260928T200030Z.jsonl"
+SRE_DE_ONTEM = "sem_round_end_events_70_map0__20260927T230000Z.jsonl"
+SRE_OUTRA_BASE = "sem_round_end_events_71_map0__20260928T200030Z.jsonl"
+FIM_70 = 1800   # MAP ENDED 30 min depois das 19:30:00Z: 20:00:00Z, 17:00 em UTC-3
+
+
+def _cenario_70(tmp_path, com_t=True, fins=(FIM_70,), arquivos=("events_70_map0.jsonl",)):
+    """Log da partida 70 (com ou sem docker logs -t), pasta de eventos com
+    `arquivos` e sha/config-hash que conferem, como argumentos do avaliar."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    passos = [(-60, CARGA[0]), (-59.5, CARGA[1]), (0, DEMO_70), (0.1, LIVE)]
+    passos += [(s, FIM.format(70)) for s in fins]
+    linhas = (_docker_t("2026-09-28T19:30:00", passos) if com_t else [t for _, t in passos])
+    log = _arquivo(tmp_path, "docker.txt", linhas)
+    pasta = _pasta_eventos(tmp_path, {n: (CAUDA if n.startswith("sem_round_end_") else JSONL_5X5)
+                                      for n in arquivos})
+    return dict(log=log, eventos=pasta, **_completo(tmp_path))
+
+
+def test_cenario_70_de_hoje_sem_irmao_da_ok_com_e_sem_t(banco, tmp_path):
+    # Controle: só a base, ingerida 10 s depois do MAP ENDED. Sem -t e sem
+    # nome sufixado nem sem_round_end, não há colisão possível.
+    _inserir(banco, "events_70_map0", "de_mirage", (13, 9), (9, 13),
+             played_at="2026-09-28T17:00:10")
+    for com_t in (True, False):
+        res = ep.avaliar(db=banco, **_cenario_70(tmp_path / str(com_t), com_t=com_t))
+        assert res["veredito"]["g7"] == ep.OK, res["veredito"]
+        [p] = res["partidas"]
+        assert (p["sufixo"], p["fins_repetidos"], p["sem_round_end"], p["colisao_possivel"]) == \
+            (None, [], [], [])
+        assert res["notas"] == []
+
+
+@pytest.mark.parametrize("irmao", ["sufixada", "sem_round_end"])
+def test_sem_t_com_colisao_possivel_e_sem_evidencia_e_com_t_e_ruim(banco, tmp_path, capsys,
+                                                                     irmao):
+    """A partida de hoje não foi ingerida e o nome mais novo da base é de
+    manhã (sufixado, ou a base com o sem_round_end de hoje ao lado). Sem -t
+    a data da demo não separa os dois: antes do H1.1d isto saía OK."""
+    _inserir(banco, "events_70_map0", "de_mirage", (13, 5), (8, 10),
+             played_at="2026-09-28T09:00:10" if irmao == "sufixada" else "2026-09-28T12:00:10")
+    if irmao == "sufixada":
+        _inserir(banco, SUFIXADA_ANTIGA, "de_mirage", (13, 7), (7, 13),
+                 played_at="2026-09-28T12:00:10")
+        arquivos = ("events_70_map0.jsonl", f"{SUFIXADA_ANTIGA}.jsonl")
+        julgada = SUFIXADA_ANTIGA
+        nomes = f"events_70_map0, {SUFIXADA_ANTIGA}"
+    else:
+        arquivos = ("events_70_map0.jsonl", SRE_NA_JANELA)
+        julgada = "events_70_map0"
+        nomes = f"events_70_map0, {SRE_NA_JANELA}"
+    motivo = (f"{julgada}: colisão possível sem docker logs -t: events_70_map0 já colidiu "
+              f"({nomes}) e sem a hora do MAP ENDED não dá para saber se a linha julgada "
+              "é a desta partida; salve o log com docker logs -t")
+
+    sem_t = _cenario_70(tmp_path / "sem", com_t=False, arquivos=arquivos)
+    res = ep.avaliar(db=banco, **sem_t)
+    assert res["veredito"]["g7"] == ep.SEM
+    assert res["veredito"]["ruim"] == [] and res["veredito"]["sem_evidencia"] == [motivo]
+    argv = ["--db", str(banco), "--log", str(sem_t["log"]), "--eventos", str(sem_t["eventos"]),
+            "--sha-montados", str(sem_t["sha_montados"]),
+            "--sha-referencia", str(sem_t["sha_referencia"]),
+            "--config-hash", "cfg-1", "--config-hash-janela", "cfg-1"]
+    capsys.readouterr()
+    assert ep.main(argv) == 3
+    assert capsys.readouterr().out.splitlines()[-1].startswith(f"VEREDITO G7: SEM EVIDÊNCIA — "
+                                                               f"{motivo}")
+
+    # Com -t o played_at das 12:00 fica antes do fim (17:00): colisão, RUIM.
+    res = ep.avaliar(db=banco, **_cenario_70(tmp_path / "com", arquivos=arquivos))
+    assert res["veredito"]["g7"] == ep.RUIM
+    assert res["veredito"]["ruim"] == [
+        f"{julgada}: colisão: linha do banco é de 2026-09-28 12:00, antes do fim da partida "
+        "no log (2026-09-28 17:00)"]
+    assert not any("colisão possível" in m for m in res["veredito"]["sem_evidencia"])
+
+
+def test_fim_repetido_nao_e_matchid_reusado_e_da_ok_com_nota(banco, tmp_path, capsys):
+    """Cenário da linha fantasma do P1.1b: o MAP ENDED chega de novo 30 s
+    depois, sem demo nem StartLive, e o watcher guarda a cauda como
+    sem_round_end_*. Antes do H1.1d eram duas partidas e RUIM "matchid reusado"."""
+    _inserir(banco, "events_70_map0", "de_mirage", (13, 9), (9, 13),
+             played_at="2026-09-28T17:00:10")
+    kw = _cenario_70(tmp_path, fins=(FIM_70, FIM_70 + 30),
+                     arquivos=("events_70_map0.jsonl", SRE_NA_JANELA, SRE_DE_ONTEM, SRE_OUTRA_BASE))
+    res = ep.avaliar(db=banco, **kw)
+    log = res["log"]
+    # Linhas: 1 e 2 carga, 3 demo, 4 StartLive, 5 MAP ENDED, 6 o fim repetido.
+    assert [p["demo_name"] for p in log["partidas"]] == ["events_70_map0"]
+    assert log["repetidos"] == []
+    assert log["fins_repetidos"] == [{"demo_name": "events_70_map0", "linha": 6,
+                                      "linha_do_fim": 5}]
+    [p] = res["partidas"]
+    assert (p["colisoes"], p["fins_repetidos"], p["sufixo"]) == ([], [6], None)
+    # Só o da mesma base e dentro da janela (19:30Z até o fim do log, 20:00:30Z).
+    assert p["sem_round_end"] == [SRE_NA_JANELA]
+    assert res["veredito"]["g7"] == ep.OK and res["veredito"]["ruim"] == []
+    assert res["notas"] == [
+        "events_70_map0: fim repetido no log (linha 6): o mesmo MAP ENDED sem partida nova, "
+        "não é matchid reusado",
+        f"events_70_map0: sem_round_end na janela da partida: {SRE_NA_JANELA}"]
+    saida = ep.formatar(res).splitlines()
+    assert "  fim repetido no log: linha 6 (não é matchid reusado)" in saida
+    assert f"  sem_round_end na janela: {SRE_NA_JANELA}" in saida
+    assert saida[-1] == "VEREDITO G7: OK" + "".join(f" · NOTA: {n}" for n in res["notas"])
+
+
+@pytest.mark.parametrize("entre, partidas, fins", [
+    ([], ["events_70_map0"], [4]),                                    # fim repetido
+    ([LIVE], ["events_70_map0", "events_70_map0"], []),               # matchid reusado
+    ([DEMO_70], ["events_70_map0", "events_70_map0"], []),
+])
+def test_fim_repetido_e_matchid_reusado_sao_classificados_a_parte(tmp_path, entre, partidas,
+                                                                  fins):
+    # Linhas: 1 demo, 2 StartLive, 3 MAP ENDED, `entre` e o MAP ENDED de novo.
+    linhas = [DEMO_70, LIVE, FIM.format(70), *entre, FIM.format(70)]
+    res = ep.avaliar(log=_arquivo(tmp_path, "docker.txt", linhas))
+    log = res["log"]
+    assert [p["demo_name"] for p in log["partidas"]] == partidas
+    assert [f["linha"] for f in log["fins_repetidos"]] == fins
+    reusado = not fins
+    assert log["repetidos"] == (["events_70_map0"] if reusado else [])
+    # Só o matchid reusado de verdade (sem nome sufixado que o resolva) é RUIM.
+    ruim = "events_70_map0: colisão: demo_name repetido no log (matchid reusado)"
+    assert (ruim in res["veredito"]["ruim"]) is reusado
+    assert (res["veredito"]["g7"] == ep.RUIM) is reusado
+
+
+def test_partida_sufixada_com_t_aparece_na_saida_e_na_linha_final(banco, tmp_path):
+    _inserir(banco, "events_70_map0", "de_mirage", (13, 5), (8, 10),
+             played_at="2026-09-28T11:00:10")
+    _inserir(banco, SUFIXADA_70, "de_mirage", (13, 9), (9, 13),
+             played_at="2026-09-28T17:00:10")
+    res = ep.avaliar(db=banco, **_cenario_70(
+        tmp_path, arquivos=("events_70_map0.jsonl", f"{SUFIXADA_70}.jsonl")))
+    [p] = res["partidas"]
+    assert (p["demo_name"], p["sufixo"], p["colisao_possivel"]) == (
+        SUFIXADA_70, "__20260928T200010Z", [])
+    assert res["veredito"]["g7"] == ep.OK
+    nota = ("events_70_map0__20260928T200010Z: julgada pelo nome sufixado __20260928T200010Z "
+            "(colisão com events_70_map0 no watcher, P1.1a)")
+    assert res["notas"] == [nota]
+    saida = ep.formatar(res).splitlines()
+    assert "  sufixo: __20260928T200010Z (o watcher renomeou numa colisão de demo_name)" in saida
+    assert "  sem_round_end na janela: nenhum" in saida
+    assert f"  NOTA: {nota}" in saida
+    assert saida[-1] == f"VEREDITO G7: OK · NOTA: {nota}"
+
+
+def test_sem_round_end_sem_t_lista_os_da_base_sem_janela(banco, tmp_path):
+    _inserir(banco, "events_70_map0", "de_mirage", (13, 9), (9, 13),
+             played_at="2026-09-28T17:00:10")
+    res = ep.avaliar(db=banco, **_cenario_70(
+        tmp_path, com_t=False,
+        arquivos=("events_70_map0.jsonl", SRE_DE_ONTEM, SRE_NA_JANELA, SRE_OUTRA_BASE)))
+    [p] = res["partidas"]
+    assert p["janela"] is None
+    assert p["sem_round_end"] == [SRE_DE_ONTEM, SRE_NA_JANELA]
+    assert (f"events_70_map0: sem_round_end da mesma base (log sem -t: janela não conferida): "
+            f"{SRE_DE_ONTEM}, {SRE_NA_JANELA}") in res["notas"]
+    assert ("  sem_round_end da mesma base (sem -t, sem janela): "
+            f"{SRE_DE_ONTEM}, {SRE_NA_JANELA}") in ep.formatar(res).splitlines()
+    # E é colisão possível: a base tem sem_round_end ao lado.
+    assert res["veredito"]["g7"] == ep.SEM
+
+
 # ------------------------------------------------------------ eventos
 
 CURRENT_COM_ROUNDS = [
