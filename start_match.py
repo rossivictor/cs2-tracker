@@ -151,6 +151,35 @@ def aviso_candidato(arquivo: Path, log: Sink = print) -> None:
         + ". Esta partida valida esse degrau; para desfazer: tools/jogavel.py voltar.")
 
 
+# Docker fora do ar (P1.1c): com o Docker Desktop parado (as quedas noturnas,
+# exit 0x40010004), o `docker compose up -d` esperava em silêncio e a TUI
+# ficava em "Subindo servidor..." sem erro (15/10). O `docker version` com
+# timeout curto responde antes: rc 0 só com o daemon no ar.
+DOCKER_FORA_DO_AR = "Docker Desktop não está rodando: abra o Docker Desktop e tente de novo."
+DOCKER_TIMEOUT_S = 10
+
+
+def docker_fora_do_ar(timeout_s: float = DOCKER_TIMEOUT_S) -> Optional[str]:
+    """None se o daemon do Docker responde; senão, o motivo em uma linha.
+    Falha fechada: docker fora do PATH, timeout ou qualquer erro ao chamar
+    também contam como fora do ar."""
+    try:
+        resultado = subprocess.run(
+            ["docker", "version", "--format", "{{.Server.Version}}"],
+            capture_output=True, text=True, timeout=timeout_s,
+        )
+    except FileNotFoundError:
+        return "o comando docker não está no PATH"
+    except subprocess.TimeoutExpired:
+        return f"o daemon do Docker não respondeu em {timeout_s:g}s"
+    except Exception as exc:  # qualquer outra falha também para antes do compose
+        return f"falha ao chamar o docker ({exc})"
+    if resultado.returncode == 0:
+        return None
+    linhas = [l.strip() for l in (resultado.stderr or "").splitlines() if l.strip()]
+    return linhas[-1] if linhas else f"docker version saiu com código {resultado.returncode}"
+
+
 def container_running(container_name: str) -> bool:
     result = subprocess.run(
         ["docker", "inspect", "-f", "{{.State.Running}}", container_name],
@@ -847,6 +876,13 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
         )
 
     if not skip_up:
+        # P1.1c: a mensagem vai pelo sink (TUI e logs/partidas/); o sys.exit
+        # para a partida sem esperar, como os outros [ERRO] daqui.
+        motivo = docker_fora_do_ar()
+        if motivo is not None:
+            log(f"[ERRO] {DOCKER_FORA_DO_AR}")
+            log(f"[DOCKER] Detalhe: {motivo}")
+            sys.exit("Partida não iniciada: o Docker não respondeu.")
         if container_running(container_name):
             log(f"[DOCKER] Container '{container_name}' já está rodando.")
         else:

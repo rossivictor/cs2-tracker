@@ -54,6 +54,13 @@ STATUS_10 = "---------players--------\n" + "".join(
     f"  {i} 00:01 0 0 active 0 'jogador{i}'\n" for i in range(10)) + "#end\n"
 
 
+class EsperaIndevida(BaseException):
+    """Docker fora do ar e mesmo assim o start_match seguiu para inspect,
+    compose, watcher ou RCON (P1.1c). BaseException para não ser engolida
+    pelos retries do wait_for_rcon: o teste falha em vez de travar no
+    "já conectei"."""
+
+
 class Servidor:
     """O que a partida mandaria para fora: chamadas de docker e de RCON."""
 
@@ -63,12 +70,20 @@ class Servidor:
         self.rcon = []        # comandos, na ordem
         self.conexoes = []    # (host, porta, senha)
         self.lock = threading.Lock()
+        self.daemon_no_ar = True  # P1.1c: False simula o Docker Desktop parado
 
     # -- docker (start_match.subprocess.run) --------------------------------
     def run(self, argv, **kwargs):
         with self.lock:
             self.docker.append((list(argv), kwargs))
         assert argv[0] == "docker", argv
+        if argv[1] == "version":
+            if self.daemon_no_ar:
+                return subprocess.CompletedProcess(argv, 0, "28.0.1\n", "")
+            return subprocess.CompletedProcess(
+                argv, 1, "", "error during connect: o daemon não responde\n")
+        if not self.daemon_no_ar:
+            raise EsperaIndevida(f"docker com o daemon fora do ar: {argv!r}")
         if argv[1] == "inspect":
             return subprocess.CompletedProcess(argv, 1, "", "No such object")
         if argv[1:3] == ["logs", "--since"]:
@@ -81,6 +96,8 @@ class Servidor:
     def Popen(self, argv, **kwargs):
         with self.lock:
             self.popen.append(list(argv))
+        if not self.daemon_no_ar:
+            raise EsperaIndevida(f"watcher com o daemon fora do ar: {argv!r}")
         return types.SimpleNamespace(stdout=io.StringIO(""), wait=lambda timeout=None: 0,
                                      poll=lambda: 0, terminate=lambda: None,
                                      kill=lambda: None)
@@ -93,6 +110,8 @@ class Servidor:
             def __init__(self, host, port, passwd=None, timeout=None):
                 with servidor.lock:
                     servidor.conexoes.append((host, port, passwd))
+                if not servidor.daemon_no_ar:
+                    raise EsperaIndevida("RCON com o daemon fora do ar")
 
             def __enter__(self):
                 return self
@@ -178,7 +197,11 @@ async def clicar(pilot, seletor):
     await asyncio.sleep(0.25)  # o -active do Button ignora clique por 0.2 s
 
 
-def lancar_pela_tui(formato, mapas, lados, launch_vigiado):
+def lancar_pela_tui(formato, mapas, lados, launch_vigiado, ate_o_ready=True):
+    """Monta a partida pela TUI e clica em "Iniciar partida" (e, com
+    ate_o_ready, no "já conectei"). Devolve as linhas do painel de log."""
+    tela = []
+
     async def roteiro():
         app = WizardApp(rcon_password=RCON_SENHA)  # skip_up=False: passa pelo compose
         async with app.run_test(size=TAMANHO) as pilot:
@@ -201,13 +224,19 @@ def lancar_pela_tui(formato, mapas, lados, launch_vigiado):
             await esperar(app, lambda: isinstance(app.screen, SummaryScreen))
             await clicar(pilot, "#launch")
             await esperar(app, lambda: isinstance(app.screen, LaunchScreen))
-            await esperar(app, lambda: bool(app.screen.query("#ready")))
-            await clicar(pilot, "#ready")
+            if ate_o_ready:
+                await esperar(app, lambda: bool(app.screen.query("#ready")))
+                await clicar(pilot, "#ready")
             await esperar(app, launch_vigiado.fim.is_set)
             await pilot.pause()
+            await asyncio.sleep(0.25)  # o do_launch escreve o [ERRO] depois do fim
+            await pilot.pause()
+            tela.extend(linha.text for linha in app.screen.query_one("#log").lines)
 
     asyncio.run(roteiro())
-    assert launch_vigiado.erro is None, launch_vigiado.logs
+    if ate_o_ready:
+        assert launch_vigiado.erro is None, launch_vigiado.logs
+    return tela
 
 
 @pytest.mark.parametrize("formato, mapas, lados, sides_esperados", [
@@ -225,7 +254,13 @@ def test_tui_lanca_run_match_com_compose_e_loadmatch_certos(
         ["docker", "compose", "-f", str(tmp_path / "docker-compose.yml"), "up", "-d"],
         {"check": True, "cwd": tmp_path},
     )]
-    assert servidor.docker[0][0] == ["docker", "inspect", "-f", "{{.State.Running}}", "cs2-spike"]
+    # P1.1c: antes de tudo, a conferência do daemon; com ele no ar, o
+    # caminho segue o de antes (inspect e compose).
+    assert servidor.docker[0] == (
+        ["docker", "version", "--format", "{{.Server.Version}}"],
+        {"capture_output": True, "text": True, "timeout": 10},
+    )
+    assert servidor.docker[1][0] == ["docker", "inspect", "-f", "{{.State.Running}}", "cs2-spike"]
 
     # RCON: sempre no servidor local, com a senha dada à TUI.
     assert set(servidor.conexoes) == {("127.0.0.1", 27015, RCON_SENHA)}
@@ -276,3 +311,30 @@ def test_tui_com_vanilla_ligado_sobe_o_compose_com_o_override(servidor, launch_v
     )]
     assert [c for c in servidor.rcon if c.startswith("matchzy_loadmatch")] == \
         ["matchzy_loadmatch match_config.spike.json"]
+
+
+def test_tui_com_o_docker_fora_do_ar_mostra_a_mensagem_e_nao_espera(
+        servidor, launch_vigiado, tmp_path):
+    """Card P1.1c: com o Docker Desktop parado, o clique em "Iniciar partida"
+    termina logo com a mensagem clara no painel da TUI (sem diff no
+    wizard_tui.py: ela sai pelo sink do start_match) e no log da partida, sem
+    compose, RCON nem watcher."""
+    servidor.daemon_no_ar = False
+    inicio = time.monotonic()
+    tela = lancar_pela_tui("bo1", ["de_nuke"], ["t"], launch_vigiado, ate_o_ready=False)
+    assert time.monotonic() - inicio < 30  # o roteiro inteiro; sem esperar o boot
+
+    assert isinstance(launch_vigiado.erro, SystemExit)
+    msg = "[ERRO] Docker Desktop não está rodando: abra o Docker Desktop e tente de novo."
+    assert msg in tela, tela
+    assert "[DOCKER] Detalhe: error during connect: o daemon não responde" in tela, tela
+    assert "[ERRO] Partida não iniciada: o Docker não respondeu." in tela, tela
+
+    # Só o `docker version`: nada de inspect, compose, RCON ou watcher.
+    assert [argv for argv, _kw in servidor.docker] == [
+        ["docker", "version", "--format", "{{.Server.Version}}"]]
+    assert servidor.rcon == [] and servidor.conexoes == [] and servidor.popen == []
+
+    arquivos = list((tmp_path / "logs" / "partidas").glob("partida_*.log"))
+    assert len(arquivos) == 1, arquivos
+    assert msg in arquivos[0].read_text(encoding="utf-8")

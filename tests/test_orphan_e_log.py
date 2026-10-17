@@ -144,6 +144,7 @@ def mundo(tmp_path, monkeypatch):
     monkeypatch.setattr(start_match, "ROOT", tmp_path)
     monkeypatch.setattr(start_match, "EVENTS_LIVE_DIR", "./docker/events-live")
     monkeypatch.setattr(start_match, "read_max_players", lambda _: None)
+    monkeypatch.setattr(start_match, "docker_fora_do_ar", lambda: None)  # P1.1c: daemon no ar
     monkeypatch.setattr(start_match, "container_running", lambda _: False)
     monkeypatch.setattr(start_match, "compose_up", lambda *_a, **_k: foto("compose_up"))
     monkeypatch.setattr(start_match, "wait_for_rcon", lambda *_a, **_k: None)
