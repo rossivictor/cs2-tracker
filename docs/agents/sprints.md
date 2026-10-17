@@ -81,7 +81,7 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 Foto do board (`docs/board-cs2/`, fora do git) nesta data. **O status de cada card é o do board**; esta seção diz a sprint da vez, a ordem da fila e as decisões que a mudaram.
 
 - **Fechadas:** B0 (03/10), B1 com as sobras (B1.9b skins; B1.7 BotAI religado pelo fork 1.8.12-b1.7b), H1, T1 (12/10). A K1 só tem a poda de comentários (K1.9, card 78) aberta; o K1.7 (76) está adiado.
-- **Trilho: P1.** Validados e com tag: P1.1 (`jogavel-2026-10-13`), P1.1a (`jogavel-2026-10-14`), P1.1b (`jogavel-2026-10-16`) e P1.2 (válvula vanilla; G7 da partida 85 em 17/10; tag marcada no fechamento do card 81). Ordem aprovada pelo Victor para o resto da P1, um candidato por vez:
+- **Trilho: P1.** Validados e com tag: P1.1 (`jogavel-2026-10-13`), P1.1a (`jogavel-2026-10-14`), P1.1b (`jogavel-2026-10-16`) e P1.2 (`jogavel-2026-10-17`; válvula vanilla; partida 85 (`events_85_map0`) em 17/10). Ordem aprovada pelo Victor para o resto da P1, um candidato por vez:
   1. P1.1c (80,8): a TUI avisa quando o Docker Desktop está fora do ar.
   2. P1.1d (80,9): a TUI não preserva cauda pós-jogo como órfão.
   3. P1.3 (82): watcher isolado dos geradores.
