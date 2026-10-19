@@ -23,6 +23,7 @@ Uso:
 import argparse
 import itertools
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -163,6 +164,137 @@ def aviso_candidato(arquivo: Path, log: Sink = print) -> None:
     detalhe = ", ".join(p for p in (nota, commit and f"commit {commit}") if p)
     log(f"[INFO] Candidato em teste: {tag}" + (f" ({detalhe})" if detalhe else "")
         + ". Esta partida valida esse degrau; para desfazer: tools/jogavel.py voltar.")
+
+
+# Aviso de captura não carregada (P1.4; ADR-0004, Q19=B). Captura que não
+# carrega avisa e a partida segue; abortar é opt-in do Victor. Falso positivo
+# é o pior erro aqui: o aviso só sai com a DLL ausente no checkout, OU com as
+# DUAS evidências do servidor faltando de forma afirmativa (o css_plugins list
+# respondeu uma lista sem o plugin E o docker logs do boot tem plugins
+# carregando, mas não o nosso). RCON vazio, docker logs indisponível ou sem
+# boot legível é "não sei", nunca "ausente": sem aviso.
+DLL_CAPTURA = Path("docker") / "plugins" / "Cs2TrackerEvents" / "Cs2TrackerEvents.dll"
+NOME_CAPTURA = "CS2 Tracker Events"  # ModuleName do Cs2TrackerEventsPlugin.cs
+EXIGIR_CAPTURA = "CS2_TRACKER_EXIGIR_CAPTURA"
+CARREGADA, AUSENTE, INCERTA = "carregada", "ausente", "incerta"
+# Cabeçalho do `css_plugins list` da CounterStrikeSharp: só com ele a resposta
+# é uma lista de verdade (e a falta do nome vale como "ausente").
+_LISTA_DE_PLUGINS = re.compile(r"List of all plugins currently loaded|\[#\d+:[A-Z]+\]")
+# Linha de load da captura no boot: a da CounterStrikeSharp e a do plugin.
+_LOAD_CAPTURA = re.compile(r"Finished loading plugin CS2 Tracker Events\b|\[Cs2TrackerEvents\] Pronto")
+# Prova de que o recorte do docker logs pegou o boot dos plugins.
+_BOOT_DE_PLUGINS = re.compile(r"Finished loading plugin |\[MatchZy [\d.]+ LOADED\]")
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def captura_no_plugins_list(resposta) -> str:
+    """CARREGADA se o css_plugins list cita a captura; AUSENTE só se a
+    resposta é uma lista de plugins sem ela; INCERTA no resto (vazia, None,
+    comando desconhecido)."""
+    texto = _ANSI.sub("", resposta or "")
+    if NOME_CAPTURA in texto:
+        return CARREGADA
+    if _LISTA_DE_PLUGINS.search(texto):
+        return AUSENTE
+    return INCERTA
+
+
+def captura_no_docker_logs(texto) -> str:
+    """CARREGADA com a linha de load da captura; AUSENTE só se o recorte tem
+    o boot dos plugins (outro plugin carregou) e nada dela; INCERTA no resto
+    (None, vazio, log sem boot legível)."""
+    texto = _ANSI.sub("", texto or "")
+    if _LOAD_CAPTURA.search(texto):
+        return CARREGADA
+    if _BOOT_DE_PLUGINS.search(texto):
+        return AUSENTE
+    return INCERTA
+
+
+def docker_logs_do_boot(container_name: str) -> Optional[str]:
+    """O docker logs desde o StartedAt do container (o boot atual), stdout e
+    stderr juntos; None se qualquer passo falha ou demora."""
+    try:
+        inicio = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.StartedAt}}", container_name],
+            capture_output=True, text=True, timeout=10,
+        )
+        desde = (inicio.stdout or "").strip()
+        if inicio.returncode != 0 or not desde:
+            return None
+        logs = subprocess.run(
+            ["docker", "logs", "--since", desde, container_name],
+            capture_output=True, text=True, encoding="utf-8", errors="ignore", timeout=30,
+        )
+    except Exception:  # docker fora do PATH, timeout, qualquer erro: não sei
+        return None
+    if logs.returncode != 0:
+        return None
+    return (logs.stdout or "") + (logs.stderr or "")
+
+
+def checar_captura(*, container_name, rcon_host, rcon_port, rcon_password) -> tuple:
+    """(estado, motivo): CARREGADA, AUSENTE ou INCERTA, pela regra do P1.4:
+    sem a DLL, ou sem a captura no css_plugins list E sem a linha de load no
+    docker logs."""
+    if not (ROOT / DLL_CAPTURA).is_file():
+        return AUSENTE, f"{DLL_CAPTURA.as_posix()} não existe no checkout"
+    try:
+        lista = captura_no_plugins_list(
+            rcon_run(rcon_host, rcon_port, rcon_password, "css_plugins list"))
+    except Exception:
+        lista = INCERTA
+    if lista == CARREGADA:
+        return CARREGADA, f"'{NOME_CAPTURA}' no css_plugins list"
+    logs = captura_no_docker_logs(docker_logs_do_boot(container_name))
+    if logs == CARREGADA:
+        return CARREGADA, "linha de load no docker logs"
+    if lista == AUSENTE and logs == AUSENTE:
+        return AUSENTE, (f"'{NOME_CAPTURA}' fora do css_plugins list e sem a "
+                         "linha de load no docker logs do boot")
+    faltou = [nome for nome, estado in (("css_plugins list", lista), ("docker logs", logs))
+              if estado == INCERTA]
+    return INCERTA, f"sem resposta legível de {' e '.join(faltou)}"
+
+
+def exigir_captura(arquivo_env: Optional[Path] = None, environ=None) -> bool:
+    """O opt-in da Q19=B: CS2_TRACKER_EXIGIR_CAPTURA=1 no ambiente ou no .env
+    (o ambiente vence). Qualquer outro valor, ou nenhum, é não."""
+    environ = os.environ if environ is None else environ
+    valor = environ.get(EXIGIR_CAPTURA)
+    if valor is None:
+        try:
+            valor = load_env(Path(arquivo_env or ROOT / ".env")).get(EXIGIR_CAPTURA)
+        except Exception:
+            valor = None
+    return (valor or "").strip() == "1"
+
+
+def avisar_captura(*, container_name, rcon_host, rcon_port, rcon_password,
+                   log: Sink = print) -> bool:
+    """Confere a captura e diz o resultado pelo sink (TUI e logs/partidas/).
+    Devolve True se a partida deve abortar: só com a captura ausente e o
+    opt-in ligado. Sem o opt-in, o [AVISO] sai e a partida segue."""
+    estado, motivo = checar_captura(container_name=container_name, rcon_host=rcon_host,
+                                    rcon_port=rcon_port, rcon_password=rcon_password)
+    if estado == CARREGADA:
+        log(f"[CAPTURA] Plugin de captura carregado ({motivo}).")
+        return False
+    if estado == INCERTA:
+        log(f"[CAPTURA] Não consegui confirmar o plugin de captura ({motivo}); sigo sem aviso.")
+        return False
+    exigir = exigir_captura()
+    barra = "[AVISO] " + "!" * 62
+    log(barra)
+    log(f"[AVISO] CAPTURA NÃO CARREGADA: {motivo}.")
+    log("[AVISO] Sem ela, os eventos round a round desta partida não são gravados "
+        "(docker/events-live).")
+    if exigir:
+        log(f"[AVISO] {EXIGIR_CAPTURA}=1: a partida não começa sem a captura.")
+    else:
+        log(f"[AVISO] A partida SEGUE. Para abortar nesse caso: {EXIGIR_CAPTURA}=1 no .env.")
+    log(barra)
+    return exigir
 
 
 # Docker fora do ar (P1.1c): com o Docker Desktop parado (as quedas noturnas,
@@ -917,6 +1049,14 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
         set_side_in_config(local_match_config, side, log=log)
 
     wait_for_rcon(rcon_host, rcon_port, rcon_password, timeout_s=boot_timeout, log=log)
+
+    # P1.4: com o RCON no ar os plugins já carregaram; aviso antes do
+    # loadmatch, para o opt-in abortar sem deixar partida carregada.
+    if avisar_captura(container_name=container_name, rcon_host=rcon_host,
+                      rcon_port=rcon_port, rcon_password=rcon_password, log=log):
+        if watcher_proc is not None:
+            watcher_proc.terminate()
+        sys.exit(f"Partida não iniciada: a captura não carregou ({EXIGIR_CAPTURA}=1).")
 
     log(f"[MATCHZY] Carregando {match_config}...")
     response = rcon_run(rcon_host, rcon_port, rcon_password,
