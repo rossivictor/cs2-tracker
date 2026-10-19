@@ -9,20 +9,22 @@ fontes:
   - "parser.py:1037-1055 (leitura em utf-8-sig)"
   - "parser.py:1103-1199 (despacho por type)"
   - "watcher.py:502-587 (arquivamento e colisão, P1.1a e P1.1b)"
-  - "start_match.py:52-106 (órfão real, P1.1)"
+  - "start_match.py:52-120 (órfão real, P1.1, e a morte de pós-jogo, P1.1d)"
   - "start_match.py:823-831"
   - "tools/evidencia_partida.py:86-89 (TIPOS_DA_CAUDA)"
-  - "tools/evidencia_partida.py:457-487 (analisar_current e a morte pelo world)"
+  - "tools/evidencia_partida.py:523-556 (analisar_current e a morte pelo world)"
   - "tools/jogavel.py:93-104 (partida em curso)"
-  - "tests/test_orphan_e_log.py:50-98"
-  - "tests/test_evidencia_partida.py:733-763"
+  - "tests/test_orphan_e_log.py:57-248"
+  - "tests/test_evidencia_partida.py:969-999"
   - "tools/anonimizar_fixtures.py:9-14 (as três fixtures de captura)"
+  - "tests/fixtures/captura/orfao_falso_83.jsonl:1-16 (cauda da partida 83, P1.1d)"
+  - "tests/fixtures/captura/orfao_falso_87.jsonl:1-15 (cauda da partida 87, P1.1d)"
   - "commit 193cd6c"
   - "backup:temp-artifacts/eb5adec0/plan/all.json (cards K1.5, P1.1, P1.1a, P1.10 e S7.1 a S7.3)"
   - "backup:temp-artifacts/eb5adec0/audit/dead_captura.json (captura-29: gerações e formato)"
   - "backup:temp-artifacts/eb5adec0/audit/harness.json (findings[6]: tipos por geração e 14 arquivos com BOM)"
   - "backup:temp-artifacts/eb5adec0/audit/infra.json (findings[4] item 10 e findings[6])"
-atualizado: 2026-10-15
+atualizado: 2026-10-19
 ---
 
 # Contrato do events JSONL
@@ -191,17 +193,20 @@ os `snapshot` de 2 Hz, que seguem até a troca de mapa, e o `round_stats` e o
 (`tools/evidencia_partida.py:508-513`).
 
 **Órfão real** é a regra do round do P1.1: o `current.jsonl` com pelo menos um `round_start`,
-`player_death` ou `player_hurt` (`EVENTOS_DE_PARTIDA`, `start_match.py:52-59`). Basta um. Ele é a
+`player_death` ou `player_hurt` (`EVENTOS_DE_PARTIDA`, `start_match.py:52-60`). Basta um. Ele é a
 partida que caiu antes do arquivamento (matchid 75, 04/10: segfault na troca para o mapa 2) e
-vira `orphan_<utc>.jsonl`. Tudo o mais é cauda: fica para o plugin truncar, como antes. Os
-testes usam a cauda real (`tests/test_orphan_e_log.py:50-98`).
+vira `orphan_<utc>.jsonl`. A exceção é a **morte de pós-jogo** do P1.1d: o `player_death` pelo
+`world` com atacante = vítima (mesmo SteamID64, não vazio) não conta, e sem `round_start` no
+arquivo ele é cauda (`morte_de_pos_jogo`, `start_match.py:67-90`). Tudo o mais é cauda: fica
+para o plugin truncar, como antes. Os testes usam a cauda real do T1.3 e os dois órfãos falsos
+reais, anonimizados (`tests/test_orphan_e_log.py:57-248`).
 
 Quatro leitores classificam o `current.jsonl`, e cada um com a própria regra:
 
 | Leitor | Conta como partida | Conta como cauda ou ignora |
 |---|---|---|
-| `start_match.preservar_orfao` (P1.1) | `round_start`, `player_death`, `player_hurt` | todo o resto, inclusive `round_end`, `freeze_end`, `player_blind` e bomba sozinhos (`tests/test_orphan_e_log.py:83-90`) |
-| `evidencia_partida.analisar_current` (G7) | todo tipo fora da cauda: `com_rounds` | `snapshot`, `round_stats`, `round_officially_ended`; sem `round_start`, também a morte do humano pelo `world` (`tools/evidencia_partida.py:86-89`, `:457-487`) |
+| `start_match.preservar_orfao` (P1.1, P1.1d) | `round_start`, `player_hurt` e `player_death` fora a morte de pós-jogo | todo o resto, inclusive `round_end`, `freeze_end`, `player_blind` e bomba sozinhos (`tests/test_orphan_e_log.py:90-97`); sem `round_start`, a morte de pós-jogo (`start_match.py:67-90`) |
+| `evidencia_partida.analisar_current` (G7) | todo tipo fora da cauda: `com_rounds` | `snapshot`, `round_stats`, `round_officially_ended`; sem `round_start`, também a morte de pós-jogo (`tools/evidencia_partida.py:101`, `:523-556`) |
 | `jogavel.py`, partida em curso | qualquer tipo fora o `snapshot` há menos de 2 min (idade = mtime + snapshots depois dele ÷ 2) | `snapshot` (`tools/jogavel.py:93-104`, `:296-322`) |
 | `preflight.py` | arquivo mexido há menos de 10 min | — (`tools/preflight.py:317-330`) |
 
@@ -209,18 +214,32 @@ Com `com_rounds`, o `evidencia_partida` separa a **partida abandonada** (o log t
 sem fim: SEM EVIDÊNCIA) da falha de arquivamento (todas terminaram: RUIM)
 (`tools/evidencia_partida.py:874-889`).
 
-### Limite conhecido: a morte pelo `world` sem `round_start`
+### A morte pelo `world` sem `round_start` (resolvido no P1.1d)
 
 Ao sair na tela final, o humano morre pelo `world` (atacante = vítima, mesmo SteamID64), e esse
-`player_death` cai na cauda (partida 27, 27/09). O `evidencia_partida` a trata como cauda normal
-quando não há `round_start` no arquivo (`tools/evidencia_partida.py:457-462`;
-`tests/test_evidencia_partida.py:733-763`). O `start_match`, ao pé da letra do critério do
-P1.1, conta qualquer `player_death` e preserva esse arquivo como `orphan_*`. O efeito é um órfão
-falso: nada se perde, sobra um arquivo. A divergência fica registrada e não se resolve aqui.
+`player_death` cai na cauda (partida 27, 27/09). O `evidencia_partida` sempre a tratou como
+cauda normal quando não há `round_start` no arquivo (`tools/evidencia_partida.py:523-556`;
+`tests/test_evidencia_partida.py:969-999`). O `start_match` do P1.1 contava qualquer
+`player_death` e preservava esse arquivo como `orphan_*`: órfão falso, nada perdido, um arquivo
+sobrando. Aconteceu de verdade nas caudas das partidas 83 (`orphan_20261015T164958Z`, round 17)
+e 87 (`orphan_20261019T185248Z`, round 25), cada uma com snapshots, 1 `round_stats`, 1
+`round_officially_ended` e essa morte; as duas, anonimizadas, são as fixtures
+`tests/fixtures/captura/orfao_falso_83.jsonl` e `orfao_falso_87.jsonl`.
+
+Desde o P1.1d o `start_match` segue a mesma regra. Ela tem duas implementações de propósito,
+`start_match.morte_de_pos_jogo` e `evidencia_partida._morte_de_pos_jogo`: a ferramenta do G7
+não importa o caminho de jogo (que lê o `.env` ao importar o `config`), e o caminho de jogo não
+depende de um arquivo de fora do protocolo 1. O que as mantém iguais é o teste
+`test_preservar_orfao_concorda_com_analisar_current` (`tests/test_orphan_e_log.py:208-248`), que
+roda os dois leitores sobre a cauda real do T1.3 com cada combinação de `round_start`, dano,
+morte de round, morte de pós-jogo e as duas quase-mortes de pós-jogo (pelo `world` de outro
+SteamID64; suicídio por granada), e sobre os arquivos reais. A regra não olha quem morreu: o
+`world` com atacante = vítima conta mesmo sendo outro SteamID64 (a partida 44 tem uma assim no
+round 2, que só vira órfão com o `round_start` dela).
 
 A recíproca também existe só no código: `round_end`, `freeze_end`, `player_blind` ou bomba
 sozinhos na cauda são cauda para o `start_match` e `com_rounds` para o `evidencia_partida`. Não
-há caso real disso nas caudas da fixture.
+há caso real disso nas caudas da fixture, e ela fica fora do domínio do teste de concordância.
 
 ## 8. O que o contrato não garante
 
