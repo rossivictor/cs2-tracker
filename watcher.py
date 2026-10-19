@@ -100,13 +100,33 @@ except ImportError:
 
 from parser import (demo_name_no_banco, parse_and_store, store_match_from_csv,
                     store_match_from_events)
-from report import generate_report
-from home import generate_home
 from config import (
     CONTAINER_NAME, DB_PATH, DEMO_DIR, DEMOS_LIVE_DIR, EVENTS_LIVE_DIR,
     HOME_PATH, MATCH_CONFIG_FILE, REPORT_PATH, ROOT, STATS_LIVE_DIR,
 )
 from identity import resolve_identity
+
+
+# Geradores isolados (P1.3): report e home (e o stats que eles importam) só
+# são importados aqui, tarde e dentro do try. Um erro neles (import quebrado,
+# bug numa página) não impede o watcher de subir nem desfaz a ingestão, que já
+# aconteceu antes; as páginas se regeneram na próxima partida ou à mão.
+def generate_report(db_path, report_path):
+    try:
+        from report import generate_report as gerar
+        gerar(db_path, report_path)
+    except Exception as exc:
+        print(f"[AVISO] report.html não regenerado (a partida já está no banco): {exc!r}")
+        traceback.print_exc()
+
+
+def generate_home(db_path, home_path):
+    try:
+        from home import generate_home as gerar
+        gerar(db_path, home_path)
+    except Exception as exc:
+        print(f"[AVISO] home.html não regenerada (a partida já está no banco): {exc!r}")
+        traceback.print_exc()
 
 
 def _carimbo_utc() -> str:
