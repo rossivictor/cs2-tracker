@@ -81,7 +81,6 @@ C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/preflight.py
 - Caminho de jogo (protocolo 1):
   - `docker-compose.yml`, `docker/pre.sh`, `docker/plugins-src/**`, `docker/plugins/**` e `server-configs/**`;
   - `start_match.py`, `wizard_core.py`, `wizard_tui.py`, `watcher.py`, `parser.py`, `config.py`, `identity.py` e `roster.py`;
-  - `stats.py`, `home.py` e `report.py`, até o P1.3 provar o isolamento;
   - `cs2tracker/{settings,db,ingest,server}`;
   - `web/`, a partir do S6.3.
 - Qualquer diff nesses arquivos é um degrau: vira candidato e só fecha depois de partida real (G7). A exceção é diff só de comentário em arquivo NÃO montado, provado por `docker compose config` idêntico e `checar_so_comentarios.py`. (protocolo 1)
