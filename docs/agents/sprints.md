@@ -4,7 +4,8 @@ status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.sprints)"
   - "backup:temp-artifacts/eb5adec0/plan/plan.md (seção 3, Sequência)"
-atualizado: 2026-10-17
+  - "commit 0164cc3 (candidato-17 e tag jogavel-2026-10-19-2, do P1.1d)"
+atualizado: 2026-10-19
 ---
 
 # Ordem das sprints
@@ -75,24 +76,26 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 | 27/09 | Passos da B1 por runbook à mão enquanto o `jogavel.py` não existe | PM | ver `docs/runbooks/trilha-de-bots.md` |
 | 26–28/09 | K1.1, K1.2 e K1.3 feitos antes da T1 | sem registro de decisão | ficam como estão; não abrem precedente |
 | 04/10 | wizard_tui.py com diff antes da D13, só o placeholder do campo de jogador (dado pessoal do Victor) | Victor | T1.3c |
+| 19/10 | Exceção ao trilho único (Q6=A) para 3 pares de degraus defensivos com evidências disjuntas, validados juntos numa partida só: P1.3+P1.4, P1.7+P1.8 e P1.9+P1.11 (este numa janela só). P1.6, P1.5 e P1.10 seguem sozinhos; como o P1.11 depende do P1.10, o P1.10 vai antes do par P1.9+P1.11 | Victor (chat com o PM) | no par, o TM leva os dois cards até o merge, com um candidato só, no 2º merge, e a fase 2 do QA julga os dois pela mesma partida; reprovação reverte o par |
 
-## Posição em 17/10
+## Posição em 19/10
 
 Foto do board (`docs/board-cs2/`, fora do git) nesta data. **O status de cada card é o do board**; esta seção diz a sprint da vez, a ordem da fila e as decisões que a mudaram.
 
 - **Fechadas:** B0 (03/10), B1 com as sobras (B1.9b skins; B1.7 BotAI religado pelo fork 1.8.12-b1.7b), H1, T1 (12/10). A K1 só tem a poda de comentários (K1.9, card 78) aberta; o K1.7 (76) está adiado.
-- **Trilho: P1.** Validados e com tag: P1.1 (`jogavel-2026-10-13`), P1.1a (`jogavel-2026-10-14`), P1.1b (`jogavel-2026-10-16`) e P1.2 (`jogavel-2026-10-17`; válvula vanilla; partida 85 (`events_85_map0`) em 17/10). Ordem aprovada pelo Victor para o resto da P1, um candidato por vez:
-  1. P1.1c (80,8): a TUI avisa quando o Docker Desktop está fora do ar.
-  2. P1.1d (80,9): a TUI não preserva cauda pós-jogo como órfão.
-  3. P1.3 (82): watcher isolado dos geradores.
-  4. P1.4 (83): aviso de captura não carregada.
-  5. Janela T2 (B1.12d, 29,95): virada de série com processo novo e velho, medindo memória. Pede processo com horas no ar e o Victor no PC.
-  6. P1.6 (85) e P1.5 (84): pedem MD3; só depois do T2.
-  7. P1.7 (86), P1.8 (87), P1.9 (88, tira o SteamID real do `match_config.spike.json` versionado), P1.10 (89), P1.11 (90).
+- **Trilho: P1.** Validados e com tag: P1.1 (`jogavel-2026-10-13`), P1.1a (`jogavel-2026-10-14`), P1.1b (`jogavel-2026-10-16`), P1.2 (`jogavel-2026-10-17`; válvula vanilla; partida 85 (`events_85_map0`) em 17/10), P1.1c (`jogavel-2026-10-19`; partida 88 (`events_88_map0`) em 19/10) e P1.1d (`jogavel-2026-10-19-2`, no `0164cc3`; partida 89 (`events_89_map0`) em 19/10). A base do trilho é a `jogavel-2026-10-19-2`. Ordem aprovada pelo Victor para o resto da P1, um candidato por vez, e cada par da exceção de 19/10 como um candidato só:
+  1. P1.3 (82) + P1.4 (83), em par: watcher isolado dos geradores e aviso de captura não carregada.
+  2. Janela T2 (B1.12d, 29,95): virada de série com processo novo e velho, medindo memória. Pede processo com horas no ar e o Victor no PC.
+  3. P1.6 (85), sozinho: pede MD3; só depois do T2.
+  4. P1.5 (84), sozinho: pede MD3.
+  5. P1.7 (86) + P1.8 (87), em par.
+  6. P1.10 (89), sozinho: vai antes do par seguinte porque o P1.11 depende dele.
+  7. P1.9 (88, tira o SteamID real do `match_config.spike.json` versionado) + P1.11 (90), em par e numa janela só.
 - **Pista paralela, sem servidor:** P1.12 (91) depois do P1.5; K1.9 (poda) depois; V1 a semear.
 - **Sobras de janela:** T1.7 (`.gitattributes`), B0.11 (comentários do compose), B0.7d (bloquear docker cru).
 - **MD3:** jogar MD1 até o T2 (o crash de 04/10 foi na virada de série; o T1 do B1.12 fez 12 viradas sem queda; a memória do container cresce ~0,24 GiB por troca).
 - **Ambiente:** o Docker Desktop cai quase toda madrugada desde 13/09 (exit 0x40010004; `docs/armadilhas/windows-e-docker.md`): o container para, o json-file corrompe e o `coletar` reconstrói pelo `--tail` (B0.7h). Builds do CS2 em vigor: 2000933 (conferida para o BotAI do fork em 16/10).
 - **Decisões do Victor de 15 a 17/10:** ordem nova do trilho (MD1 primeiro); P1.1c e P1.1d; vanilla on/off só em janela.
+- **Decisão do Victor de 19/10:** os 3 pares da exceção ao trilho único (ver "Exceções aprovadas") e a ordem acima: P1.3+P1.4 → T2 → P1.6 → P1.5 → P1.7+P1.8 → P1.10 → P1.9+P1.11.
 
 Quem fecha uma sprint, abre exceção ou muda a fila atualiza esta seção no mesmo dia (PM). Sprint nova semeada no board ganha a faixa na tabela "Ordem de execução".
