@@ -6,11 +6,14 @@ A cauda é a real: tests/fixtures/captura/current.jsonl (e a cópia em
 tests/fixtures/logs/eventos/) é o que sobra no current.jsonl depois de uma
 partida arquivada, só snapshot, round_stats e round_officially_ended. Os
 eventos de round vêm do events_44_map0.jsonl (com BOM) e do events_59_map0.
+Os órfãos falsos do P1.1d (orfao_falso_83/87.jsonl) são caudas reais com a
+morte de pós-jogo pelo world, anonimizadas como as do T1.3.
 
 Tudo em tmp_path, com start_match.ROOT trocado por ele: nada de
 docker/events-live/, data/ ou logs/ de verdade, nem processo, Docker ou RCON
 (as funções que falariam com o servidor viram fakes que só anotam).
 """
+import itertools
 import json
 import re
 import sys
@@ -21,7 +24,9 @@ import pytest
 
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
+sys.path.insert(0, str(RAIZ / "tools"))
 
+import evidencia_partida as ep  # noqa: E402
 import start_match  # noqa: E402
 
 CAPTURA = RAIZ / "tests" / "fixtures" / "captura"
@@ -32,11 +37,13 @@ PARTIDA_59 = CAPTURA / "events_59_map0.jsonl"
 NOME_ORFAO = re.compile(r"^orphan_\d{8}T\d{6}Z(?:-\d+)?\.jsonl$")
 
 
-def _primeira_linha(caminho: Path, tipo: str) -> bytes:
+def _primeira_linha(caminho: Path, tipo: str, world: bool = False) -> bytes:
     """A linha crua do primeiro evento `tipo`, sem BOM: um evento de verdade
-    da partida 44, não um escrito para o teste."""
+    da partida 44, não um escrito para o teste. Pula a morte pelo world, a
+    não ser com world=True: a 1ª player_death da 44 é uma (round 2, atacante
+    = vítima) e, sozinha na cauda, é a morte de pós-jogo do P1.1d."""
     for linha in caminho.read_bytes().removeprefix(b"\xef\xbb\xbf").splitlines(keepends=True):
-        if f'"type":"{tipo}"'.encode() in linha:
+        if f'"type":"{tipo}"'.encode() in linha and (world or b'"weapon":"world"' not in linha):
             return linha
     raise AssertionError(f"{tipo} não está em {caminho.name}")
 
@@ -118,6 +125,128 @@ def test_orfao_com_o_mesmo_nome_nunca_e_sobrescrito(tmp_path, monkeypatch):
     assert anterior.read_bytes() == b"orfao anterior\n"
 
 
+# ------------------------------------------- morte de pós-jogo (P1.1d)
+# Os dois órfãos falsos reais, anonimizados como no T1.3: a cauda do round 17
+# da partida 83 (orphan_20261015T164958Z) e a do round 25 da 87
+# (orphan_20261019T185248Z). Cada um tem uma player_death pelo world em que o
+# humano é atacante e vítima, e nenhum round_start.
+
+@pytest.mark.parametrize("nome, linhas, snapshots, round_num", [
+    ("orfao_falso_83.jsonl", 16, 13, 17),
+    ("orfao_falso_87.jsonl", 15, 12, 25),
+], ids=["83", "87"])
+def test_orfao_falso_real_e_cauda_e_fica_intacto(tmp_path, nome, linhas, snapshots, round_num):
+    fixture = CAPTURA / nome
+    eventos = [json.loads(l) for l in fixture.read_text(encoding="utf-8").splitlines()]
+    # Gabarito contado à mão na cópia do backup, antes da troca de ids e nomes.
+    assert len(eventos) == linhas
+    assert [e["type"] for e in eventos].count("snapshot") == snapshots
+    assert sorted(e["type"] for e in eventos if e["type"] != "snapshot") == [
+        "player_death", "round_officially_ended", "round_stats"]
+    assert {e["round_num"] for e in eventos} == {round_num}
+    [morte] = [e for e in eventos if e["type"] == "player_death"]
+    assert morte["weapon"] == "world"
+    assert morte["attacker_steamid"] == morte["victim_steamid"] == "76561190000000001"
+    current = tmp_path / "current.jsonl"
+    current.write_bytes(fixture.read_bytes())
+    linhas_log = []
+
+    assert start_match.preservar_orfao(tmp_path, log=linhas_log.append) is None
+
+    assert current.read_bytes() == fixture.read_bytes()  # fica para o plugin truncar
+    assert _orfaos(tmp_path) == [] and linhas_log == []
+
+
+def _morte_de_pos_jogo() -> bytes:
+    return _primeira_linha(CAPTURA / "orfao_falso_83.jsonl", "player_death", world=True)
+
+
+def test_morte_pelo_world_da_partida_44_so_e_cauda_sem_o_round_start(tmp_path):
+    # O mesmo formato num round de verdade (partida 44, round 2): sozinho na
+    # cauda é cauda; com o round_start do round, é órfão.
+    morte = _primeira_linha(PARTIDA_44, "player_death", world=True)
+    assert json.loads(morte)["round_num"] == 2 and b'"weapon":"world"' in morte
+    (tmp_path / "current.jsonl").write_bytes(CAUDA_REAL.read_bytes() + morte)
+    assert start_match.preservar_orfao(tmp_path, log=lambda _: None) is None
+    conteudo = CAUDA_REAL.read_bytes() + _primeira_linha(PARTIDA_44, "round_start") + morte
+    (tmp_path / "current.jsonl").write_bytes(conteudo)
+    assert start_match.preservar_orfao(tmp_path, log=lambda _: None) is not None
+
+
+def test_cauda_real_do_t13_com_a_morte_de_pos_jogo_nao_vira_orfao(tmp_path):
+    conteudo = CAUDA_REAL.read_bytes() + _morte_de_pos_jogo()
+    (tmp_path / "current.jsonl").write_bytes(conteudo)
+    assert start_match.preservar_orfao(tmp_path, log=lambda _: None) is None
+    assert (tmp_path / "current.jsonl").read_bytes() == conteudo
+    assert _orfaos(tmp_path) == []
+
+
+def _variante(**troca) -> bytes:
+    evento = json.loads(_morte_de_pos_jogo())
+    evento.update(troca)
+    return (json.dumps(evento, separators=(",", ":")) + "\n").encode()
+
+
+@pytest.mark.parametrize("extra", [
+    pytest.param(lambda: _primeira_linha(PARTIDA_44, "round_start") + _morte_de_pos_jogo(),
+                 id="com_round_start"),
+    pytest.param(lambda: _morte_de_pos_jogo() + _primeira_linha(PARTIDA_44, "player_hurt"),
+                 id="com_dano"),
+    pytest.param(lambda: _variante(attacker_steamid="76561190000000002"), id="atacante_outro"),
+    pytest.param(lambda: _variante(weapon="hegrenade"), id="arma_nao_world"),
+    pytest.param(lambda: _variante(attacker_steamid="", victim_steamid=""), id="sem_steamid"),
+    pytest.param(lambda: _primeira_linha(PARTIDA_44, "player_death"), id="morte_da_partida_44"),
+])
+def test_fora_da_morte_de_pos_jogo_continua_virando_orfao(tmp_path, extra):
+    conteudo = CAUDA_REAL.read_bytes() + extra()
+    (tmp_path / "current.jsonl").write_bytes(conteudo)
+    destino = start_match.preservar_orfao(tmp_path, log=lambda _: None)
+    assert destino is not None and NOME_ORFAO.match(destino.name)
+    assert destino.read_bytes() == conteudo
+
+
+# A regra num lugar só (critério 2): o start_match não importa a ferramenta
+# do G7 nem ela o caminho de jogo, então as duas implementações provam aqui
+# que dão a mesma resposta. Domínio: a cauda (snapshot, round_stats,
+# round_officially_ended) mais qualquer combinação dos eventos de partida do
+# P1.1. Fora dele as duas divergem de propósito (round_end, bomba e afins
+# sozinhos; contrato do JSONL, §7).
+_PECAS = {
+    "round_start": lambda: _primeira_linha(PARTIDA_44, "round_start"),
+    "dano": lambda: _primeira_linha(PARTIDA_44, "player_hurt"),
+    "morte_partida": lambda: _primeira_linha(PARTIDA_44, "player_death"),
+    "pos_jogo": _morte_de_pos_jogo,
+    "world_de_outro": lambda: _variante(attacker_steamid="76561190000000002"),
+    "suicidio_granada": lambda: _variante(weapon="hegrenade"),
+}
+_COMBINACOES = [c for n in range(len(_PECAS) + 1) for c in itertools.combinations(_PECAS, n)]
+
+
+def _concordam(tmp_path, conteudo: bytes) -> bool:
+    pasta = tmp_path / "ep"
+    pasta.mkdir()
+    (pasta / "current.jsonl").write_bytes(conteudo)
+    do_g7 = ep.analisar_current(pasta)["estado"] == "com_rounds"
+    do_orfao = start_match.preservar_orfao(pasta, log=lambda _: None) is not None
+    assert do_g7 == do_orfao
+    return do_orfao
+
+
+@pytest.mark.parametrize("pecas", _COMBINACOES, ids=lambda c: "+".join(c) or "so_cauda")
+def test_preservar_orfao_concorda_com_analisar_current(tmp_path, pecas):
+    conteudo = CAUDA_REAL.read_bytes() + b"".join(_PECAS[p]() for p in pecas)
+    # Gabarito à mão: só a morte de pós-jogo (sozinha) some na cauda.
+    assert _concordam(tmp_path, conteudo) == (set(pecas) - {"pos_jogo"} != set())
+
+
+@pytest.mark.parametrize("fixture", [CAUDA_REAL, CAUDA_REAL_2, CAPTURA / "orfao_falso_83.jsonl",
+                                     CAPTURA / "orfao_falso_87.jsonl", PARTIDA_44, PARTIDA_59],
+                         ids=["cauda_t13", "cauda_logs", "83", "87", "partida_44", "partida_59"])
+def test_preservar_orfao_concorda_com_analisar_current_nos_arquivos_reais(tmp_path, fixture):
+    esperado = fixture in (PARTIDA_44, PARTIDA_59)
+    assert _concordam(tmp_path, fixture.read_bytes()) is esperado
+
+
 # ---------------------------------------------------- run_match com fakes
 
 class Parar(Exception):
@@ -185,6 +314,16 @@ def test_run_match_com_a_cauda_real_nao_cria_orfao(mundo):
     _rodar(mundo)
     assert mundo.chamadas == [("compose_up", True, []), ("loadmatch", True, [])]
     assert (mundo.eventos / "current.jsonl").read_bytes() == CAUDA_REAL.read_bytes()
+
+
+def test_run_match_com_a_morte_de_pos_jogo_real_nao_cria_orfao(mundo):
+    # P1.1d: a subida seguinte à partida 87 com o current.jsonl que ela deixou.
+    fixture = CAPTURA / "orfao_falso_87.jsonl"
+    (mundo.eventos / "current.jsonl").write_bytes(fixture.read_bytes())
+    _rodar(mundo)
+    assert mundo.chamadas == [("compose_up", True, []), ("loadmatch", True, [])]
+    assert (mundo.eventos / "current.jsonl").read_bytes() == fixture.read_bytes()
+    assert not any("preservado em" in l for l in mundo.logs)
 
 
 def test_run_match_grava_o_log_em_logs_partidas(mundo, tmp_path):

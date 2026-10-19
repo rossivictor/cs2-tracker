@@ -522,7 +522,10 @@ def _tipo(evento) -> str:
 
 def _morte_de_pos_jogo(evento) -> bool:
     """O jogador morto pelo 'world' (atacante = vítima), sem round em curso:
-    é o resto da tela final (sair, trocar de time), não partida."""
+    é o resto da tela final (sair, trocar de time), não partida. Mesma regra
+    do start_match.morte_de_pos_jogo, que o órfão segue (P1.1d); a cópia é de
+    propósito, para esta ferramenta não importar o caminho de jogo (que lê o
+    .env), e o test_orphan_e_log.py prova que as duas concordam."""
     atacante = evento.get("attacker_steamid")
     return (_tipo(evento) == "player_death" and evento.get("weapon") == "world"
             and bool(atacante) and atacante == evento.get("victim_steamid"))

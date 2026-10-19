@@ -55,12 +55,25 @@ Sink = Callable[[str], None]
 # segfault na troca para o mapa 2), os rounds dela estão só ali. Basta UM
 # destes eventos para ser partida de verdade. O resto (snapshot, round_stats,
 # round_officially_ended) é a cauda normal de toda partida já arquivada, e
-# segue sendo truncada pelo plugin, como antes.
+# segue sendo truncada pelo plugin, como antes. Exceção (P1.1d): a morte de
+# pós-jogo (morte_de_pos_jogo) também é cauda; contrato do JSONL, §7.
 EVENTOS_DE_PARTIDA = frozenset({"round_start", "player_death", "player_hurt"})
 
 
 def _carimbo_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def morte_de_pos_jogo(evento: dict) -> bool:
+    """O jogador morto pelo 'world' com atacante = vítima: o resto da tela
+    final (sair, trocar de time), não round (P1.1d). Mesma regra do
+    tools/evidencia_partida._morte_de_pos_jogo; o teste
+    test_orphan_e_log.py::test_preservar_orfao_concorda_com_analisar_current
+    prova que as duas concordam. Só vale sem round_start no arquivo: com um,
+    o round_start já faz do arquivo um órfão."""
+    atacante = evento.get("attacker_steamid")
+    return (evento.get("type") == "player_death" and evento.get("weapon") == "world"
+            and bool(atacante) and atacante == evento.get("victim_steamid"))
 
 
 def _tem_evento_de_partida(caminho: Path) -> bool:
@@ -71,7 +84,8 @@ def _tem_evento_de_partida(caminho: Path) -> bool:
                 evento = json.loads(linha)
             except ValueError:
                 continue
-            if isinstance(evento, dict) and evento.get("type") in EVENTOS_DE_PARTIDA:
+            if (isinstance(evento, dict) and evento.get("type") in EVENTOS_DE_PARTIDA
+                    and not morte_de_pos_jogo(evento)):
                 return True
     return False
 

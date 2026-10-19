@@ -26,7 +26,9 @@ import watcher  # noqa: E402
 from identity import PlayerIdentity  # noqa: E402
 
 FIX = RAIZ / "tests" / "fixtures" / "captura"
-ARQUIVOS = ("events_44_map0.jsonl", "events_59_map0.jsonl", "current.jsonl", "serie_bo3.log")
+ARQUIVOS = ("events_44_map0.jsonl", "events_59_map0.jsonl", "current.jsonl", "serie_bo3.log",
+            # P1.1d: os órfãos falsos das partidas 83 e 87, anonimizados como os do T1.3.
+            "orfao_falso_83.jsonl", "orfao_falso_87.jsonl")
 HUMANO = PlayerIdentity(name="Jogador", steamid="76561190000000001")
 # Quem aparece com SteamID64 em cada arquivo, depois da troca.
 IDS_ESPERADOS = {
@@ -34,6 +36,8 @@ IDS_ESPERADOS = {
     "events_59_map0.jsonl": {"76561190000000001"},
     "current.jsonl": set(),
     "serie_bo3.log": {"76561190000000001"},
+    "orfao_falso_83.jsonl": {"76561190000000001"},
+    "orfao_falso_87.jsonl": {"76561190000000001"},
 }
 BLOCOS_DE_DOCUMENTACAO = [ipaddress.ip_network(r) for r in
                           ("192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24")]
@@ -70,7 +74,7 @@ def _ingerir(tmp_path, nome):
 
 # ------------------------------------------------------------ existência e forma
 
-def test_as_quatro_fixtures_existem_e_sao_pequenas():
+def test_as_fixtures_existem_e_sao_pequenas():
     for nome in ARQUIVOS:
         assert (FIX / nome).stat().st_size < 400_000, nome
 
