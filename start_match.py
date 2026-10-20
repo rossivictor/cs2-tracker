@@ -883,38 +883,205 @@ def force_start_and_balance_bots(*, rcon_host, rcon_port, rcon_password, contain
         )
 
 
-def wait_for_next_map_warmup(container_name: str, since_ts: float, timeout_s: int = 240,
-                              log: Sink = print) -> bool:
+# Mapas 2..N da série sozinhos (P1.5). A espera do mapa seguinte começa logo
+# depois do css_start do mapa anterior e dura o mapa inteiro (um mapa da
+# série de 19/09 levou 70 min). O teto vale por espera, não pela série: uma
+# MD3 longa passa de 3 h somando os mapas, e desistir antes do fim real do
+# mapa anterior devolveria o mapa seguinte ao botão.
+TETO_ESPERA_MAPA_S = 3 * 60 * 60
+# O warmup do mapa novo não acaba sozinho (bots não contam como prontos):
+# 5 s de atraso não custam nada e poupam chamadas ao docker.
+INTERVALO_ESPERA_MAPA_S = 5
+DOCKER_LOGS_TIMEOUT_S = 30
+# Leitura pelo fim (o contorno do B0.7h): N linhas do fim, dobrando só se
+# nenhuma delas for velha (lacuna possível), até o N dos ajudantes do smoke.
+TAIL_PELO_FIM, TAIL_PELO_FIM_TETO = 200, 5000
+
+_CARIMBO_DOCKER = re.compile(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?Z\s")
+_FIM_DE_MAPA = re.compile(r"MATCH ENDED, remainingMaps: (\d+), NumMaps: (\d+), "
+                          r"Team1SeriesScore: (\d+), Team2SeriesScore: (\d+)")
+
+
+def _carimbo_ns(linha: str) -> Optional[int]:
+    """Nanossegundos UTC do carimbo do `docker logs -t` no começo da linha."""
+    achado = _CARIMBO_DOCKER.match(linha)
+    if not achado:
+        return None
+    base, fracao = achado.groups()
+    segundos = int(datetime.fromisoformat(base).replace(tzinfo=timezone.utc).timestamp())
+    return segundos * 10**9 + int((fracao or "").ljust(9, "0"))
+
+
+class CursorDockerLogs:
+    """Lê o docker logs do container para a frente, sem reler (P1.5).
+
+    O cursor é o carimbo da última linha lida e só avança. O caminho principal
+    é o `docker logs -t --since <epoch do cursor>`, que devolve só o que veio
+    depois dele. Com o json-file corrompido (armadilha "docker logs --since
+    volta vazio", desde 18/10) o --since sai vazio com código 0: enquanto ele
+    não trouxer nada novo, o cursor confere pelo fim (`--tail 200 -t`, filtrado
+    pelo carimbo); se o fim tem linha nova, o --since está quebrado e a leitura
+    segue pelo fim até o fim da série. Depois que o --since trouxe linha nova
+    uma vez, não se confere mais. O --since é inclusivo: as linhas que já
+    lemos no carimbo do cursor são puladas pela contagem (`vistas`).
+    """
+
+    def __init__(self, container_name: str, desde_ns: int, log: Sink = print):
+        self.container_name = container_name
+        self.ns, self.vistas = desde_ns, 0
+        self.pelo_fim = False
+        self.since_provado = False  # o --since já trouxe linha nova: não confere mais
+        self.chamadas = 0     # chamadas de docker logs
+        self.linhas_lidas = 0  # linhas que o docker devolveu (o volume relido)
+        self.log = log
+
+    @classmethod
+    def no_fim_do_log(cls, container_name: str, log: Sink = print) -> "CursorDockerLogs":
+        """Cursor na última linha do log do container (`--tail 1`), e não no
+        relógio do Windows, que pode andar fora do da VM do Docker. Sem
+        resposta, cai no relógio."""
+        cursor = cls(container_name, int(time.time() * 10**9), log)
+        linhas = cursor._docker("--tail", "1")
+        if linhas:  # 1 ns depois dela: o grupo do mesmo carimbo fica para trás
+            cursor.ns = linhas[-1][0] + 1
+        return cursor
+
+    def _docker(self, *args) -> Optional[list]:
+        self.chamadas += 1
+        try:
+            r = subprocess.run(
+                ["docker", "logs", "-t", *args, self.container_name],
+                capture_output=True, text=True, encoding="utf-8", errors="ignore",
+                timeout=DOCKER_LOGS_TIMEOUT_S,
+            )
+        except Exception:  # docker fora, timeout: nada lido nesta volta
+            return None
+        if r.returncode != 0:
+            return None
+        brutas = (r.stdout or "").splitlines() + (r.stderr or "").splitlines()
+        self.linhas_lidas += len(brutas)
+        carimbadas = [(ns, linha) for linha in brutas if (ns := _carimbo_ns(linha)) is not None]
+        return sorted(carimbadas, key=lambda par: par[0])
+
+    def _depois_do_cursor(self, linhas) -> list:
+        novas, pular = [], self.vistas
+        for ns, linha in linhas:
+            if ns < self.ns:
+                continue
+            if ns == self.ns and pular:
+                pular -= 1
+                continue
+            novas.append((ns, linha))
+        return novas
+
+    def avancar(self, ns: int):
+        """Marca como lida a linha de carimbo `ns` (nunca volta)."""
+        if ns > self.ns:
+            self.ns, self.vistas = ns, 1
+        elif ns == self.ns:
+            self.vistas += 1
+
+    def since(self) -> str:
+        return f"{self.ns // 10**9}.{self.ns % 10**9:09d}"
+
+    def _ler_pelo_fim(self) -> list:
+        n, melhor, topo = TAIL_PELO_FIM, [], None
+        while True:
+            linhas = self._docker("--tail", str(n))
+            if not linhas or (topo is not None and linhas[-1] != topo):
+                break  # vazio, ou o N cruzou uma entrada corrompida
+            topo = linhas[-1]
+            melhor = self._depois_do_cursor(linhas)
+            velha = linhas[0][0] < self.ns or (linhas[0][0] == self.ns and not self.vistas)
+            if velha or len(linhas) < n:
+                break
+            if n >= TAIL_PELO_FIM_TETO:
+                self.log(f"[AVISO] Mais de {n} linhas novas no docker logs entre duas "
+                         "leituras: pode ter ficado linha sem ler.")
+                break
+            n = min(2 * n, TAIL_PELO_FIM_TETO)
+        return melhor
+
+    def novas(self) -> list:
+        """[(carimbo_ns, linha)] depois do cursor, na ordem; não avança."""
+        if not self.pelo_fim:
+            novas = self._depois_do_cursor(self._docker("--since", self.since()) or [])
+            if novas or self.since_provado:
+                self.since_provado = self.since_provado or bool(novas)
+                return novas
+            novas = self._ler_pelo_fim()
+            if novas:
+                self.pelo_fim = True
+                self.log("[AVISO] docker logs --since voltou sem as linhas novas que o --tail "
+                         "mostra (json-file corrompido?); sigo lendo o log pelo fim.")
+            return novas
+        return self._ler_pelo_fim()
+
+
+def _fim_da_serie(linha: str, decide_cedo: bool) -> bool:
+    """MATCH ENDED sem mapa seguinte: remainingMaps 0, ou (clinch_series) um
+    time já com a maioria dos mapas, como no 2-0 de uma MD3."""
+    achado = _FIM_DE_MAPA.search(linha)
+    if not achado:
+        return False
+    restantes, num_maps, placar1, placar2 = map(int, achado.groups())
+    return restantes == 0 or (decide_cedo and max(placar1, placar2) > num_maps // 2)
+
+
+def wait_for_next_map_warmup(container_name: str, since_ts: Optional[float] = None,
+                              timeout_s: float = TETO_ESPERA_MAPA_S, log: Sink = print, *,
+                              cursor: Optional[CursorDockerLogs] = None,
+                              exigir_conexao: bool = True, decide_cedo: bool = True,
+                              cancelado: Optional[Callable[[], Optional[str]]] = None,
+                              relogio: Optional[Callable[[], float]] = None,
+                              dormir: Optional[Callable[[float], None]] = None,
+                              intervalo_s: float = INTERVALO_ESPERA_MAPA_S) -> bool:
     """
     Espera passivamente (só lendo docker logs) o próximo mapa de uma série
     BO3/BO5 carregar e entrar em warmup, pra saber a hora certa de repetir
-    force_start_and_balance_bots(). Só olha logs a partir de `since_ts`
-    (time.time() capturado antes do mapa atual terminar) pra não reagir a
-    um "[StartWarmup]" antigo, do mapa anterior.
+    force_start_and_balance_bots(). Lê pelo `cursor` (o mesmo da série
+    inteira, P1.5), ou, sem ele, a partir de `since_ts` (epoch).
 
-    Retorna True se detectou o próximo mapa entrando em warmup, False se
-    `remainingMaps: 0` apareceu primeiro (série acabou, não tem próximo
-    mapa) ou o timeout estourou.
+    O mapa novo está pronto com, nesta ordem: `[ChangeMap]`, `[FULL CONNECT]`
+    (você entrou no mapa novo; com exigir_conexao=False, sem jogador, não se
+    espera) e `[StartWarmup]`. O `[StartWarmup]` que sai junto com o
+    `[ChangeMap]` é do mapa velho: o changelevel só vem 3 s depois, e forçar
+    o início ali montaria os times no mapa que está saindo (B1.12, seção 1).
+
+    True com o mapa novo em warmup. False se a série acabou (remainingMaps 0
+    ou série decidida, com decide_cedo), se `cancelado()` devolveu um motivo
+    ou se o teto de `timeout_s` (contado do início desta espera) estourou.
+    relogio/dormir: time.time/time.sleep, trocáveis no teste.
     """
-    since_iso = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(since_ts))
-    deadline = time.time() + timeout_s
-    seen_changemap = False
-    while time.time() < deadline:
-        result = subprocess.run(
-            ["docker", "logs", "--since", since_iso, container_name],
-            capture_output=True, text=True, encoding="utf-8", errors="ignore",
-        )
-        text = result.stdout + result.stderr
-        if "remainingMaps: 0" in text:
-            log("[MATCHZY] A série terminou (remainingMaps: 0); não há próximo mapa.")
+    relogio = relogio or time.time
+    dormir = dormir or time.sleep
+    if cursor is None:
+        inicio = relogio() if since_ts is None else since_ts
+        cursor = CursorDockerLogs(container_name, int(inicio * 10**9), log)
+    prazo = relogio() + timeout_s
+    viu_changemap = viu_conexao = False
+    while True:
+        motivo = cancelado() if cancelado else None
+        if motivo:
+            log(f"[MATCHZY] Parei de esperar o próximo mapa: {motivo}.")
             return False
-        if "[MatchZy] [ChangeMap]" in text:
-            seen_changemap = True
-        if seen_changemap and "[MatchZy] [StartWarmup]" in text:
-            return True
-        time.sleep(2)
-    log(f"[AVISO] Timeout de {timeout_s}s esperando ChangeMap -> StartWarmup.")
-    return False
+        for ns, linha in cursor.novas():
+            cursor.avancar(ns)
+            if _fim_da_serie(linha, decide_cedo):
+                log("[MATCHZY] A série terminou; não há próximo mapa.")
+                return False
+            if "[MatchZy] [ChangeMap]" in linha:
+                viu_changemap, viu_conexao = True, False
+            elif viu_changemap and "[MatchZy] [FULL CONNECT]" in linha:
+                viu_conexao = True
+            elif (viu_changemap and (viu_conexao or not exigir_conexao)
+                  and "[MatchZy] [StartWarmup]" in linha):
+                return True
+        if relogio() >= prazo:
+            log(f"[AVISO] Teto de {timeout_s / 3600:g} h esperando o próximo mapa "
+                "(ChangeMap -> FULL CONNECT -> StartWarmup).")
+            return False
+        dormir(intervalo_s)
 
 
 def start_watcher(container_name: str, player: str, match_config_path: Path,
@@ -975,7 +1142,8 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
               side=None, on_watcher_started=None, watcher_output=None,
               confirm_ready=None, rcon_lock=None, log: Sink = print,
               my_lineup: Optional[List[str]] = None, enemy_lineup: Optional[List[str]] = None,
-              enemy_team_name: Optional[str] = None, enemy_team_logo: str = ""):
+              enemy_team_name: Optional[str] = None, enemy_team_logo: str = "",
+              cancelar: Optional[threading.Event] = None):
     """
     Orquestração completa (passos 1-5 do docker/SPIKE.md), sem nenhum
     acoplamento a argparse — corpo extraído de main() pra ser reaproveitado
@@ -1005,6 +1173,8 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
     continua funcionando sem passar nada. Repassado a toda função chamada
     daqui que também fala com o "terminal" — nenhuma delas usa
     contextlib.redirect_stdout.
+    cancelar: Event opcional que interrompe a espera dos mapas 2..N da série
+    (P1.5); o fim do watcher também interrompe.
 
     Dificuldade dos bots NÃO é configurável aqui: o plugin CS2-Bot-Improver
     (github.com/ed0ard/CS2-Bot-Improver) que este projeto usa ignora os
@@ -1125,11 +1295,28 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
     # reexecuta no load do novo mapa). Sem repetir force_start_and_balance_bots
     # aqui, a série trava no warmup do mapa 2 pra sempre — observado ao vivo.
     # Você já está conectado, então não precisa de confirm_ready de novo.
-    num_maps = json.loads(local_match_config.read_text(encoding="utf-8")).get("num_maps", 1)
+    # P1.5: a espera dura o mapa anterior inteiro (teto de 3 h por mapa) e lê
+    # o docker logs por um cursor só, da série toda, que nunca volta. Ela para
+    # se quem chamou setar `cancelar` ou se o watcher encerrar: fechar a TUI
+    # mata o watcher, e sem isso a worker thread seguraria o processo.
+    serie = json.loads(local_match_config.read_text(encoding="utf-8"))
+    num_maps = serie.get("num_maps", 1)
+    cursor = CursorDockerLogs.no_fim_do_log(container_name, log=log) if num_maps > 1 else None
+
+    def cancelado() -> Optional[str]:
+        if cancelar is not None and cancelar.is_set():
+            return "cancelado por quem iniciou a partida"
+        if watcher_proc is not None and watcher_proc.poll() is not None:
+            return "o watcher encerrou (TUI fechada ou Ctrl+C)"
+        return None
+
     for map_index in range(2, num_maps + 1):
-        log(f"\n[MATCHZY] Esperando o mapa {map_index}/{num_maps} da série carregar...")
-        since_ts = time.time()
-        if not wait_for_next_map_warmup(container_name, since_ts, log=log):
+        log(f"\n[MATCHZY] Esperando o mapa {map_index}/{num_maps} da série carregar "
+            f"(até {TETO_ESPERA_MAPA_S // 3600} h; ele começa sozinho quando você entrar)...")
+        if not wait_for_next_map_warmup(container_name, log=log, cursor=cursor,
+                                        exigir_conexao=bool(player),
+                                        decide_cedo=serie.get("clinch_series", True) is not False,
+                                        cancelado=cancelado):
             log("[AVISO] Não detectei o próximo mapa entrando em warmup "
                 "(série já pode ter terminado) — seguindo sem forçar de novo.")
             break

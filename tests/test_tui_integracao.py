@@ -71,6 +71,7 @@ class Servidor:
         self.conexoes = []    # (host, porta, senha)
         self.lock = threading.Lock()
         self.daemon_no_ar = True  # P1.1c: False simula o Docker Desktop parado
+        self.carimbo = int(time.time()) + 3600  # do docker logs -t, à frente do relógio
 
     # -- docker (start_match.subprocess.run) --------------------------------
     def run(self, argv, **kwargs):
@@ -86,10 +87,17 @@ class Servidor:
             raise EsperaIndevida(f"docker com o daemon fora do ar: {argv!r}")
         if argv[1] == "inspect":
             return subprocess.CompletedProcess(argv, 1, "", "No such object")
-        if argv[1:3] == ["logs", "--since"]:
-            # Série: o próximo mapa carrega e entra em warmup.
-            return subprocess.CompletedProcess(
-                argv, 0, "[MatchZy] [ChangeMap]\n[MatchZy] [StartWarmup]\n", "")
+        if argv[1:3] == ["logs", "-t"]:
+            # Série (P1.5): cada leitura traz o próximo mapa carregado, você
+            # dentro e o warmup, com carimbos novos (o cursor só anda).
+            with self.lock:
+                self.carimbo += 3
+                base = self.carimbo
+            linhas = "".join(
+                f"{time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime(base + i))}.000000000Z {texto}\n"
+                for i, texto in enumerate(("[MatchZy] [ChangeMap]", "[MatchZy] [FULL CONNECT]",
+                                           "[MatchZy] [StartWarmup]")))
+            return subprocess.CompletedProcess(argv, 0, linhas, "")
         return subprocess.CompletedProcess(argv, 0, "", "")
 
     # -- watcher (start_match.subprocess.Popen) -----------------------------
@@ -98,8 +106,9 @@ class Servidor:
             self.popen.append(list(argv))
         if not self.daemon_no_ar:
             raise EsperaIndevida(f"watcher com o daemon fora do ar: {argv!r}")
+        # poll None: o watcher segue vivo (o fim dele interrompe a série, P1.5).
         return types.SimpleNamespace(stdout=io.StringIO(""), wait=lambda timeout=None: 0,
-                                     poll=lambda: 0, terminate=lambda: None,
+                                     poll=lambda: None, terminate=lambda: None,
                                      kill=lambda: None)
 
     # -- RCON (start_match.RconClient) --------------------------------------
