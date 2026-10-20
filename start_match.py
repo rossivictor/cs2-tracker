@@ -353,18 +353,25 @@ def rcon_run(host, port, password, command, timeout=5):
         return client.run(command)
 
 
-def human_side_from_config(match_config_path: Path, log: Sink = print) -> str:
+def human_side_from_config(match_config_path: Path, map_index: int = 0,
+                           log: Sink = print) -> str:
     """
-    Lê map_sides do match_config pra saber de que lado o time humano
-    (team1, por convenção deste projeto) começa no mapa carregado.
+    Lê map_sides[map_index] do match_config pra saber de que lado o time
+    humano (team1, por convenção deste projeto) começa no mapa `map_index`
+    da série (0 = primeiro mapa). P1.6: numa MD3 com map_sides
+    [team1_ct, team1_t, ...] o mapa 2 é de TR; ler sempre o [0] montava os
+    times do mapa 2 com o lado do mapa 1.
     Default "ct" (mesmo default do match_config.spike.json) se o
-    arquivo não existir ou não tiver o campo.
+    arquivo não existir, não tiver o campo ou não tiver esse índice.
     """
     try:
         data = json.loads(match_config_path.read_text(encoding="utf-8"))
         sides = data.get("map_sides", [])
-        if sides and sides[0] == "team1_t":
-            return "t"
+        if map_index < len(sides):
+            return "t" if sides[map_index] == "team1_t" else "ct"
+        if sides:
+            log(f"[AVISO] map_sides de {match_config_path.name} não tem o mapa "
+                f"{map_index + 1} ({sides}), assumindo team1=CT.")
     except Exception as exc:
         log(f"[AVISO] não consegui ler {match_config_path} ({exc}), assumindo team1=CT.")
     return "ct"
@@ -385,11 +392,15 @@ def set_side_in_config(match_config_path: Path, side: str, log: Sink = print):
     (team1) no lado declarado aqui e desabilita a troca manual pelo menu
     do jogo enquanto o match está carregado — então o único jeito de jogar
     de TR é mudar isso antes do matchzy_loadmatch, não em jogo.
+
+    Numa série (num_maps > 1) o --side vale para todos os mapas: grava um
+    lado por mapa, em vez de deixar só o [0] e os mapas seguintes sem lado
+    (P1.6). Na MD1 a lista continua com um elemento só.
     """
     data = json.loads(match_config_path.read_text(encoding="utf-8"))
-    data["map_sides"] = [f"team1_{side}"]
+    data["map_sides"] = [f"team1_{side}"] * max(1, int(data.get("num_maps") or 1))
     match_config_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    log(f"[CONFIG] {match_config_path.name}: map_sides -> [team1_{side}]")
+    log(f"[CONFIG] {match_config_path.name}: map_sides -> {data['map_sides']}")
 
 
 def read_max_players(compose_file: Path):
@@ -706,6 +717,7 @@ def _resolve_lineup_names(*, human_side: str, team_size: int, player,
 
 def _force_start_and_balance_bots(*, rcon_host, rcon_port, rcon_password, container_name,
                                    team_size, player, local_match_config, log: Sink = print,
+                                   map_index: int = 0,
                                    my_lineup: Optional[List[str]] = None,
                                    enemy_lineup: Optional[List[str]] = None,
                                    enemy_team_name: Optional[str] = None,
@@ -730,13 +742,17 @@ def _force_start_and_balance_bots(*, rcon_host, rcon_port, rcon_password, contai
     (F4.4) — só reafirmado quando uma lineup foi de fato montada (my_lineup
     ou enemy_lineup não vazio); enemy_team_name=None é o sinal de "nenhuma
     lineup, não mexe no placar" (modo anônimo de sempre).
+    map_index: mapa da série que está entrando (0 = primeiro), para ler o
+    lado do time humano em map_sides[map_index] (P1.6). O mesmo lado manda
+    na montagem dos times e na reconciliação esperada CT:TR, mais abaixo.
     """
-    human_side = human_side_from_config(local_match_config, log=log)
+    human_side = human_side_from_config(local_match_config, map_index=map_index, log=log)
     ct_names, t_names = _resolve_lineup_names(
         human_side=human_side, team_size=team_size, player=player,
         my_lineup=my_lineup, enemy_lineup=enemy_lineup,
     )
-    log(f"[MATCHZY] Time humano no lado {human_side.upper()}. "
+    log(f"[MATCHZY] Time humano no lado {human_side.upper()} "
+        f"(mapa {map_index + 1}, map_sides[{map_index}]). "
         f"Balanceando pra {team_size}x{team_size} "
         f"({len(ct_names)} bot(s) CT + {len(t_names)} bot(s) TR) ainda no warmup...")
 
@@ -836,7 +852,8 @@ def _force_start_and_balance_bots(*, rcon_host, rcon_port, rcon_password, contai
 
 def force_start_and_balance_bots(*, rcon_host, rcon_port, rcon_password, container_name,
                                   team_size, player, local_match_config, rcon_lock=None,
-                                  log: Sink = print, my_lineup: Optional[List[str]] = None,
+                                  log: Sink = print, map_index: int = 0,
+                                  my_lineup: Optional[List[str]] = None,
                                   enemy_lineup: Optional[List[str]] = None,
                                   enemy_team_name: Optional[str] = None,
                                   enemy_team_logo: str = ""):
@@ -845,6 +862,7 @@ def force_start_and_balance_bots(*, rcon_host, rcon_port, rcon_password, contain
     O mesmo lock é compartilhado pelas chamadas automáticas de run_match e
     pelo botão manual do wizard, evitando que duas sequências RCON se cruzem.
     No uso via CLI, cria um lock local por compatibilidade.
+    map_index: mapa da série (0 = primeiro); ver _force_start_and_balance_bots.
     """
     lock = rcon_lock or threading.Lock()
     with lock:
@@ -857,6 +875,7 @@ def force_start_and_balance_bots(*, rcon_host, rcon_port, rcon_password, contain
             player=player,
             local_match_config=local_match_config,
             log=log,
+            map_index=map_index,
             my_lineup=my_lineup,
             enemy_lineup=enemy_lineup,
             enemy_team_name=enemy_team_name,
@@ -1120,6 +1139,7 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
                 rcon_host=rcon_host, rcon_port=rcon_port, rcon_password=rcon_password,
                 container_name=container_name, team_size=team_size, player=player,
                 local_match_config=local_match_config, rcon_lock=rcon_lock, log=log,
+                map_index=map_index - 1,  # P1.6: map_sides[i] do mapa que entrou
                 my_lineup=my_lineup, enemy_lineup=enemy_lineup,
                 enemy_team_name=enemy_team_name, enemy_team_logo=enemy_team_logo,
             )
