@@ -5,6 +5,8 @@ fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.sprints)"
   - "backup:temp-artifacts/eb5adec0/plan/plan.md (seção 3, Sequência)"
   - "commit 0164cc3 (candidato-17 e tag jogavel-2026-10-19-2, do P1.1d)"
+  - "commit a32ef5e (candidato-18 e tag jogavel-2026-10-19-3, do par P1.3 + P1.4)"
+  - "backup:../2026-10-19/janela-t2/t2-velho-resumo.txt (T2, braço processo velho: 6 viradas, memória antes de cada uma de 1,988 a 3,514 GiB, 3,599 GiB no fim)"
 atualizado: 2026-10-19
 ---
 
@@ -83,19 +85,18 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 Foto do board (`docs/board-cs2/`, fora do git) nesta data. **O status de cada card é o do board**; esta seção diz a sprint da vez, a ordem da fila e as decisões que a mudaram.
 
 - **Fechadas:** B0 (03/10), B1 com as sobras (B1.9b skins; B1.7 BotAI religado pelo fork 1.8.12-b1.7b), H1, T1 (12/10). A K1 só tem a poda de comentários (K1.9, card 78) aberta; o K1.7 (76) está adiado.
-- **Trilho: P1.** Validados e com tag: P1.1 (`jogavel-2026-10-13`), P1.1a (`jogavel-2026-10-14`), P1.1b (`jogavel-2026-10-16`), P1.2 (`jogavel-2026-10-17`; válvula vanilla; partida 85 (`events_85_map0`) em 17/10), P1.1c (`jogavel-2026-10-19`; partida 88 (`events_88_map0`) em 19/10) e P1.1d (`jogavel-2026-10-19-2`, no `0164cc3`; partida 89 (`events_89_map0`) em 19/10). A base do trilho é a `jogavel-2026-10-19-2`. Ordem aprovada pelo Victor para o resto da P1, um candidato por vez, e cada par da exceção de 19/10 como um candidato só:
-  1. P1.3 (82) + P1.4 (83), em par: watcher isolado dos geradores e aviso de captura não carregada.
-  2. Janela T2 (B1.12d, 29,95): virada de série com processo novo e velho, medindo memória. Pede processo com horas no ar e o Victor no PC.
-  3. P1.6 (85), sozinho: pede MD3; só depois do T2.
-  4. P1.5 (84), sozinho: pede MD3.
-  5. P1.7 (86) + P1.8 (87), em par.
-  6. P1.10 (89), sozinho: vai antes do par seguinte porque o P1.11 depende dele.
-  7. P1.9 (88, tira o SteamID real do `match_config.spike.json` versionado) + P1.11 (90), em par e numa janela só.
+- **Trilho: P1.** Validados e com tag: P1.1 (`jogavel-2026-10-13`), P1.1a (`jogavel-2026-10-14`), P1.1b (`jogavel-2026-10-16`), P1.2 (`jogavel-2026-10-17`; válvula vanilla; partida 85 (`events_85_map0`) em 17/10), P1.1c (`jogavel-2026-10-19`; partida 88 (`events_88_map0`) em 19/10), P1.1d (`jogavel-2026-10-19-2`, no `0164cc3`; partida 89 (`events_89_map0`) em 19/10) e o par P1.3 (82) + P1.4 (83) (`jogavel-2026-10-19-3`, no `a32ef5e`; partida 91 (`events_91_map0`) em 19/10). A base do trilho é a `jogavel-2026-10-19-3`. Ordem aprovada pelo Victor para o resto da P1, um candidato por vez, e cada par da exceção de 19/10 como um candidato só:
+  1. Janela T2 (B1.12d, 29,95): virada de série com processo novo e velho, medindo memória. O braço processo velho rodou na janela de 19/10 (6 viradas sem queda, memória do container de ~2,0 para ~3,6 GiB, ~0,3 GiB por virada); o braço processo novo (`docker restart` e 6 viradas) não rodou, porque a janela venceu esperando a aprovação do restart. Ele fica para uma janela curta, com o Victor no PC aprovando na hora (opção A).
+  2. P1.6 (85), sozinho: pede MD3; só depois do T2.
+  3. P1.5 (84), sozinho: pede MD3; também espera o T2.
+  4. P1.7 (86) + P1.8 (87), em par.
+  5. P1.10 (89), sozinho: vai antes do par seguinte porque o P1.11 depende dele.
+  6. P1.9 (88, tira o SteamID real do `match_config.spike.json` versionado) + P1.11 (90), em par e numa janela só.
 - **Pista paralela, sem servidor:** P1.12 (91) depois do P1.5; K1.9 (poda) depois; V1 a semear.
 - **Sobras de janela:** T1.7 (`.gitattributes`), B0.11 (comentários do compose), B0.7d (bloquear docker cru).
 - **MD3:** jogar MD1 até o T2 (o crash de 04/10 foi na virada de série; o T1 do B1.12 fez 12 viradas sem queda; a memória do container cresce ~0,24 GiB por troca).
 - **Ambiente:** o Docker Desktop cai quase toda madrugada desde 13/09 (exit 0x40010004; `docs/armadilhas/windows-e-docker.md`): o container para, o json-file corrompe e o `coletar` reconstrói pelo `--tail` (B0.7h). Builds do CS2 em vigor: 2000933 (conferida para o BotAI do fork em 16/10).
 - **Decisões do Victor de 15 a 17/10:** ordem nova do trilho (MD1 primeiro); P1.1c e P1.1d; vanilla on/off só em janela.
-- **Decisão do Victor de 19/10:** os 3 pares da exceção ao trilho único (ver "Exceções aprovadas") e a ordem acima: P1.3+P1.4 → T2 → P1.6 → P1.5 → P1.7+P1.8 → P1.10 → P1.9+P1.11.
+- **Decisão do Victor de 19/10:** os 3 pares da exceção ao trilho único (ver "Exceções aprovadas") e a ordem acima: P1.3+P1.4 → T2 → P1.6 → P1.5 → P1.7+P1.8 → P1.10 → P1.9+P1.11. Com a janela T2 vencida, a opção A: o resto do T2 numa janela curta depois.
 
 Quem fecha uma sprint, abre exceção ou muda a fila atualiza esta seção no mesmo dia (PM). Sprint nova semeada no board ganha a faixa na tabela "Ordem de execução".
