@@ -484,12 +484,17 @@ def fix_bot_overflow(container_name, rcon_host, rcon_port, rcon_password,
     engine realmente colocou em cada time e kicka pelo nome quem sobrar.
     Roda ainda na janela de freeze time, depois do balanceamento normal e
     antes do primeiro round valer.
+
+    Devolve os nomes kickados (lista vazia se ninguém sobrou): quem chama
+    precisa saber se houve kick para esperar o servidor assentar antes de
+    contar de novo (P1.7).
     """
     snapshot = read_docker_team_snapshot(container_name)
     ct_bots = [name for name, team in snapshot.values() if team == "CT" and name != human_name]
     t_bots = [name for name, team in snapshot.values()
               if team == "TERRORIST" and name != human_name]
 
+    kicked = []
     for label, bots, target in (("CT", ct_bots, target_ct), ("TR", t_bots, target_t)):
         excess = len(bots) - target
         if excess > 0:
@@ -498,6 +503,34 @@ def fix_bot_overflow(container_name, rcon_host, rcon_port, rcon_password,
                 f"kickando excedente(s): {to_kick}")
             for name in to_kick:
                 rcon_run(rcon_host, rcon_port, rcon_password, f'bot_kick "{name}"')
+            kicked.extend(to_kick)
+    return kicked
+
+
+# Teto da espera pela contagem de clientes depois do css_start e depois do
+# kick do excedente (P1.7). A reposição da quota é assíncrona: o servidor
+# repõe o bot kickado no think seguinte, então a primeira leitura pode vir
+# com um a menos. Com todo mundo dentro, a espera sai na primeira leitura.
+PRESENTES_TIMEOUT_S = 10
+
+
+def _contar_presentes(rcon_host, rcon_port, rcon_password, esperado: int,
+                      log: Sink = print) -> int:
+    """Clientes conectados AGORA (humano + bots), pelo `status` do RCON, com
+    espera limitada até chegar a `esperado` (P1.7).
+
+    Não usa o bloco OnPreResetRound do docker logs: ele só se renova no reset
+    de round seguinte e, logo depois de um kick, ainda mostra quem já saiu
+    (partidas 89, 91 e 93, 19-20/10). O `status` não traz o time de ninguém,
+    só quem está conectado. 0 quer dizer "não deu para medir".
+    """
+    try:
+        return wait_for_client_count(rcon_host, rcon_port, rcon_password,
+                                     expected_clients=esperado,
+                                     timeout_s=PRESENTES_TIMEOUT_S)
+    except Exception as exc:
+        log(f"  [AVISO] Não consegui contar os clientes pelo status do RCON ({exc}).")
+        return 0
 
 
 LIVE_OVERRIDE_PATH = "/home/steam/cs2-dedicated/game/csgo/cfg/MatchZy/live_override.cfg"
@@ -805,9 +838,12 @@ def _force_start_and_balance_bots(*, rcon_host, rcon_port, rcon_password, contai
         if player:
             rcon_run(rcon_host, rcon_port, rcon_password,
                      f"bot_quota_mode normal; bot_quota {total_bots}")
-            snapshot = read_docker_team_snapshot(container_name)
-            presentes = sum(len(v) for v in snapshot.values()) if snapshot else 0
-            if presentes and presentes < total_bots + 1:
+            # P1.7: presentes conta CLIENTES pelo status do RCON. A soma
+            # antiga dos tamanhos das tuplas (nome, time) do snapshot dava 2
+            # por cliente, e a recomposição nunca disparava.
+            esperado = total_bots + 1
+            presentes = _contar_presentes(rcon_host, rcon_port, rcon_password, esperado, log=log)
+            if presentes and presentes < esperado:
                 log(f"  [AVISO] {presentes} cliente(s) após o css_start, "
                     f"esperado {total_bots + 1}. Recompondo os times...")
                 _balance_bots(
@@ -819,18 +855,31 @@ def _force_start_and_balance_bots(*, rcon_host, rcon_port, rcon_password, contai
                 # Sobra é o caso comum. fix_bot_overflow kicka pelo nome quem
                 # excede o alvo de cada lado — seguro aqui porque a camada 2
                 # ainda está ligada, então nenhum round pode terminar no meio.
-                fix_bot_overflow(container_name, rcon_host, rcon_port, rcon_password,
-                                 player, len(ct_names), len(t_names), log=log)
+                kicked = fix_bot_overflow(container_name, rcon_host, rcon_port, rcon_password,
+                                          player, len(ct_names), len(t_names), log=log)
                 rcon_run(rcon_host, rcon_port, rcon_password, f"bot_quota {total_bots}")
-                final = read_docker_team_snapshot(container_name)
+                # P1.7: a contagem final é medida DEPOIS do kick, pelo status.
+                # Reler o bloco OnPreResetRound repetia o 6:4 de antes do kick.
+                # O status não traz time, então o log não afirma CT:TR.
+                if kicked:
+                    time.sleep(1)  # o kick sai e a quota repõe no think seguinte
+                final = _contar_presentes(rcon_host, rcon_port, rcon_password, esperado, log=log)
                 if final:
-                    n_ct = sum(1 for n, t in final.values() if t == "CT")
-                    n_t = sum(1 for n, t in final.values() if t == "TERRORIST")
-                    log(f"[MATCHZY] Times após reconciliação: CT {n_ct} : TR {n_t} "
-                        f"(esperado {len(ct_names) + (1 if human_side == 'ct' else 0)} : "
-                        f"{len(t_names) + (0 if human_side == 'ct' else 1)}).")
-                    say_in_game(rcon_host, rcon_port, rcon_password,
-                                f"Times prontos: CT {n_ct} x {n_t} TR. Valendo!", log=log)
+                    exp_ct = len(ct_names) + (1 if human_side == 'ct' else 0)
+                    exp_t = len(t_names) + (0 if human_side == 'ct' else 1)
+                    log(f"[MATCHZY] Clientes após reconciliação (status do RCON): {final} "
+                        f"(esperado {esperado}: {exp_ct} CT + {exp_t} TR; "
+                        "o status não informa o lado).")
+                    if final == esperado:
+                        say_in_game(rcon_host, rcon_port, rcon_password,
+                                    f"Times prontos: {final} jogadores em campo. Valendo!",
+                                    log=log)
+                    else:
+                        say_in_game(rcon_host, rcon_port, rcon_password,
+                                    f"Atencao: {final} jogadores em campo, esperado {esperado}.",
+                                    log=log)
+                else:
+                    log("  [AVISO] Clientes após reconciliação: não medidos (status sem clientes ou com erro).")
     finally:
         # Camada 2 SEMPRE desligada, mesmo se algo acima explodir — senão a
         # partida não termina round nenhum.

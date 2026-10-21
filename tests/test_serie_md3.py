@@ -269,7 +269,10 @@ def test_reconciliacao_usa_o_lado_do_mapa(servidor, tmp_path):
         ['bot_kick "Ct1"', 'bot_kick "Ct1"']
     assert "[MATCHZY] CT com 6 bot(s), esperado 5 — kickando excedente(s): ['Ct1']" in logs
     assert not any(linha.startswith("[MATCHZY] TR com") for linha in logs)
-    assert "[MATCHZY] Times após reconciliação: CT 6 : TR 5 (esperado 5 : 5)." in logs
+    # P1.7: a linha final conta clientes pelo status (o STATUS_10 do fake),
+    # não relê o bloco velho de antes do kick.
+    assert ("[MATCHZY] Clientes após reconciliação (status do RCON): 10 "
+            "(esperado 10: 5 CT + 5 TR; o status não informa o lado).") in logs
 
 
 # -- série inteira pelo run_match ------------------------------------------
