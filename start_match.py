@@ -579,16 +579,51 @@ def write_live_override(container_name: str, total_bots: int, block_win_conditio
     ]
     if block_win_conditions:
         linhas.append("mp_ignore_round_win_conditions 1")
-    conteudo = "\n".join(linhas) + "\n"
+    _gravar_live_override(container_name, "\n".join(linhas) + "\n")
+    log(f"[MATCHZY] live_override.cfg escrito (bot_quota {total_bots}"
+        f"{', bloqueio de fim de round ligado' if block_win_conditions else ''}).")
 
+
+def _gravar_live_override(container_name: str, conteudo: str):
+    """Grava o conteúdo no live_override.cfg do container (docker exec, sem bind)."""
     subprocess.run(
         ["docker", "exec", "-i", container_name,
          "sh", "-c", f"cat > {LIVE_OVERRIDE_PATH}"],
         input=conteudo, check=True, capture_output=True,
         text=True, encoding="utf-8",
     )
-    log(f"[MATCHZY] live_override.cfg escrito (bot_quota {total_bots}"
-        f"{', bloqueio de fim de round ligado' if block_win_conditions else ''}).")
+
+
+# P1.8: só comentário, nenhum comando. O live.cfg roda inteiro e nada depois
+# dele mexe na quota nem no fim de round, como no arquivo vazio da MatchZy.
+LIVE_OVERRIDE_NEUTRO = (
+    "// Gerado pelo cs2-tracker antes do matchzy_loadmatch: override neutro.\n"
+    "// O css_start de cada mapa reescreve este arquivo com a quota da partida.\n"
+    "// Ver start_match.neutralizar_live_override (card P1.8).\n"
+)
+
+
+def neutralizar_live_override(container_name: str, log: Sink = print) -> bool:
+    """Regrava o live_override.cfg neutro antes do matchzy_loadmatch (P1.8).
+
+    Se um processo anterior morreu entre o css_start e o finally de
+    _force_start_and_balance_bots, o arquivo ficou no volume com
+    `mp_ignore_round_win_conditions 1` e a quota daquela partida
+    (docs/armadilhas/matchzy.md, item 16). Sem isto, a partida nova herda
+    os dois até o próprio css_start reescrever o arquivo, e um `.start`
+    digitado no chat antes disso trava todo round.
+
+    Nunca derruba a partida: falhou, avisa e segue, como o resto do override.
+    """
+    try:
+        _gravar_live_override(container_name, LIVE_OVERRIDE_NEUTRO)
+    except Exception as exc:
+        log(f"  [AVISO] Não consegui neutralizar o live_override.cfg ({exc}).")
+        log("  Se a partida não terminar round nenhum, rode no console do servidor:")
+        log("    mp_ignore_round_win_conditions 0")
+        return False
+    log("[MATCHZY] live_override.cfg neutro (sem quota e sem bloqueio de fim de round).")
+    return True
 
 
 def say_in_game(rcon_host, rcon_port, rcon_password, mensagem: str, log: Sink = print):
@@ -1295,6 +1330,11 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
         if watcher_proc is not None:
             watcher_proc.terminate()
         sys.exit(f"Partida não iniciada: a captura não carregou ({EXIGIR_CAPTURA}=1).")
+
+    # P1.8: override neutro antes do loadmatch, para a partida não herdar a
+    # quota e o bloqueio de fim de round de um processo que morreu no meio.
+    # Os mapas 2..N não passam aqui: o css_start de cada um reescreve o arquivo.
+    neutralizar_live_override(container_name, log=log)
 
     log(f"[MATCHZY] Carregando {match_config}...")
     response = rcon_run(rcon_host, rcon_port, rcon_password,
