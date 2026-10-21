@@ -319,12 +319,34 @@ FastAPI  ──  WizardSession (estado) ──  roster.py ── data/rosters.js
 
 ### Confiabilidade do início de partida
 
-O warmup às vezes trava — causa raiz desconhecida. O app tenta `css_start` +
-rebalanceio automaticamente até 2 vezes antes de desistir, mantém o botão manual
-como último recurso, e **registra cada ocorrência** (estado do `docker logs`,
-clientes conectados, mapa da série, tempo desde o `css_start`). O objetivo do
-registro é acumular evidência pra atacar a causa depois — hoje o remédio é manual
-e não deixa rastro.
+Em 20/09 o diagnóstico era "o warmup às vezes trava, causa raiz desconhecida", e a
+resposta decidida foi auto-retry, botão manual e telemetria (D11). **O P1.12 (20/10)
+registra a causa: era bug de código do orquestrador, não do servidor**, corrigido no
+P1.5 (`f6191a4`, PR #102) e validado numa MD3 real em 20/10 (tag `jogavel-2026-10-20`).
+A espera pelo warmup do mapa seguinte (`wait_for_next_map_warmup`, em `start_match.py`)
+desistia sempre durante o mapa 1, por dois defeitos somados:
+
+- o teto era de 240 s contados logo depois do `css_start` do mapa 1, então vencia com o
+  mapa 1 ainda em jogo;
+- o `docker logs --since` recebia a hora UTC sem fuso (sem o `Z`), que o Docker lê como
+  hora local: em -03, 3 h no futuro, e a leitura voltava vazia.
+
+Sobrava o botão manual em todo mapa 2+, que era o "warmup que trava". Desde o P1.5, a
+espera dura o mapa anterior inteiro (teto de 3 h por espera, `TETO_ESPERA_MAPA_S`), para
+quando a série acaba ou o watcher encerra, e lê o log por um cursor da série inteira
+(`CursorDockerLogs`): `--since` em epoch, que só avança, e leitura pelo fim (`--tail -t`
+filtrado pelo carimbo) quando o json-file corrompido devolve o `--since` vazio
+([armadilha](armadilhas/windows-e-docker.md), "`docker logs --since` volta vazio"). Na
+MD3 de 20/10, o mapa 2 começou sozinho, sem o botão.
+
+Com a causa fechada, a D11 foi **rebaixada** (§12): auto-retry e telemetria deixam de ser
+decisão vigente e nunca foram implementados ([M5](features/M5-confiabilidade.md), F5.1 e
+F5.2). O botão **Forçar início / rebalancear bots** da TUI segue como remédio manual para
+um início que não pegar; a pendência dele está na §15.
+
+A queda do servidor de 04/10 na virada de série da MD3 (segfault) é outra coisa: não tem
+causa provada e não é este bug. O estado dela fica no
+[runbook do B1.12](runbooks/b1.12-segfault-troca-de-mapa-md3.md) e no item da §15.
 
 ## 12. Decisões
 
@@ -340,7 +362,7 @@ e não deixa rastro.
 | D8 | **Perfil local** (nick + SteamID salvo), sem Steam OpenID | vigente | `data/profile.json` lido e gravado em `web/app.py:141-152` |
 | D9 | **MD1/MD3/MD5**, cada um com escolha direta de mapas **ou** veto | vigente | `wizard_core.py:52`, `wizard_core.py:96-139`, `wizard_core.py:220-229`; rotas `/maps` e `/veto` em `web/app.py:571-655` |
 | D10 | **SQLite atual**, sem migração | parcialmente cumprida; revisão prevista no S2.5 | SQLite segue único (`parser.py:433-436`), mas já há migração aditiva por `ALTER TABLE` (`parser.py:420-430`); o S2.5 escreve o ADR que revisa a D10 (`docs/agents/plano-2026-09-26.json:1924`) |
-| D11 | Início de partida: **auto-retry (2x)** + botão manual + telemetria | parcialmente cumprida; rebaixamento previsto no P1.12 | botão manual "Forçar início" na TUI (`wizard_tui.py:625-637` → `wizard_core.py:540-556`); auto-retry e telemetria não existem; o P1.12 rebaixa a D11 (`docs/agents/plano-2026-09-26.json:1460`) |
+| D11 | Início de partida: **auto-retry (2x)** + botão manual + telemetria | rebaixada em 20/10 (P1.12) | o travamento entre mapas era bug de código da espera do mapa seguinte, corrigido no P1.5 (§11; `start_match.py:1031-1084` e o laço dos mapas 2..N em `start_match.py:1313-1338`; tag `jogavel-2026-10-20`); por isso auto-retry e telemetria deixam de ser decisão vigente e seguem sem implementação ([M5](features/M5-confiabilidade.md), F5.1 e F5.2); o botão manual "Forçar início" segue como remédio (`wizard_tui.py:634-638` → `wizard_core.py:540-568`); volta a ser proposta se um mapa da série voltar a ficar no warmup com o P1.5 no ar; linhas no `c228d93` |
 | D12 | **Sem dial de dificuldade** — pro contra pro, e medir se é divertido | vigente | o app não escolhe dificuldade (`start_match.py:811-816`); a variante do `botprofile.vpk` é decisão do Victor, trocada só em janela (AGENTS.md:15) |
 | D13 | TUI e web **em paralelo** até o web provar paridade em uso real (série MD3 completa jogada pelo browser); só então a TUI é aposentada (M7/F7.3). Headless fica com o CLI do `start_match.py` | ainda aberta | a web não inicia partida: as rotas param no Resumo (`web/app.py:706-735`); a TUI fica viva e sem diff (AGENTS.md:10); cumprir é da S6 (`docs/agents/sprints.md:67`) e do S8.1 |
 | D14 | **Sessão stateful** — reabrir a aba reidrata a partida | parcialmente cumprida | reabrir reidrata o wizard (`web/app.py:79-82`, `web/app.py:176-183`); a partida não, porque a web ainda não a inicia; reidratar e sobreviver ao reinício do uvicorn é do S6.2 (`docs/agents/plano-2026-09-26.json:2300`) |
@@ -360,7 +382,7 @@ e não deixa rastro.
 | Só a variante `Low` do VPK foi validada com o search path corrigido | Baixo — `Medium`/`High` podem ter alguma diferença de formato não testada | Trocar de variante e re-rodar o Passo 0 antes de assumir paridade |
 | A fidelidade decepciona: 5 templates de skill pra 1.233 nomes, então muitos pros são mecanicamente idênticos | Alto — o nome vira enfeite | Cards honestos sobre o estilo; head-to-head dá peso ao nome; plugin próprio no futuro |
 | 9 jogadores com `Skill = 100` tornam a partida frustrante | Alto | Medir jogando; se doer, ajustar por **composição** (5 seus vs 4 deles), nunca mentindo sobre o skill |
-| Warmup travado continua aparecendo | Médio | Auto-retry + telemetria (§11) |
+| Warmup travado continua aparecendo | Médio | A causa de código foi corrigida no P1.5 (§11); sobra o botão manual. Se voltar com o P1.5 no ar, o [M5](features/M5-confiabilidade.md) (auto-retry e telemetria, rebaixados na D11) volta a ser proposta |
 | Dados de veto envelhecem | Baixo | Snapshot datado; re-curar por temporada |
 
 ## 14. Ordem de implementação
@@ -375,7 +397,7 @@ e não deixa rastro.
 | 4 | ~~App web: perfil, formato, mapas, veto~~ **Feito em 2026-09-20 (F3.1+F3.2; F3.3/F3.4 seguem item 6)** | 1 |
 | 5 | ~~Seletor de lineups~~ **Feito em 2026-09-20** (F4.1, F4.2, F4.3, F4.4) | 3, 4 |
 | 5.5 | ~~Home e report unificados no app web (sem gerar HTML estático); wizard inteiro renderiza como modal por cima da home~~ **Feito em 2026-09-20** | 3.5 (parcial), 4, 5 |
-| 6 | Tela de partida: iniciar servidor de verdade + log ao vivo (SSE) + auto-retry + reidratar partida em progresso — o que falta pro botão "Iniciar partida" do modal funcionar | 5.5 |
+| 6 | Tela de partida: iniciar servidor de verdade + log ao vivo (SSE) + ~~auto-retry~~ (rebaixado com a D11 em 20/10, §11) + reidratar partida em progresso — o que falta pro botão "Iniciar partida" do modal funcionar | 5.5 |
 | 7 | `report.py`/`stats.py` como consulta + head-to-head | 6 |
 | 8 | Marcos, repetir-última, preferências de veto no bot | 7 |
 | 9 | Deletar `wizard_tui.py` — **só depois** que o fluxo web (6→8) rodar uma série completa em uso real; até lá TUI e web seguem em paralelo (D13) | 6, 7, 8 |
@@ -383,24 +405,39 @@ e não deixa rastro.
 ## 15. Em aberto
 
 - **Bloqueio central agora: o launcher da tela de Partida (Etapa 6).** Iniciar o
-  servidor de verdade a partir do browser, log ao vivo por SSE, auto-retry e
-  reidratar uma partida em progresso — sem isso o botão "Iniciar partida" do
-  modal (§11) continua desabilitado, e as Etapas 7, 8 e 9 ficam travadas atrás
-  dele (nenhuma delas foi começada)
+  servidor de verdade a partir do browser, log ao vivo por SSE e reidratar uma
+  partida em progresso (o auto-retry saiu com a D11 rebaixada, §11) — sem isso o
+  botão "Iniciar partida" do modal (§11) continua desabilitado, e as Etapas 7, 8 e
+  9 ficam travadas atrás dele (nenhuma delas foi começada)
 - `matches.mode`/`opponent_roster_id`/tabela `rosters` ainda não existem no
   schema — enquanto isso, todo item do histórico (home e report) mostra o globo
   de "Competitivo", nunca o escudo do adversário (M3.5, divergência #3)
 - Nomes e números de veto dos demais times (a FURIA em §7 é o exemplo; faltam os outros)
 - Se `status` lista bots por RCON no CS2, ou se o `docker logs` continua sendo o
   caminho de leitura do estado dos times
-- Qual a causa raiz do warmup travado. **Novo dado (2026-09-20, TUI):** dessa vez
-  não travou — **crashou** (`WatchDog! Server took too long to process` →
-  `FATAL ERROR: Watchdog timeout exceeded, exiting`), matando o container inteiro
-  (sem `restart policy` no `docker-compose.yml`, não voltou sozinho). Aconteceu
-  logo no `Changelevel to de_anubis` de uma série multi-mapa, imediatamente depois
-  de `[MatchZy] [LoadMatchFromJSON]` recarregar e os 10 bots nomeados entrarem —
-  mesma janela que `4e9d652` (fix de crash multi-mapa) tentou cobrir; pode ser
-  cobertura incompleta desse fix, não uma causa nova
+- ~~Qual a causa raiz do warmup travado~~ **Respondida no P1.12 (20/10):** bug de
+  código na espera do mapa seguinte, corrigido no P1.5 (§11). Seguem abertas duas
+  quedas do servidor, que não são esse bug nem uma a outra:
+  - **04/10, segfault na virada de série da MD3:** sem causa provada. H1 (BotBuyPatch
+    sobre bots já chutados) e H2 (SIGSEGV da CSSharp ao logar exceção) seguem abertas,
+    a H3a (idade do processo) segue sem teste, e o T1 e o T2 somaram 24 viradas sem
+    queda ([runbook do B1.12](runbooks/b1.12-segfault-troca-de-mapa-md3.md), seções 8
+    e 9). Não está resolvida.
+  - **20/09, crash do watchdog** (TUI), registrado quando ainda se procurava a causa
+    do warmup travado: dessa vez não travou — **crashou** (`WatchDog! Server took
+    too long to process` → `FATAL ERROR: Watchdog timeout exceeded, exiting`),
+    matando o container inteiro (sem `restart policy` no `docker-compose.yml`, não
+    voltou sozinho). Aconteceu logo no `Changelevel to de_anubis` de uma série
+    multi-mapa, imediatamente depois de `[MatchZy] [LoadMatchFromJSON]` recarregar e
+    os 10 bots nomeados entrarem — mesma janela que `4e9d652` (fix de crash
+    multi-mapa) tentou cobrir; pode ser cobertura incompleta desse fix, não uma
+    causa nova
+- O botão manual **Forçar início / rebalancear bots** monta os times pelo lado do
+  mapa 1 em qualquer mapa da série: `wizard_core.force_start` chama
+  `force_start_and_balance_bots` sem `map_index`, que fica no padrão 0 e lê
+  `map_sides[0]` (`wizard_core.py:540-568`, `start_match.py:853-883`, no `c228d93`).
+  O laço automático dos mapas 2..N já passa o mapa certo (P1.6,
+  `start_match.py:1325-1332`)
 - Validar o fix do search path (§10, Passo 0, `docker/pre.sh`) com as
   variantes `Medium`/`High` do VPK — só `Low` foi testada
 - Manter a TUI funcionando (D13) é uma restrição contínua, não uma tarefa única:
@@ -418,6 +455,11 @@ topo. Os `caminho:N` da §12 valem no commit do K1.6.
 - **parcialmente cumprida**: vale, mas falta parte; a coluna diz o que falta e qual card cobre.
 - **parcialmente superada**: parte dela foi trocada por ADR ou por mudança registrada no código.
 - **ainda aberta**: vale, e o código ainda não a cumpre.
+- **rebaixada**: deixou de ser decisão vigente porque a premissa caiu; a coluna diz o que sobra dela e quando volta a ser proposta.
+
+O P1.12 (20/10) rebaixou a D11 e, com ela, reescreveu a "Confiabilidade do início de
+partida" da §11, a mitigação do warmup na §13, a Etapa 6 da §14 e os itens do warmup na
+§15. Os `caminho:N` da linha D11 valem no `c228d93`.
 
 Decisões tomadas depois da SPEC, e que antes só estavam em commit, viraram ADRs
 retroativos ([índice](README.md#decisões-adrs)):
