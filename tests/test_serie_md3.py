@@ -32,9 +32,13 @@ RCON_SENHA = "fake"
 CONFIG = "match_config.spike.json"
 
 # Resposta do `status` com 10 clientes (9 bots + você): o gate de
-# wait_for_client_count do 5x5.
-STATUS_10 = "---------players--------\n" + "".join(
-    f"  {i} 00:01 0 0 active 0 'jogador{i}'\n" for i in range(10)) + "#end\n"
+# wait_for_client_count do 5x5. Como no servidor real (TV_ENABLE=1), a
+# SourceTV vem antes, no slot 0, e não conta como jogador (P1.7).
+STATUS_10 = (
+    "---------players--------\n"
+    "   0      BOT    0    0     active      0 'CS2 Tracker - Spike MatchZy CSTV'\n"
+    + "".join(f"  {i} 00:01 0 0 active 0 'jogador{i}'\n" for i in range(1, 11))
+    + "#end\n")
 
 
 def _linha_time(nome, cid, time_):
@@ -269,7 +273,12 @@ def test_reconciliacao_usa_o_lado_do_mapa(servidor, tmp_path):
         ['bot_kick "Ct1"', 'bot_kick "Ct1"']
     assert "[MATCHZY] CT com 6 bot(s), esperado 5 — kickando excedente(s): ['Ct1']" in logs
     assert not any(linha.startswith("[MATCHZY] TR com") for linha in logs)
-    assert "[MATCHZY] Times após reconciliação: CT 6 : TR 5 (esperado 5 : 5)." in logs
+    # P1.7: a linha final conta clientes pelo status (o STATUS_10 do fake,
+    # 11 linhas com a CSTV), não relê o bloco velho de antes do kick.
+    assert ("[MATCHZY] Clientes após reconciliação (status do RCON): 10 "
+            "(esperado 10: 5 CT + 5 TR; o status não informa o lado).") in logs
+    assert 'say "[CS2 Tracker] Times prontos: 10 jogadores em campo. Valendo!"' in servidor.rcon
+    assert not any("Atencao" in c for c in servidor.rcon)
 
 
 # -- série inteira pelo run_match ------------------------------------------
