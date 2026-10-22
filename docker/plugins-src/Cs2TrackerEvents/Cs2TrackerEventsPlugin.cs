@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -19,9 +20,11 @@ namespace Cs2TrackerEvents;
 /// resistente a crash no meio da partida.
 ///
 /// Arquivo sempre em &lt;game/csgo&gt;/events-live/current.jsonl. Truncado a
-/// cada OnMapStart; o watcher.py (Python) lê e arquiva esse arquivo
+/// cada Load e OnMapStart; o watcher.py (Python) lê e arquiva esse arquivo
 /// assim que detecta o fim do mapa (mesmo sinal que já usa pro CSV de
-/// stats da MatchZy — WritePlayerStatsToCsv).
+/// stats da MatchZy — WritePlayerStatsToCsv). Desde a v0.4.1 (P1.10), antes
+/// de truncar, um current.jsonl com round de verdade vira orphan_&lt;utc&gt;.jsonl
+/// (PreservarOrfao); só a cauda normal é truncada.
 ///
 /// Só conta rounds "ao vivo" (fora do warmup) via
 /// GameRules().WarmupPeriod — rounds de warmup não viram round_num.
@@ -49,7 +52,7 @@ namespace Cs2TrackerEvents;
 public class Cs2TrackerEventsPlugin : BasePlugin
 {
     public override string ModuleName => "CS2 Tracker Events";
-    public override string ModuleVersion => "0.4.0";
+    public override string ModuleVersion => "0.4.1";
     public override string ModuleAuthor => "cs2-tracker";
 
     // 2 Hz. Numa partida de 30 min com 10 jogadores dá ~36 mil amostras de
@@ -131,6 +134,9 @@ public class Cs2TrackerEventsPlugin : BasePlugin
             _filaCheiaAvisada = false;
             var dir = Path.GetDirectoryName(_eventsPath);
             if (dir != null) Directory.CreateDirectory(dir);
+            // P1.10: o que tem round de verdade sai do caminho antes do
+            // truncamento (partida que caiu antes do watcher arquivar).
+            PreservarOrfao(_eventsPath);
             // Trunca — o watcher.py já deve ter arquivado o arquivo do mapa
             // anterior antes do próximo OnMapStart disparar (mesma margem de
             // tempo que o resto do pipeline já assume pra ler demo/CSV).
@@ -141,6 +147,129 @@ public class Cs2TrackerEventsPlugin : BasePlugin
         {
             Server.PrintToConsole($"[Cs2TrackerEvents] ResetForNewMap FALHOU: {exc}");
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Órfão real (P1.10)
+    // ------------------------------------------------------------------
+
+    // A regra do round do P1.1, igual ao start_match.EVENTOS_DE_PARTIDA e ao
+    // contrato do JSONL, §7: basta UM destes para o current.jsonl ser
+    // partida. O resto (snapshot, round_stats, round_officially_ended, e
+    // também round_end, bomba e afins sozinhos) é cauda e segue truncado.
+    // tests/test_orphan.py confere esta lista com a do start_match.
+    private static readonly string[] EventosDePartida = { "round_start", "player_death", "player_hurt" };
+
+    /// <summary>
+    /// Morte de pós-jogo (P1.1d): o player_death pelo "world" com atacante =
+    /// vítima (mesmo SteamID64, não vazio) é o humano saindo da tela final,
+    /// não round. Não conta como partida: sem round_start no arquivo, é
+    /// cauda. Mesma regra de start_match.morte_de_pos_jogo e de
+    /// tools/evidencia_partida._morte_de_pos_jogo.
+    /// </summary>
+    internal static bool MorteDePosJogo(JsonElement evento)
+    {
+        if (Texto(evento, "type") != "player_death" || Texto(evento, "weapon") != "world") return false;
+        var atacante = Texto(evento, "attacker_steamid");
+        return !string.IsNullOrEmpty(atacante) && atacante == Texto(evento, "victim_steamid");
+    }
+
+    private static string? Texto(JsonElement evento, string campo) =>
+        evento.TryGetProperty(campo, out var valor) && valor.ValueKind == JsonValueKind.String
+            ? valor.GetString()
+            : null;
+
+    private static bool CitaEventoDePartida(string linha)
+    {
+        foreach (var tipo in EventosDePartida)
+        {
+            if (linha.Contains(tipo, StringComparison.Ordinal)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// true se o arquivo tem um evento de partida que não é a morte de
+    /// pós-jogo. Para no primeiro. File.ReadLines tira o BOM (o
+    /// events_44_map0 tem um); linha que não é JSON (cortada por crash) é
+    /// pulada, como no start_match.
+    /// </summary>
+    internal static bool TemEventoDePartida(string caminho)
+    {
+        foreach (var linha in File.ReadLines(caminho))
+        {
+            // Filtro barato: o snapshot (quase o arquivo todo) não cita
+            // nenhum dos tipos e nem chega a ser parseado.
+            if (!CitaEventoDePartida(linha)) continue;
+            try
+            {
+                using var doc = JsonDocument.Parse(linha);
+                var evento = doc.RootElement;
+                if (evento.ValueKind != JsonValueKind.Object) continue;
+                var tipo = Texto(evento, "type");
+                if (tipo != null && EventosDePartida.Contains(tipo) && !MorteDePosJogo(evento)) return true;
+            }
+            catch (JsonException) { /* linha quebrada: não é evento */ }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// orphan_AAAAMMDDTHHMMSSZ.jsonl ao lado do current.jsonl, o mesmo nome
+    /// do start_match.preservar_orfao; nunca sobrescreve um órfão anterior
+    /// (-2, -3...).
+    /// </summary>
+    internal static string NomeDoOrfao(string current, DateTime agoraUtc)
+    {
+        var pasta = Path.GetDirectoryName(current) ?? ".";
+        var carimbo = agoraUtc.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
+        var destino = Path.Combine(pasta, $"orphan_{carimbo}.jsonl");
+        for (var n = 2; File.Exists(destino); n++)
+        {
+            destino = Path.Combine(pasta, $"orphan_{carimbo}-{n}.jsonl");
+        }
+        return destino;
+    }
+
+    /// <summary>
+    /// Load e OnMapStart (via ResetForNewMap), antes do truncamento: o
+    /// current.jsonl com round de verdade é uma partida que caiu antes do
+    /// watcher arquivar (BO3 matchid 75, 04/10: segfault na troca para o
+    /// mapa 2) e vira orphan_&lt;utc&gt;.jsonl. Rename; se falhar, cópia. Se
+    /// nem a leitura nem a cópia derem certo, avisa no console e o
+    /// truncamento segue como na v0.4.0: misturar o mapa novo no arquivo
+    /// antigo seria pior.
+    /// </summary>
+    private static void PreservarOrfao(string current)
+    {
+        try
+        {
+            if (!File.Exists(current) || !TemEventoDePartida(current)) return;
+        }
+        catch (Exception exc)
+        {
+            Server.PrintToConsole($"[Cs2TrackerEvents] Não consegui ler {current} ({exc.Message}); trunco sem conferir órfão.");
+            return;
+        }
+        var destino = NomeDoOrfao(current, DateTime.UtcNow);
+        try
+        {
+            File.Move(current, destino);
+        }
+        catch (Exception exc)
+        {
+            try
+            {
+                File.Copy(current, destino);
+            }
+            catch (Exception)
+            {
+                Server.PrintToConsole(
+                    $"[Cs2TrackerEvents] current.jsonl tem rounds não arquivados e não consegui preservá-lo ({exc.Message}): vai ser truncado.");
+                return;
+            }
+        }
+        Server.PrintToConsole($"[Cs2TrackerEvents] current.jsonl tinha rounds sem arquivar: preservado em {Path.GetFileName(destino)}.");
     }
 
     // Referência do GameRules, resolvida uma vez por mapa. A busca por
