@@ -26,7 +26,9 @@ atualizado: 2026-10-13
 > que o usar.
 
 A referência é a combinação da `jogavel-2026-10-12` ([versões conhecidas](versoes-conhecidas.md)):
-Metamod 2.0.0.1469, CSSharp v1.0.375, MatchZy 0.8.15, captura 0.4.0 e 8 plugins. Mudou a
+Metamod 2.0.0.1469, CSSharp v1.0.375, MatchZy 0.8.15, captura 0.4.0 e 8 plugins. Desde o
+[B1.3s](b1.3s-cssharp-1.0.378.md) a CSSharp esperada é a v1.0.378 (fix do CS2 v1.41.9.2), com a
+válvula vanilla ligada até o card que religa os plugins de bot. Mudou a
 combinação? Atualize as linhas abaixo no mesmo PR que muda o compose.
 
 ## 1. O log do boot, na ordem
@@ -39,7 +41,7 @@ Trechos do boot de 12/10 21:37Z, sem cor e sem carimbo. O número entre colchete
 | 1 | `Redirecting stderr to '/home/steam/Steam/logs/stderr.txt'` | Começo do processo. É a marca de boot que o P1.13 usa. |
 | 2 | `Success! App '730' already up to date.` | Build igual. Se sair `fully installed.`, o SteamCMD baixou build nova: registre como segunda variável (confundidor 3 da trilha) [2]. |
 | 3 | `[METAMOD SETUP] Version 2.0.0.1469 is already installed. No action needed.` | Pin do Metamod [1]. Num boot que troca versão: `complete: version X installed.` |
-| 4 | `[CSSHARP SETUP] Version v1.0.375 ...` e `[MATCHZY SETUP] Version 0.8.15 ...` | O par e a MatchZy pinados [1]. |
+| 4 | `[CSSHARP SETUP] Version v1.0.378 ...` (v1.0.375 antes do B1.3s) e `[MATCHZY SETUP] Version 0.8.15 ...` | O par e a MatchZy pinados [1]. |
 | 5 | `[cs2-tracker] gameinfo.gi ja tem o search path de overrides/botprofile.vpk, nada a fazer` | Search path do VPK [7]. Depois de update do jogo o `gameinfo.gi` volta ao original, e a linha certa é `gameinfo.gi patched: ...`. O `AVISO: marcador ... nao encontrado` é falha. |
 | 6 | `GAME "/home/steam/cs2-dedicated/game/csgo/overrides/botprofile.vpk" (vpk)` no dump de search paths | O patch valeu. |
 | 7 | `[META] Failed to load plugin addons/RayTrace/...: File not found` e o mesmo de `addons/BotHider/` | As máscaras do lado nativo [3]. São esperadas. |

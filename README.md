@@ -203,12 +203,12 @@ A imagem [`xbird/cs2-matchzy`](https://hub.docker.com/r/xbird/cs2-matchzy)
 Metamod, CounterStrikeSharp e MatchZy a cada boot e, sem pin, baixa o
 `latest`. As três ficam **fixadas** no `docker-compose.yml`
 ([ADR-0009](docs/adr/0009-versoes-fixas-de-metamod-cssharp-e-matchzy.md)): Metamod e
-CSSharp são um par (1469 com 1.0.375), e um par trocado derruba tudo (`[META] Loaded 0 plugins.`).
+CSSharp são um par (1469 com 1.0.375 a 1.0.378), e um par trocado derruba tudo (`[META] Loaded 0 plugins.`).
 
 | Plugin | Versão | Papel |
 |---|---|---|
 | [Metamod:Source](https://www.sourcemm.net/) | `2.0.0.1469` | camada de plugins da engine |
-| [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `v1.0.375` | runtime .NET pros plugins |
+| [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) | `v1.0.378` | runtime .NET pros plugins; a 1.0.378 é o fix do CS2 v1.41.9.2, instalada à mão com sha256 conferido ([B1.3s](docs/runbooks/b1.3s-cssharp-1.0.378.md)) |
 | [MatchZy](https://github.com/shobhit-pathak/MatchZy) | `0.8.15` | partidas competitivas: match config, séries, demo e CSV de stats |
 | `Cs2TrackerEvents` (deste repo) | fonte em `docker/plugins-src/`; a DLL é gerada e fica fora do git | captura da partida — ver [Captura](#captura-e-banco-de-dados) e [Build](#build-do-plugin-de-captura) |
 | Plugins de bot do [CS2-Bot-Improver](https://github.com/ed0ard/CS2-Bot-Improver) | no volume (instalados à mão em 05/09); BotAimImprover e BotRandomizer compilados do upstream, por bind | o que está ligado em cada tag: [versoes-conhecidas](docs/runbooks/versoes-conhecidas.md) |
