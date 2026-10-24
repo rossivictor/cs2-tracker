@@ -3,7 +3,7 @@ tipo: indice
 status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.kb_structure; playability_protocol)"
-atualizado: 2026-10-13
+atualizado: 2026-10-24
 ---
 
 # Runbooks
@@ -14,6 +14,7 @@ Procedimentos passo a passo, com pré-condição, rollback e o que conferir no f
 
 - [trilha-de-bots.md](trilha-de-bots.md): a sprint B1, que religa os plugins de bot um por partida real.
 - [b1.3-cssharp-1.0.375.md](b1.3-cssharp-1.0.375.md): o B1.3r, que sobe o par Metamod 2.0.0.1469 + CSSharp 1.0.375, com a janela, o G6 e o rollback.
+- [b1.3s-cssharp-1.0.378.md](b1.3s-cssharp-1.0.378.md): o B1.3s, CSSharp 1.0.378 (fix do CS2 v1.41.9.2) instalada à mão no volume, com o sha256 do asset sem runtime conferido, o G6 e a volta pelo snapshot.
 - [b1.4-botaimimprover.md](b1.4-botaimimprover.md): o B1.4, que tira a máscara do BotAimImprover do volume (ficou inativo pela guarda).
 - [b1.4b-botaimimprover-upstream.md](b1.4b-botaimimprover-upstream.md): o B1.4b, BotAimImprover compilado do upstream por bind mount, com o sha256 fixado.
 - [b1.9-botrandomizer-upstream.md](b1.9-botrandomizer-upstream.md): o B1.9, BotRandomizer compilado do upstream por bind mount, com o smoke só de bots na janela.

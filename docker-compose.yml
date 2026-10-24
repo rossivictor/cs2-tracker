@@ -57,10 +57,13 @@ services:
       # Metamod e CSSharp formam um par que não se separa: Metamod >= 1459
       # recusa plugins da interface 17, e a CSSharp >= 1.0.375 exige Metamod
       # com KHook (interface 18, build >= 1467). Pares válidos: 1411 com
-      # CSSharp <= 1.0.374, ou 1469 com 1.0.375. Troca e volta:
-      # docs/runbooks/b1.3-cssharp-1.0.375.md (B1.3r).
+      # CSSharp <= 1.0.374, ou 1469 com 1.0.375 a 1.0.378. A 1.0.378 é o
+      # fix oficial do CS2 v1.41.9.2 (build 2000935), instalada à mão no
+      # volume com sha256 conferido: o setup da imagem só vê a versão igual.
+      # Troca e volta: docs/runbooks/b1.3s-cssharp-1.0.378.md (B1.3s); a do
+      # par, docs/runbooks/b1.3-cssharp-1.0.375.md (B1.3r).
       - MMSOURCE_FIXED_VERSION=2.0.0.1469
-      - CSSHARP_FIXED_VERSION=v1.0.375
+      - CSSHARP_FIXED_VERSION=v1.0.378
       - MATCHZY_FIXED_VERSION=0.8.15
     volumes:
       # Dados persistentes do servidor (jogo + addons instalados pela imagem).
