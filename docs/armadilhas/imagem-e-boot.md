@@ -6,7 +6,12 @@ fontes:
   - "docker-compose.yml:12-64"
   - "docker-compose.yml:84-173"
   - "docs/runbooks/trilha-de-bots.md:238-277"
-atualizado: 2026-10-13
+  - "docs/runbooks/b1.3s-cssharp-1.0.378.md:29-37 (a quebra da CSSharp 1.0.375 na build 2000935 e a correção oficial)"
+  - "docs/runbooks/versoes-conhecidas.md:346-359 (época 2000935 e a quebra, com as três quedas)"
+  - "backup:../2026-10-23/janela-1918/docker-logs-antes.txt (linhas 1652-1653 e 2694-2695: SPAWN e segfault de 23/10)"
+  - "backup:../2026-10-24/b1.3s/docker-logs-antes.txt (linhas 1422-1423: SPAWN e segfault de 24/10)"
+  - "backup:../2026-10-25/g7-b1.3s-p1.10-copia/logs/janelas/2026-10-23.md (linhas 31-34: as quedas, o smoke só de bots e o NadeSystem com Invalid function pointer na 2000935)"
+atualizado: 2026-10-25
 ---
 
 # Armadilhas da imagem, do boot e dos plugins
@@ -74,3 +79,19 @@ Rascunho: a causa do item 6 nunca foi investigada, e a do item 13 está aberta n
 - **Causa:** em aberto ([B1.12](../runbooks/b1.12-segfault-troca-de-mapa-md3.md), hipóteses H1 a H4). Sem `restart policy`, o container não volta sozinho.
 - **Contorno:** jogar MD1 até os testes do B1.12; a volta é do papel servidor ([voltar ao jogável](../runbooks/voltar-ao-jogavel.md)).
 - **Fonte:** `docs/SPEC.md:396-401` · `docs/runbooks/b1.12-segfault-troca-de-mapa-md3.md:45-60` (auditoria: docs/SPEC.md:392-400)
+
+## Depois da auditoria
+
+Itens que apareceram depois de 26/09. Não têm número: a numeração é a dos 54 da auditoria ([índice](README.md)).
+
+### Atualização do CS2 que quebra a CSSharp
+- **Sintoma:** o servidor sobe, carrega os plugins e aceita a partida, mas cai com `Segmentation fault` nativo logo depois de o humano entrar: 11 e 16 s depois do `SIGNONSTATE_SPAWN` nas duas quedas de 23/10, 30 s na de 24/10. Nenhuma exceção gerenciada antes; o container sai com código 0 (o `cs2.sh` sai 0 depois do segfault). Com a válvula vanilla ligada cai igual. Só bots, no mesmo container, não cai: o smoke de 23/10 rodou rounds com 10 bots e zero segfault.
+- **Causa:** a build nova do CS2 (2000935, v1.41.9.2, trazida pelo SteamCMD no boot da janela de 22/10) mudou o que a CSSharp pinada (v1.0.375) usa do engine: deslocamento de vtable do `IVEngineServer2` e assinaturas como `CCSPlayerPawnBase_PostThink`. O pin do item 1 protege da versão nova da CSSharp, não da build nova do CS2.
+- **Contorno:** queda na entrada do humano logo depois de uma build nova, e só bots sem queda: confira os releases e os PRs do `roflmuffin/CounterStrikeSharp` (um "fix: Game Update" para a versão do CS2 é o sinal). Na 2000935 foi o PR #1470 e o release v1.0.378, ambos de 23/10, instalados pelo [B1.3s](../runbooks/b1.3s-cssharp-1.0.378.md): download só do asset oficial, sha256 contra o digest do GitHub, OK do Victor (G5) e janela. Enquanto isso, a válvula vanilla não salva o jogo (o núcleo cai sem plugin de bot), e o rollback do plugin de captura não ataca a causa.
+- **Fonte:** `docs/runbooks/b1.3s-cssharp-1.0.378.md:29-37` · `docs/runbooks/versoes-conhecidas.md:346-359` · `backup:../2026-10-23/janela-1918/docker-logs-antes.txt` (linhas 1652-1653 e 2694-2695) · `backup:../2026-10-24/b1.3s/docker-logs-antes.txt` (linhas 1422-1423) · `backup:../2026-10-25/g7-b1.3s-p1.10-copia/logs/janelas/2026-10-23.md` (linhas 31-34) · `PR #112` (o B1.3s; o #1470 é do repositório da CSSharp)
+
+### NadeSystem com `Invalid function pointer` na 2000935
+- **Sintoma:** `[NadeSystem] SpawnProjectile error: Invalid function pointer` no log, com bots jogando (smoke só de bots de 23/10, válvula off). Sem queda por si só.
+- **Causa:** assinatura nativa do NadeSystem (1.2.1, do volume) que não casa mais na build 2000935. É o item 2 de novo, num plugin de bot: o NadeSystem não tem guarda e cria as funções nativas sem checar o handle.
+- **Contorno:** desde 23/10 a válvula vanilla está on e o NadeSystem fica fora. Antes de religar os plugins de bot na 2000935 (decisão do Victor, pendente), confira o NadeSystem num smoke só de bots, além da conferência do BotAI do fork, que deu `RESULTADO: OK` nela em 22/10.
+- **Fonte:** `backup:../2026-10-25/g7-b1.3s-p1.10-copia/logs/janelas/2026-10-23.md` (linha 33) · `docs/runbooks/trilha-de-bots.md:143-151` (o NadeSystem sem guarda)

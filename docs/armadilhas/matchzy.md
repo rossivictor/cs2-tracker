@@ -8,7 +8,11 @@ fontes:
   - "start_match.py:528-653"
   - "watcher.py:158-199"
   - "docs/features/M0.5-placar.md:138-162"
-atualizado: 2026-10-15
+  - "docs/runbooks/versoes-conhecidas.md:204 (sem o matchid no config, a MatchZy logou -1)"
+  - "backup:../2026-10-25/b1.3s-1501/g7-1541/docker-logs.txt (linhas 613 e 1763: LoadMatchFromJSON -1 e MAP ENDED do matchid 97, partida 97)"
+  - "backup:../2026-10-21/coleta-g7-p1.7-p1.8-v2/docker-logs-desde-startedat.txt (linhas 548 e 4361: o mesmo par na partida 96)"
+  - "backup:../2026-10-20/coleta-g7-p1.5-p1.6/docker-logs-reconstruido.txt (linhas 6873 e 9551: o mesmo par na MD3 de matchid 93)"
+atualizado: 2026-10-25
 ---
 
 # Armadilhas da MatchZy
@@ -81,3 +85,13 @@ partida da MatchZy 0.8.15 com um humano contra bots, e o que dá para ler do log
 - **Causa:** bot conectado e não spawnado conta como morto, e o `CheckWinConditions` dá vitória por extermínio. Só o warmup o anula (`IsWarmupPeriod`); o freezetime não.
 - **Contorno:** montar os times no warmup, antes do `css_start` (ordem invertida em 19/09), com o item 15 segurando a quota.
 - **Fonte:** `start_match.py:434-441` · `start_match.py:541-545` · `docs/features/M0.5-placar.md:138-139` (auditoria: start_match.py:331-338)
+
+## Depois da auditoria
+
+Itens que apareceram depois de 26/09. Não têm número: a numeração é a dos 54 da auditoria ([índice](README.md)).
+
+### `[LoadMatchFromJSON] Success with matchid: -1!` é ruído
+- **Sintoma:** no `loadmatch` de toda partida, a MatchZy loga `[LoadMatchFromJSON] Success with matchid: -1!`, e quem lê o log teme que a partida tenha carregado sem id. O `MAP ENDED` da mesma partida traz o matchid certo (97 na partida 97, 96 na 96, 93 na MD3 de 20/10), e a partida é ingerida.
+- **Causa:** o `match_config.spike.json` vai sem `matchid` (o item 17 aceita a chave ausente), e a MatchZy loga -1 na carga; o número da partida vem depois, da própria MatchZy. Visto nas coletas de 20, 21 e 25/10, todas com `VEREDITO G7: OK`.
+- **Contorno:** nenhum: não é sinal de falha nem reprova candidato. O sinal de partida meio carregada é outro: `A match is already setup with id: -1` num `loadmatch` novo (item 18).
+- **Fonte:** `docs/runbooks/versoes-conhecidas.md:204` · `backup:../2026-10-25/b1.3s-1501/g7-1541/docker-logs.txt` (linhas 613 e 1763) · `backup:../2026-10-21/coleta-g7-p1.7-p1.8-v2/docker-logs-desde-startedat.txt` (linhas 548 e 4361) · `backup:../2026-10-20/coleta-g7-p1.5-p1.6/docker-logs-reconstruido.txt` (linhas 6873 e 9551)

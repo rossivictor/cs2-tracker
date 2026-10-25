@@ -5,7 +5,7 @@ fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (card K1.4)"
   - "backup:temp-artifacts/eb5adec0/audit/infra.json (findings[13]: a lista dos 54 itens)"
   - "backup:temp-artifacts/eb5adec0/audit/comments.json (kind=armadilha)"
-atualizado: 2026-10-20
+atualizado: 2026-10-25
 ---
 
 # Armadilhas
@@ -22,12 +22,12 @@ A linha de cada fonte foi conferida contra o código de 13/10. Quando ela mudou 
 
 | Nota | Itens | O que cobre |
 |---|---|---|
-| [imagem-e-boot.md](imagem-e-boot.md) | 1–6, 10–13 | Pin dos addons, update do CS2 no boot, máscaras, variáveis da imagem, crash na troca de mapa |
+| [imagem-e-boot.md](imagem-e-boot.md) | 1–6, 10–13 e dois sem número | Pin dos addons, update do CS2 no boot, máscaras, variáveis da imagem, crash na troca de mapa; fora da lista da auditoria, a build do CS2 que quebra a CSSharp (2000935, B1.3s) e o NadeSystem com `Invalid function pointer` nela |
 | [bots-e-perfis.md](bots-e-perfis.md) | 7–9, 24–30, 32–35, 37 | `botprofile.vpk`, quota, perfis nomeados, estado dos times pela RCON |
-| [matchzy.md](matchzy.md) | 14–23, 31 | `.ready`, `live.cfg` e `live_override.cfg`, fim de partida no log, round fantasma |
+| [matchzy.md](matchzy.md) | 14–23, 31 e um sem número | `.ready`, `live.cfg` e `live_override.cfg`, fim de partida no log, round fantasma; fora da lista da auditoria, o `LoadMatchFromJSON` com `matchid: -1`, que é ruído |
 | [captura-e-eventos.md](captura-e-eventos.md) | 38–46 | Plugin de captura e correções do parser: post_mortem, MR12, dano bruto, bomb site, GOTV |
-| [windows-e-docker.md](windows-e-docker.md) | 36, 47–52 e dois sem número | cp1252, SteamCMD, GSLT, Docker Desktop, bind mount, volume, Git Bash; fora da lista da auditoria, a parada noturna do Docker Desktop (exit `0x40010004`) e o `docker logs --since` vazio com o json-file corrompido (desde 18/10) |
+| [windows-e-docker.md](windows-e-docker.md) | 36, 47–52 e três sem número | cp1252, SteamCMD, GSLT, Docker Desktop, bind mount, volume, Git Bash; fora da lista da auditoria, a parada noturna do Docker Desktop (exit `0x40010004`), o `docker logs --since` vazio com o json-file corrompido (desde 18/10) e o container pausado que o `start_match` lê como rodando |
 | [legado-gotv-e-nativo.md](legado-gotv-e-nativo.md) | 53–54 | `tv_delay` do GOTV e modo nativo, na fila da poda |
-| [engine-cs2.md](engine-cs2.md) | — | O overflow no signon (`NETWORK_DISCONNECT_OVERFLOW` na entrada), com a frequência por partida desde 19/09 e as hipóteses (P1.13) |
+| [engine-cs2.md](engine-cs2.md) | — | O overflow no signon (`NETWORK_DISCONNECT_OVERFLOW` na entrada), com a frequência por partida desde 19/09 e as hipóteses (P1.13); o `Long frame (MatchEnded)` de dezenas de ms, que é ruído |
 
 O checklist do que um boot saudável mostra no log é o runbook [servidor-boot-saudavel](../runbooks/servidor-boot-saudavel.md).
