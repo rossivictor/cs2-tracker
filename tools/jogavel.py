@@ -77,8 +77,13 @@ OK, FALHA, USO, PARTIDA, RECUSA, CRLF, VENCIDA, INCOMPLETA = 0, 1, 2, 3, 5, 6, 7
 CONTAINER = "cs2-spike"
 COMPOSE = "docker-compose.yml"  # o que o docker compose lê sem -f
 PRE_SH = Path("docker/pre.sh")
-# Estado de runtime do start_match, rastreado até o P1.6 (docker/runtime/).
-RUNTIME = Path("docker/match_config.spike.json")
+# Estado de runtime do start_match (card P1.9): fora do git, na pasta
+# docker/runtime/, montada inteira em game/csgo/runtime. O RUNTIME_ANTIGO é o
+# de antes do P1.9, rastreado em docker/: as tags velhas ainda o trazem, então
+# a troca de commit protege os dois, e o `atualizar` semeia o novo dele.
+RUNTIME = Path("docker/runtime/match_config.spike.json")
+RUNTIME_ANTIGO = Path("docker/match_config.spike.json")
+PROTEGIDOS = (RUNTIME_ANTIGO, RUNTIME)
 PLUGINS = "docker/plugins/"
 CANDIDATO = Path("data/candidato.json")
 PASTA_LOGS = Path("logs/jogavel")
@@ -390,30 +395,44 @@ def _sinais_legiveis(processos: list, ignorar: frozenset) -> tuple:
 
 # ------------------------------------------- troca de commit e docker
 
+def copia_do_runtime(pasta: Path, caminho: Path) -> Path:
+    """Onde a troca guarda a cópia de `caminho` (relativo a docker/): o
+    antigo em <pasta>/match_config.spike.json, o novo em <pasta>/runtime/."""
+    return pasta / caminho.relative_to("docker")
+
+
+def _tirar_do_caminho(ex: Executor, pasta: Path, alvo: str, caminho: Path) -> Optional[tuple]:
+    """Copia `caminho` para a `pasta` e o tira do caminho do git (checkout --
+    se rastreado; apaga se não rastreado e o alvo o rastreia). None se não
+    há arquivo; senão (caminho, cópia, rastreado no alvo)."""
+    arquivo, copia = ex.raiz / caminho, copia_do_runtime(pasta, caminho)
+    if not arquivo.is_file():
+        return None
+    no_alvo = rastreado(ex, alvo, caminho)
+    print(f"{caminho.as_posix()}: cópia em {copia}")
+    if not ex.seco:
+        copia.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(arquivo, copia)
+    if rastreado(ex, "HEAD", caminho):
+        ex.git("checkout", "--", caminho.as_posix(), muda=True)
+    elif no_alvo and not ex.seco:
+        arquivo.unlink()
+    return caminho, copia, no_alvo
+
+
 def trocar_de_commit(ex: Executor, pasta: Path, alvo: str, *comandos) -> bool:
-    """Roda os comandos git de troca protegendo o runtime file: copia para
-    `pasta`, tira do caminho (checkout -- se rastreado; apaga se não
-    rastreado e o alvo o rastreia), troca, e restaura a cópia se o alvo
-    ainda o rastreia (protocolo 7, passo 2). Sem git stash.
+    """Roda os comandos git de troca protegendo os runtime files (PROTEGIDOS):
+    copia cada um para `pasta`, tira do caminho, troca, e restaura a cópia se
+    o alvo ainda o rastreia (protocolo 7, passo 2). Sem git stash. O runtime
+    de docker/runtime/ é ignorado pelo git e fica onde está.
 
     Se um comando falha depois de outro já ter mudado o checkout (o merge
     --ff-only depois do switch main do `atualizar`), volta ao HEAD de antes;
     se nem isso der, diz onde ficou e o comando para voltar."""
-    arquivo, copia = ex.raiz / RUNTIME, pasta / RUNTIME.name
-    no_alvo = rastreado(ex, alvo, RUNTIME)
-    tinha = arquivo.is_file()
     sha_antes = ex.git("rev-parse", "HEAD").saida.strip()
     ramo_antes = ex.git("branch", "--show-current").saida.strip()
     volta = ("switch", ramo_antes) if ramo_antes else ("switch", "--detach", sha_antes)
-    if tinha:
-        print(f"{RUNTIME.as_posix()}: cópia em {copia}")
-        if not ex.seco:
-            pasta.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(arquivo, copia)
-        if rastreado(ex, "HEAD", RUNTIME):
-            ex.git("checkout", "--", RUNTIME.as_posix(), muda=True)
-        elif no_alvo and not ex.seco:
-            arquivo.unlink()
+    guardados = [g for g in (_tirar_do_caminho(ex, pasta, alvo, c) for c in PROTEGIDOS) if g]
     for i, comando in enumerate(comandos):
         ch = ex.git(*comando, muda=True)
         if not ch.ok:
@@ -425,16 +444,38 @@ def trocar_de_commit(ex: Executor, pasta: Path, alvo: str, *comandos) -> bool:
                     agora = ex.git("branch", "--show-current").saida.strip() or "HEAD destacado"
                     print(f"ATENÇÃO: o checkout ficou em {agora}, não no HEAD de antes. "
                           f"Para voltar: git {' '.join(volta)}")
-            if tinha and not ex.seco:
-                shutil.copy2(copia, arquivo)
+            if not ex.seco:
+                for caminho, copia, _no_alvo in guardados:
+                    shutil.copy2(copia, ex.raiz / caminho)
             return False
-    if tinha and no_alvo:
-        print(f"{RUNTIME.as_posix()}: restaurado da cópia (rastreado em {alvo})")
-        if not ex.seco:
-            shutil.copy2(copia, arquivo)
-    elif tinha:
-        print(f"{RUNTIME.as_posix()}: não é rastreado em {alvo}; a cópia fica em {copia}")
+    for caminho, copia, no_alvo in guardados:
+        if no_alvo:
+            print(f"{caminho.as_posix()}: restaurado da cópia (rastreado em {alvo})")
+            if not ex.seco:
+                shutil.copy2(copia, ex.raiz / caminho)
+        elif (ex.raiz / caminho).is_file():
+            print(f"{caminho.as_posix()}: fora do git, segue no lugar; a cópia fica em {copia}")
+        else:
+            print(f"{caminho.as_posix()}: não é rastreado em {alvo}; a cópia fica em {copia}")
     return True
+
+
+def semear_runtime(ex: Executor, pasta: Path) -> None:
+    """Card P1.9b: sem o runtime novo, ele nasce do antigo, o do checkout ou,
+    se a troca o apagou (rastreado no HEAD, fora do alvo), a cópia que ela
+    guardou em `pasta`. Runtime novo que já existe nunca se sobrescreve; sem
+    nenhum dos dois, o wizard o cria do template na próxima partida."""
+    destino = ex.raiz / RUNTIME
+    if destino.exists():
+        return
+    fontes = (ex.raiz / RUNTIME_ANTIGO, copia_do_runtime(pasta, RUNTIME_ANTIGO))
+    fonte = next((f for f in fontes if f.is_file()), None)
+    if fonte is None:
+        return
+    print(f"{RUNTIME.as_posix()}: semeado de {fonte}")
+    if not ex.seco:
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(fonte, destino)
 
 
 def salvar_logs(ex: Executor, pasta: Path) -> Optional[str]:
@@ -657,8 +698,11 @@ def cmd_status(args, ex: Executor, agora: float, **_kw) -> int:
     print(consultar_preflight(ex)[1])
     cr = contar_cr(ex.raiz)
     print(f"pre.sh: {cr} '\\r' (conserto: {conserto_cr(ex.raiz)})" if cr else "pre.sh: LF")
-    modificado = ex.git("status", "--porcelain", "--", RUNTIME.as_posix()).saida.strip()
-    print(f"runtime file: {modificado or 'sem mudança local'}")
+    presente = "presente" if (ex.raiz / RUNTIME).is_file() else "ausente (o wizard o cria do template)"
+    print(f"runtime file: {RUNTIME.as_posix()} {presente}")
+    if (ex.raiz / RUNTIME_ANTIGO).is_file():
+        antigo = ex.git("status", "--porcelain", "--", RUNTIME_ANTIGO.as_posix()).saida.strip()
+        print(f"runtime de antes do P1.9: {antigo or RUNTIME_ANTIGO.as_posix() + ' sem mudança local'}")
     print(f"vanilla: {'on' if config.vanilla_ligado(ex.raiz, print) else 'off'} ({config.SERVIDOR_JSON})")
     candidato = ex.raiz / CANDIDATO
     if candidato.is_file():
@@ -764,8 +808,10 @@ def cmd_atualizar(args, ex: Executor, **_kw) -> int:
               f"{', '.join(infra)}. Quem traz infra é o papel servidor, em janela.")
         return RECUSA
     comandos = ([("switch", "main")] if not ramo else []) + [("merge", "--ff-only", alvo)]
-    if not trocar_de_commit(ex, _pasta(ex, "atualizar"), alvo, *comandos):
+    pasta = _pasta(ex, "atualizar")
+    if not trocar_de_commit(ex, pasta, alvo, *comandos):
         return FALHA
+    semear_runtime(ex, pasta)
     cr = contar_cr(ex.raiz)
     if cr:
         print(f"ATENÇÃO: docker/pre.sh tem {cr} '\\r'. Conserte antes de subir o servidor:\n"
@@ -1320,14 +1366,17 @@ def _abortar(ex: Executor, dados: dict, sinais: list, relogio: Callable, entrada
 
 def arquivos_montados(ex: Executor, servicos: dict) -> tuple:
     """(pares, puladas). Par: (arquivo relativo ao checkout, caminho no
-    container) de cada bind de arquivo e de cada arquivo das pastas de
-    docker/plugins/. Pasta montada fora dela é saída do jogo (events-live,
-    demos, stats), não configuração: fica de fora, e nem se lista."""
+    container) de cada bind de arquivo, de cada arquivo das pastas de
+    docker/plugins/ e do match_config da pasta docker/runtime/ (card P1.9b).
+    Outra pasta montada é saída do jogo (events-live, demos, stats), não
+    configuração: fica de fora, e nem se lista."""
     pares, puladas = [], []
     for fonte, alvo in binds_no_checkout(ex, servicos):
         local = ex.raiz / fonte
         if local.is_file():
             pares.append((fonte, alvo))
+        elif fonte == RUNTIME.parent.as_posix() and (local / RUNTIME.name).is_file():
+            pares.append((RUNTIME.as_posix(), f"{alvo.rstrip('/')}/{RUNTIME.name}"))
         elif (fonte + "/").startswith(PLUGINS) and local.is_dir():
             for arquivo in sorted(p for p in local.rglob("*") if p.is_file()):
                 rel = arquivo.relative_to(local).as_posix()
