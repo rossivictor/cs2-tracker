@@ -102,7 +102,10 @@ TIPOS_DA_CAUDA = frozenset({"snapshot", "round_stats", "round_officially_ended"}
 GRANADAS = frozenset({"hegrenade", "inferno", "molotov", "incgrenade"})
 # Linhas de overflow da mesma classe mais próximas que isto são o mesmo episódio.
 EPISODIO_S, EPISODIO_LINHAS = 5.0, 20
-# Protocolo §3 e G6: sha256 lido DENTRO do container destes arquivos.
+# Protocolo §3 e G6: sha256 lido DENTRO do container destes arquivos. O
+# `ler_sha` casa pelo nome, não pelo caminho: o match_config conta tanto em
+# game/csgo/runtime/ e docker/runtime/ (P1.9) quanto em game/csgo/ e docker/
+# (coletas de antes dele), e o `jogavel.py coletar` lista um só dos dois.
 SHA_DO_PROTOCOLO = ("gamemode_competitive_server.cfg", "pre.sh", "match_config.spike.json",
                     "Cs2TrackerEvents.dll", "Cs2TrackerEvents.deps.json")
 # Fontes de placar em que score_ct + score_t = score_mine + score_theirs. No
