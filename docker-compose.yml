@@ -197,7 +197,12 @@ services:
       - ./docker/plugins/Cs2TrackerEvents:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/Cs2TrackerEvents
       - ./docker/events-live:/home/steam/cs2-dedicated/game/csgo/events-live
     ports:
-      - "27015:27015/tcp"
+      # P1.11: a 27015/tcp é só o RCON (TUI, start_match, watcher e
+      # jogavel.py falam com 127.0.0.1:27015); publicada só no loopback,
+      # para não expor o RCON na LAN. A UDP 27015 (jogo) e a UDP 27020
+      # (CSTV) seguem em todas as interfaces. "Testado da LAN" é do papel
+      # servidor, na janela. Teste: tests/test_rcon_loopback.py.
+      - "127.0.0.1:27015:27015/tcp"
       - "27015:27015/udp"
       - "27020:27020/udp"
     stdin_open: true # docker attach --sig-proxy=false cs2-spike
