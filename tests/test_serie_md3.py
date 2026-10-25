@@ -147,8 +147,8 @@ def _escrever_config(tmp_path, **campos):
     dados = {"num_maps": 1, "maplist": ["de_mirage"], "clinch_series": True,
              "players_per_team": 5, "team1": {"name": NICK}, "team2": {"name": "Bots"}}
     dados.update(campos)
-    caminho = tmp_path / "docker" / CONFIG
-    caminho.parent.mkdir(exist_ok=True)
+    caminho = tmp_path / "docker" / "runtime" / CONFIG
+    caminho.parent.mkdir(parents=True, exist_ok=True)
     caminho.write_text(json.dumps(dados, indent=2), encoding="utf-8")
     return caminho
 
@@ -322,7 +322,7 @@ def test_md1_pelo_cli_com_map_e_side_nao_regride(servidor, tmp_path):
     assert dados["num_maps"] == 1
     assert dados["map_sides"] == ["team1_t"]
     assert _bots_por_mapa(servidor.rcon) == [(5, 4)]
-    assert servidor.rcon.count("matchzy_loadmatch match_config.spike.json") == 1
+    assert servidor.rcon.count("matchzy_loadmatch runtime/match_config.spike.json") == 1
 
 
 def test_side_sem_map_numa_serie_vale_para_todos_os_mapas(servidor, tmp_path):
@@ -509,7 +509,7 @@ def test_md3_da_fixture_mapas_2_e_3_sem_botao(servidor, tmp_path, monkeypatch, s
     assert _ns("2026-09-19T18:00:30Z") <= mapa2 * 10**9 <= _ns("2026-09-19T18:00:40Z")
     assert _ns("2026-09-19T18:36:06Z") <= mapa3 * 10**9 <= _ns("2026-09-19T18:36:16Z")
     assert not any("Falha ao forçar" in l or "Não detectei" in l for l in logs)
-    assert json.loads((tmp_path / "docker" / CONFIG).read_text(encoding="utf-8"))["num_maps"] == 3
+    assert json.loads((tmp_path / "docker" / "runtime" / CONFIG).read_text(encoding="utf-8"))["num_maps"] == 3
 
     # Limites: 17:34:15 -> 18:36:16 são 3721 s, uma leitura a cada 5 s.
     assert len(log.args) <= 3721 // 5 + 10

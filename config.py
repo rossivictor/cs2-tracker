@@ -44,13 +44,34 @@ STATS_LIVE_DIR = _get("CS2_TRACKER_STATS_LIVE_DIR", "./docker/stats-live")
 EVENTS_LIVE_DIR = _get("CS2_TRACKER_EVENTS_LIVE_DIR", "./docker/events-live")
 CONTAINER_NAME = _get("CS2_TRACKER_CONTAINER", "cs2-spike")
 COMPOSE_FILE = _get("CS2_TRACKER_COMPOSE_FILE", "docker-compose.yml")
-MATCH_CONFIG_FILE = _get("CS2_TRACKER_MATCH_CONFIG", "match_config.spike.json")
+# match_config (card P1.9): o template versionado, sem dado de ninguém, e o
+# runtime, que cada partida reescreve a partir dele, numa pasta ignorada pelo
+# git e montada inteira no container (./docker/runtime -> game/csgo/runtime).
+# O nome é relativo a docker/ no host e a game/csgo/ no container: é o mesmo
+# texto do `matchzy_loadmatch` e de ROOT/"docker"/<nome>.
+MATCH_CONFIG_TEMPLATE = "docker/match_config.template.json"
+MATCH_CONFIG_RUNTIME_DIR = "runtime"
+MATCH_CONFIG_FILE = _get("CS2_TRACKER_MATCH_CONFIG", "runtime/match_config.spike.json")
 ROSTERS_FILE = _get("CS2_TRACKER_ROSTERS_FILE", "data/rosters.json")
 
 # Válvula vanilla (card P1.2): o override que mascara os plugins de bot e o
 # estado do papel servidor que diz se ele entra. Ignorado pelo git.
 COMPOSE_VANILLA = "docker-compose.vanilla.yml"
 SERVIDOR_JSON = "data/servidor.json"
+
+
+def match_config_no_container(nome: str = None) -> str:
+    """Argumento do `matchzy_loadmatch`: runtime/<arquivo>, relativo a
+    game/csgo. Só a pasta do runtime é montada, então um nome solto (o de
+    antes do P1.9, ou um .env antigo) vai para dentro dela."""
+    return f"{MATCH_CONFIG_RUNTIME_DIR}/{Path(nome or MATCH_CONFIG_FILE).name}"
+
+
+def caminho_match_config(raiz: Path = None, nome: str = None) -> Path:
+    """Runtime no host: <raiz>/docker/runtime/<arquivo>, o mesmo arquivo que
+    o container lê em game/csgo/runtime/. Com o nome padrão, é exatamente
+    <raiz>/docker/<MATCH_CONFIG_FILE>."""
+    return Path(raiz or ROOT) / "docker" / match_config_no_container(nome)
 
 
 def estado_servidor(raiz: Path = None) -> tuple:
