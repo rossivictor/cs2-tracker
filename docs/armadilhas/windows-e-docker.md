@@ -19,7 +19,11 @@ fontes:
   - "docs/runbooks/versoes-conhecidas.md:177 (json-file corrompido pela parada noturna)"
   - "tools/jogavel.py:1589-1592 (o --since para em silêncio na entrada corrompida, B0.7h)"
   - "backup:../2026-10-19/g7-p1.3-p1.4-copia/logs/janelas/2026-10-19.md (linha 15: --tail acima de ~7410 linhas para na entrada de 2026-10-18T03:02Z; registro de 20/10 em logs/janelas/2026-10-20.md, linha 17, --since vazio depois do restart, só no checkout principal)"
-atualizado: 2026-10-20
+  - "start_match.py:329-334 (container_running lê só o State.Running)"
+  - "start_match.py:1318-1321 (rodando: pula o compose up)"
+  - "backup:../2026-10-23/janela-1918/docker-logs-antes.txt (linhas 1990-2019: boot parado em BuildGameSessionManifest de 21:50:23Z a 21:56:18Z, Watchdog timeout e segfault)"
+  - "backup:../2026-10-25/g7-b1.3s-p1.10-copia/logs/janelas/2026-10-23.md (linhas 28-31: o container pausado da 1ª tentativa de 23/10)"
+atualizado: 2026-10-25
 ---
 
 # Armadilhas do Windows e do Docker Desktop
@@ -87,3 +91,9 @@ Itens que apareceram depois de 26/09. Não têm número: a numeração é a dos 
 - **Causa:** o json-file do container, que vem do recreate de 17/10, tem uma entrada corrompida logo depois de 2026-10-18T03:02Z, na fronteira de uma parada do container (o registro da `jogavel-2026-10-19` a atribui à parada noturna, item acima). O `docker logs` lido para a frente, sem `--tail` ou com `--since`, para em silêncio na primeira entrada corrompida, antes de chegar ao carimbo pedido. O `--tail N` conta N linhas do fim e lê para a frente dali: se o N cai antes da entrada corrompida, a saída é o trecho antigo até ela, ou nada. O `docker restart` não descarta o json-file; só o recreate, que é infra e só roda em janela.
 - **Contorno:** ler pelo fim, com um N que não chegue à entrada corrompida: os ajudantes `marca`, `desde` e `esperar_padrao` do [smoke só de bots](../runbooks/smoke-partida-de-bots.md#pré-condições) (`--tail 5000`, filtrando pelo carimbo da marca), e a coleta pelo `jogavel.py coletar`, que reconstrói o log pelo fim sozinha (B0.7h). Confira que a última linha da saída é recente: ela diz de que trecho o `--tail` leu. Não recrie o container para limpar o log.
 - **Fonte:** `docs/runbooks/voltar-ao-jogavel.md:202-207` · `docs/runbooks/smoke-partida-de-bots.md:64-65` · `docs/runbooks/smoke-partida-de-bots.md:167-170` · `tools/jogavel.py:1589-1592` · `docs/runbooks/versoes-conhecidas.md:80` (coleta do P1.1c: docker-logs.txt vazio e reconstrução desde 18/10 03:02:10Z) · `docs/runbooks/versoes-conhecidas.md:177` (json-file corrompido pela parada noturna) · `backup:../2026-10-19/g7-p1.3-p1.4-copia/logs/janelas/2026-10-19.md` (linha 15: o --tail acima de ~7410 linhas para na entrada de 18/10 03:02Z; os ajudantes usam --tail 5000) (a de 20/10, depois do restart: registro logs/janelas/2026-10-20.md, linha 17, só no checkout principal)
+
+### Container pausado que o `start_match` lê como rodando
+- **Sintoma:** o container conta como "rodando", então o `start_match` não sobe nada (o caminho do `já está rodando`), e o RCON nunca responde; o Victor viu o container pausado no Docker Desktop. Ao despausar, o log, que parou no meio do boot, volta com `FATAL ERROR: Watchdog timeout exceeded, exiting` e `Segmentation fault`. Visto na 1ª tentativa de jogo de 23/10: boot parado em `BuildGameSessionManifest` às 21:50:23Z, nada até 21:56:18Z (~6 min), `FATAL` às 21:56:19Z e segfault às 21:56:29Z.
+- **Causa:** container pausado tem `State.Running` = `true` (e `State.Paused` = `true`) no `docker inspect`, e o `container_running` do `start_match` só lê o `Running`, então pula o `compose up`. Despausado, o processo do jogo acha que o servidor travou pelo tempo parado, e o watchdog do engine derruba o processo. Quem pausou não ficou registrado: o `docker events` daquele dia só retinha desde a janela das 19:18, e sem `pause` nem `die`.
+- **Contorno:** com o RCON mudo e o container "rodando", olhe o estado no Docker Desktop (ou peça ao servidor o `docker inspect` do `State`). Pausado: não despause no meio da partida; feche a TUI e peça a volta ao papel servidor (em 23/10, a subida seguinte, às 21:56:31Z, bootou normal). Tratar o `Paused` no `start_match` é card próprio, se o caso voltar.
+- **Fonte:** `start_match.py:329-334` · `start_match.py:1318-1321` · `backup:../2026-10-23/janela-1918/docker-logs-antes.txt` (linhas 1990-2019) · `backup:../2026-10-25/g7-b1.3s-p1.10-copia/logs/janelas/2026-10-23.md` (linhas 28-31)

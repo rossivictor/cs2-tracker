@@ -21,13 +21,17 @@ fontes:
   - "commit b865873 (04/10 16:36Z, merge do T1.1)"
   - "commit 58f35b5 (04/10 16:41Z, T1.3b)"
   - "commit bafe2b4 (26/09 16:07Z)"
-atualizado: 2026-10-13
+  - "backup:../2026-10-25/b1.3s-1501/g7-1541/docker-logs.txt (linhas 1762-1770: Long frame (MatchEnded) de 37 ms e os UNEXPECTED LONG FRAME do fim da partida 97)"
+  - "backup:../2026-10-21/coleta-g7-p1.7-p1.8-v2/docker-logs-desde-startedat.txt (linha 4360: Long frame (MatchEnded) de 44 ms na partida 96)"
+  - "backup:../2026-10-20/coleta-g7-p1.5-p1.6/docker-logs-reconstruido.txt (linhas 5696, 9546 e 12742: Long frame (MatchEnded) de 29 a 54 ms)"
+atualizado: 2026-10-25
 ---
 
 # Armadilhas do engine do CS2
 
 Pegadinhas do servidor dedicado do CS2 (o engine, não a MatchZy nem os plugins). Cada uma tem
-sintoma, o que o log mostra, contorno e fonte. Hoje há uma.
+sintoma, o que o log mostra, contorno e fonte. Hoje há uma, e um ruído conhecido no fim da
+partida (última seção).
 
 ## Overflow no signon (`NETWORK_DISCONNECT_OVERFLOW` na entrada)
 
@@ -398,3 +402,19 @@ Hipótese nova, tirada da tabela.
 8. **A cópia de 12/10 é reconstruída** com `--tail`. Ela perde uma linha por fronteira
    corrompida, e linhas com o mesmo carimbo podem estar fora de ordem (LEIAME). Nenhuma entrada
    do humano cai numa fronteira.
+
+## Ruído conhecido: `Long frame (MatchEnded)` de dezenas de ms
+
+- **Sintoma:** no fim de toda partida, logo antes do `MAP ENDED`, o log traz um
+  `Long frame (MatchEnded)` e alguns `UNEXPECTED LONG FRAME DETECTED (Last amnesty was
+  'MatchEnded')` de dezenas de ms: 37 ms na partida 97 (25/10), 44 ms na 96 (21/10) e de 29 a
+  54 ms nos fins de mapa de 20/10. Ao longo da partida aparecem outros, com o motivo entre
+  parênteses (`WarmupPeriod`, `FreezePeriod`, `RoundOver`), quase todos de dezenas de ms.
+- **Causa:** o engine anota todo frame que passa do orçamento do tick, com a fase em que ele
+  caiu; no fim da partida a fase é `MatchEnded`. Sem queda, sem overflow e sem efeito na
+  ingestão: as partidas dessas coletas têm `VEREDITO G7: OK`.
+- **Contorno:** não conta como regressão. O sinal que importa é o desta nota: `Long frame` de
+  centenas de ms colado a uma entrada (o de 295 ms de sim em 04/10, acima), com o S1 ou o S2.
+- **Fonte:** `backup:../2026-10-25/b1.3s-1501/g7-1541/docker-logs.txt` (linhas 1762-1770) ·
+  `backup:../2026-10-21/coleta-g7-p1.7-p1.8-v2/docker-logs-desde-startedat.txt` (linha 4360) ·
+  `backup:../2026-10-20/coleta-g7-p1.5-p1.6/docker-logs-reconstruido.txt` (linhas 5696, 9546 e 12742)
