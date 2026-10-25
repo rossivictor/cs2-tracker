@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Callable, List, Literal, Optional
 
 import roster
+from config import MATCH_CONFIG_TEMPLATE, caminho_match_config
 from identity import PlayerIdentity, resolve_identity
 from start_match import (
     ROOT,
@@ -439,7 +440,9 @@ def build_match_config(base_config: dict, setup: MatchSetup) -> dict:
 
 
 def write_match_config(path: Path, data: dict, log: Sink = print):
-    """Mesmo padrão de escrita usado em start_match.py (indent=2, sem ASCII)."""
+    """Mesmo padrão de escrita usado em start_match.py (indent=2, sem ASCII).
+    Cria a pasta do runtime (docker/runtime/, ignorada pelo git) se faltar."""
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     log(f"[CONFIG] {path.name}: maplist -> {data['maplist']} "
         f"(map_sides -> {data['map_sides']})")
@@ -449,10 +452,23 @@ def load_base_config(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def runtime_da_ui(match_config_path: Optional[Path]) -> Optional[Path]:
+    """As UIs montam ROOT/docker/<arquivo>: o wizard_tui.py:210 com o .name
+    do nome do config, e a web com o nome fixo. Elas não mudam (D13), então
+    um arquivo solto em docker/ vira o runtime em docker/runtime/ (card P1.9),
+    o último match_config escrito, de onde sai o SteamID do nick."""
+    if match_config_path is None:
+        return None
+    caminho = Path(match_config_path)
+    if caminho.parent == Path(ROOT) / "docker":
+        return caminho_match_config(ROOT, caminho.name)
+    return caminho
+
+
 def resolve_setup_identity(player_arg: str, match_config_path: Optional[Path] = None) -> PlayerIdentity:
     """Fina casca sobre identity.resolve_identity, reexportada aqui pra
     quem só importa wizard_core não precisar saber de identity.py."""
-    return resolve_identity(player_arg, match_config_path)
+    return resolve_identity(player_arg, runtime_da_ui(match_config_path))
 
 
 def max_team_size(compose_file: Path) -> Optional[int]:
@@ -508,8 +524,10 @@ def launch(
     e repassado pra run_match, sem redirect_stdout nenhum. Default print,
     então o CLI (start_match.py) continua funcionando sem passar nada.
     """
-    local_match_config = ROOT / "docker" / Path(match_config_file).name
-    base_config = load_base_config(local_match_config)
+    # P1.9: toda partida parte do template versionado, nunca do runtime da
+    # anterior (maplist, lados, team2 e jogadores dela não passam adiante).
+    local_match_config = caminho_match_config(ROOT, match_config_file)
+    base_config = load_base_config(Path(ROOT) / MATCH_CONFIG_TEMPLATE)
     final_config = build_match_config(base_config, setup)
     write_match_config(local_match_config, final_config, log=log)
 
@@ -549,7 +567,7 @@ def force_start(
     log: Sink = print,
 ):
     """Repete manualmente o início/balanceamento da partida atual."""
-    local_match_config = ROOT / "docker" / Path(match_config_file).name
+    local_match_config = caminho_match_config(ROOT, match_config_file)
     enemy_team_name, enemy_team_logo = _scoreboard_args(setup)
     force_start_and_balance_bots(
         rcon_host=rcon_host,

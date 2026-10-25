@@ -39,7 +39,9 @@ try:
 except ImportError:
     RconClient = None
 
-from config import COMPOSE_FILE, CONTAINER_NAME, EVENTS_LIVE_DIR, MATCH_CONFIG_FILE, compose_files, load_env
+from config import (COMPOSE_FILE, CONTAINER_NAME, EVENTS_LIVE_DIR, MATCH_CONFIG_FILE,
+                    MATCH_CONFIG_TEMPLATE, caminho_match_config, compose_files, load_env,
+                    match_config_no_container)
 
 ROOT = Path(__file__).resolve().parent
 
@@ -375,6 +377,20 @@ def human_side_from_config(match_config_path: Path, map_index: int = 0,
     except Exception as exc:
         log(f"[AVISO] não consegui ler {match_config_path} ({exc}), assumindo team1=CT.")
     return "ct"
+
+
+def garantir_runtime(raiz: Path, match_config_path: Path, log: Sink = print) -> bool:
+    """Runtime ausente (clone novo, ou a pasta docker/runtime/ apagada):
+    nasce do template versionado (card P1.9), para o CLI sem o wizard ter o
+    que ler. Não toca num runtime que já existe: o CLI segue editando o
+    último match_config, com --map e --side (orquestracao-13). True se criou."""
+    if match_config_path.is_file():
+        return False
+    template = Path(raiz) / MATCH_CONFIG_TEMPLATE
+    match_config_path.parent.mkdir(parents=True, exist_ok=True)
+    match_config_path.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
+    log(f"[CONFIG] {match_config_path.name}: criado a partir de {template.name}")
+    return True
 
 
 def set_map_in_config(match_config_path: Path, map_name: str, log: Sink = print):
@@ -1320,7 +1336,10 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
         else:
             compose_up(compose_file_path, log=log)
 
-    local_match_config = ROOT / "docker" / Path(match_config).name
+    # P1.9: o runtime fica em docker/runtime/ (pasta montada em game/csgo/
+    # runtime/), e o loadmatch usa o mesmo nome relativo do lado de dentro.
+    local_match_config = caminho_match_config(ROOT, match_config)
+    match_config = match_config_no_container(match_config)
 
     watcher_proc = None
     if player:
@@ -1467,7 +1486,8 @@ def main():
     parser.add_argument("--container-name", default=CONTAINER_NAME,
                          help="container_name definido no compose")
     parser.add_argument("--match-config", default=MATCH_CONFIG_FILE,
-                         help="Arquivo dentro de game/csgo (o mesmo mapeado no volume do compose)")
+                         help="Runtime em docker/runtime/ (montado em game/csgo/runtime/); "
+                              "nasce do docker/match_config.template.json se não existir")
     parser.add_argument("--map", default=None,
                          help="Sobrescreve o maplist do match_config antes de carregar "
                               "(pool do wizard: de_dust2, de_mirage, de_inferno, de_nuke, "
@@ -1516,6 +1536,7 @@ def main():
             "(veja .env.example) ou passe --rcon-password."
         )
 
+    garantir_runtime(ROOT, caminho_match_config(ROOT, args.match_config))
     run_match(
         container_name=args.container_name,
         match_config=args.match_config,

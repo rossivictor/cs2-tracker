@@ -142,7 +142,8 @@ def _escrever_config(tmp_path, num_maps):
     dados = {"num_maps": num_maps, "maplist": ["de_inferno", "de_ancient", "de_dust2"][:num_maps],
              "map_sides": ["team1_ct"] * num_maps, "clinch_series": True,
              "players_per_team": 5, "team1": {"name": NICK}, "team2": {"name": "Bots"}}
-    (tmp_path / "docker" / CONFIG).write_text(json.dumps(dados, indent=2), encoding="utf-8")
+    (tmp_path / "docker" / "runtime").mkdir(exist_ok=True)
+    (tmp_path / "docker" / "runtime" / CONFIG).write_text(json.dumps(dados, indent=2), encoding="utf-8")
 
 
 def _rodar():
@@ -186,7 +187,7 @@ def test_md1_neutro_antes_do_loadmatch(servidor, tmp_path):
     # Neutro, depois a rede do css_start e a limpeza do finally.
     assert servidor.gravacoes() == [NEUTRO, COM_BLOQUEIO, SEM_BLOQUEIO]
     i_neutro = servidor.indice(("override", NEUTRO))
-    i_load = servidor.indice(("rcon", f"matchzy_loadmatch {CONFIG}"))
+    i_load = servidor.indice(("rcon", f"matchzy_loadmatch runtime/{CONFIG}"))
     assert servidor.indice(("rcon", "echo start_match_ready")) < i_neutro < i_load
     # Entre o neutro e o loadmatch não sai nada para o servidor.
     assert i_load == i_neutro + 1
@@ -202,7 +203,7 @@ def test_md3_neutro_so_uma_vez_e_cada_mapa_segue_igual(servidor, tmp_path):
     _rodar()
 
     assert servidor.gravacoes() == [NEUTRO] + [COM_BLOQUEIO, SEM_BLOQUEIO] * 3
-    assert [c for t, c in servidor.ordem if t == "rcon"].count(f"matchzy_loadmatch {CONFIG}") == 1
+    assert [c for t, c in servidor.ordem if t == "rcon"].count(f"matchzy_loadmatch runtime/{CONFIG}") == 1
     assert [c for t, c in servidor.ordem if t == "rcon"].count("css_start") == 3
 
 
@@ -213,8 +214,8 @@ def test_falha_do_neutro_nao_aborta_a_partida(servidor, tmp_path):
 
     assert servidor.gravacoes() == [COM_BLOQUEIO, SEM_BLOQUEIO]
     rcon = [c for t, c in servidor.ordem if t == "rcon"]
-    assert rcon.count(f"matchzy_loadmatch {CONFIG}") == 1
+    assert rcon.count(f"matchzy_loadmatch runtime/{CONFIG}") == 1
     assert rcon.count("css_start") == 1
     aviso = [linha for linha in logs if "neutralizar o live_override.cfg" in linha]
     assert len(aviso) == 1 and aviso[0].startswith("  [AVISO] ")
-    assert logs.index(aviso[0]) < logs.index(f"[MATCHZY] Carregando {CONFIG}...")
+    assert logs.index(aviso[0]) < logs.index(f"[MATCHZY] Carregando runtime/{CONFIG}...")

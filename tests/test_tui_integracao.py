@@ -144,9 +144,12 @@ class Servidor:
 
 @pytest.fixture
 def servidor(tmp_path, monkeypatch):
-    (tmp_path / "docker").mkdir()
-    (tmp_path / "docker" / "match_config.spike.json").write_text(
-        json.dumps(MATCH_CONFIG_BASE, indent=2), encoding="utf-8")
+    # P1.9: o template versionado e o runtime em docker/runtime/, de onde
+    # a tela de identidade tira o SteamID do nick.
+    (tmp_path / "docker" / "runtime").mkdir(parents=True)
+    for arquivo in ("match_config.template.json", "runtime/match_config.spike.json"):
+        (tmp_path / "docker" / arquivo).write_text(
+            json.dumps(MATCH_CONFIG_BASE, indent=2), encoding="utf-8")
     (tmp_path / "docker-compose.yml").write_text(
         "services:\n  cs2:\n    environment:\n      - CS2_MAXPLAYERS=11\n", encoding="utf-8")
     for modulo in (wizard_tui, wizard_core, start_match):
@@ -274,16 +277,16 @@ def test_tui_lanca_run_match_com_compose_e_loadmatch_certos(
     # RCON: sempre no servidor local, com a senha dada à TUI.
     assert set(servidor.conexoes) == {("127.0.0.1", 27015, RCON_SENHA)}
     loads = [c for c in servidor.rcon if c.startswith("matchzy_loadmatch")]
-    assert loads == ["matchzy_loadmatch match_config.spike.json"]
+    assert loads == ["matchzy_loadmatch runtime/match_config.spike.json"]
     # O load vem depois do RCON responder e antes de forçar o início.
-    i_load = servidor.rcon.index("matchzy_loadmatch match_config.spike.json")
+    i_load = servidor.rcon.index("matchzy_loadmatch runtime/match_config.spike.json")
     assert servidor.rcon.index("echo start_match_ready") < i_load
     assert i_load < servidor.rcon.index("css_start")
     # Um css_start por mapa da série (o run_match repete no mapa 2 e 3).
     assert servidor.rcon.count("css_start") == len(mapas)
 
     # O arquivo que o loadmatch carrega: o match_config que o launch escreveu.
-    escrito = json.loads((tmp_path / "docker" / "match_config.spike.json")
+    escrito = json.loads((tmp_path / "docker" / "runtime" / "match_config.spike.json")
                          .read_text(encoding="utf-8"))
     assert escrito == {
         "num_maps": len(mapas),
@@ -299,7 +302,7 @@ def test_tui_lanca_run_match_com_compose_e_loadmatch_certos(
     assert servidor.popen == [[
         sys.executable, "-u", "watcher.py", "--mode", "matchzy", "--player", NICK,
         "--container", "cs2-spike",
-        "--match-config", str(tmp_path / "docker" / "match_config.spike.json"),
+        "--match-config", str(tmp_path / "docker" / "runtime" / "match_config.spike.json"),
     ]]
 
 
@@ -319,7 +322,7 @@ def test_tui_com_vanilla_ligado_sobe_o_compose_com_o_override(servidor, launch_v
         {"check": True, "cwd": tmp_path},
     )]
     assert [c for c in servidor.rcon if c.startswith("matchzy_loadmatch")] == \
-        ["matchzy_loadmatch match_config.spike.json"]
+        ["matchzy_loadmatch runtime/match_config.spike.json"]
 
 
 def test_tui_com_o_docker_fora_do_ar_mostra_a_mensagem_e_nao_espera(

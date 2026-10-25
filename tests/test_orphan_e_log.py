@@ -330,7 +330,7 @@ def test_run_match_grava_o_log_em_logs_partidas(mundo, tmp_path):
     _rodar(mundo)
     no_arquivo = _log_em_arquivo(tmp_path)
     assert no_arquivo == mundo.logs  # tudo o que foi para a tela, na ordem
-    assert "[MATCHZY] Carregando match_config.spike.json..." in no_arquivo
+    assert "[MATCHZY] Carregando runtime/match_config.spike.json..." in no_arquivo
 
 
 def test_run_match_leva_a_saida_do_watcher_ao_arquivo(mundo, tmp_path, monkeypatch):
@@ -358,7 +358,7 @@ def test_falha_ao_gravar_o_log_nao_para_a_partida(mundo, tmp_path):
     assert [nome for nome, *_ in mundo.chamadas] == ["compose_up", "loadmatch"]
     avisos = [l for l in mundo.logs if l.startswith("[AVISO] Não consegui gravar o log")]
     assert len(avisos) == 1, mundo.logs  # um aviso só, não um por linha
-    assert "[MATCHZY] Carregando match_config.spike.json..." in mundo.logs
+    assert "[MATCHZY] Carregando runtime/match_config.spike.json..." in mundo.logs
 
 
 def test_sink_com_arquivo_engole_qualquer_erro_de_escrita(tmp_path, monkeypatch):

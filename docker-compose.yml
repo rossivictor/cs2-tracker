@@ -49,8 +49,8 @@ services:
       - TV_ENABLE=1
       - TV_PORT=27020
       # SteamID64 com admin no MatchZy (necessário pra .start/.forceready
-      # funcionarem sem editar admins.json na mão) — mesmo valor que vai
-      # em docker/match_config.spike.json.
+      # funcionarem sem editar admins.json na mão) — mesmo valor que o
+      # wizard grava no team1 do docker/runtime/match_config.spike.json.
       - MATCHZY_ADMINS=${MATCHZY_ADMINS}
       # Versões fixadas: sem pin, a imagem baixa o "latest" a cada boot, e
       # isso já derrubou MatchZy e captura uma vez ("[META] Loaded 0 plugins").
@@ -74,8 +74,12 @@ services:
       # economia de bot, mp_roundtime etc.) — é o arquivo que a engine
       # executa por último, então tem a palavra final sobre essas cvars.
       - ./server-configs/cfg/gamemode_competitive_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_competitive_server.cfg
-      # match_config.json de teste do spike (edite o STEAMID64 antes de usar).
-      - ./docker/match_config.spike.json:/home/steam/cs2-dedicated/game/csgo/match_config.spike.json
+      # match_config de runtime (card P1.9): a PASTA, ignorada pelo git, que
+      # o wizard reescreve a cada partida a partir do template versionado
+      # (docker/match_config.template.json). Pasta e não arquivo: o bind de
+      # arquivo prende o inode (armadilha 50). O `matchzy_loadmatch` usa o
+      # caminho relativo a game/csgo: runtime/match_config.spike.json.
+      - ./docker/runtime:/home/steam/cs2-dedicated/game/csgo/runtime
       # Hook oficial da imagem (entry.sh roda `source pre.sh` depois do
       # steamcmd e antes de subir o cs2.sh) — sem isso, o gameinfo.gi nunca
       # registra overrides/botprofile.vpk como search path e bot_add_ct com

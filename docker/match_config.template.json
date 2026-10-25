@@ -9,15 +9,15 @@
   "clinch_series": true,
   "players_per_team": 5,
   "team1": {
-    "name": "can1sh",
+    "name": "cobaia",
     "players": {
-      "76561198100290385": "can1sh"
+      "76561190000000001": "cobaia"
     }
   },
   "team2": {
     "name": "Bots",
     "players": {
-      "76561197960287930": "BotTeamPlaceholder"
+      "76561190000000002": "BotTeamPlaceholder"
     }
   }
 }
