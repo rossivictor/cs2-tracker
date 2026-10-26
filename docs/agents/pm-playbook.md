@@ -5,7 +5,8 @@ fontes:
   - "AGENTS.md:111-120 (papéis)"
   - "PR #24"
   - "PR #46"
-atualizado: 2026-10-03
+  - "docs/agents/licoes.md:87-117 (L06 a L09, as regras do PM do fechamento da P1)"
+atualizado: 2026-10-26
 ---
 
 # PM: como conduzir o programa
@@ -29,11 +30,15 @@ O PM é a sessão principal do Claude Code, a que conversa com o Victor. Não te
 
 1. Nenhum dev nem QA de pé, e nenhum python rodando (`tasklist`). Segure os outros despachos até a janela fechar (L02).
 2. Preflight 0 e nenhuma marca `logs/janelas/ABERTA`.
-3. Avise o Victor que comandos docker com `ask` pedem a aprovação dele, e que o relógio dos 45 min corre enquanto ele não aprova.
+3. Avise o Victor que comandos docker com `ask` pedem a aprovação dele, e que o relógio dos 45 min corre enquanto ele não aprova. Só despache o servidor com o Victor dizendo que fica no PC até o fechamento; quatro janelas já venceram com um comando docker na fila de aprovação, uma delas só de leitura (L09).
+4. G6 que ficou em `FALTA` por janela vencida se completa numa janela curta só de leitura, como a de 26/10 11:01, ou na coleta: não peça recreate para isso (L09).
 
 ## Checkout principal
 
+- Nenhum `cd` para dentro do checkout principal: caminho absoluto em todo comando e `git -C <raiz>` para git. Em 20/10 um `cd` numa subpasta mudou o diretório da sessão e as worktrees dos agentes sumiram (L08). Os prompts de despacho levam a mesma regra.
 - O PM faz o ff com preflight 0 só quando `git diff --name-only HEAD origin/main` não tem `docker-compose.yml`, `docker/` nem `server-configs/`.
+- O ff vai pelo SHA conferido, nunca pela ponta do `origin/main`: o `jogavel.py atualizar` vai até a ponta, então, logo antes dele, `git -C <raiz> rev-parse origin/main` tem de dar o SHA conferido. Se o `origin/main` andou, confira o delta de novo antes (L06).
+- O `data/candidato.json` nasce no `marcar`, antes de o código chegar ao checkout, e a TUI o anuncia sem conferir o HEAD. Antes de liberar a partida, `git -C <raiz> merge-base --is-ancestor candidato-N HEAD` sai 0; senão, avise o Victor que a partida não vale como G7 (L07).
 - Com infra no delta, quem traz a main é o papel servidor, dentro da janela.
 - O `docker/match_config.spike.json` modificado é estado de runtime: nunca mexa nele.
 
