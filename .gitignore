@@ -15,6 +15,7 @@ docker/plugins/Cs2TrackerEvents/*
 docker/plugins/BotAI/
 docker/plugins/BotAimImprover/
 docker/plugins/BotRandomizer/
+docker/plugins/NadeSystem/
 docker/plugins-src/*/bin/
 docker/plugins-src/*/obj/
 .venv/
