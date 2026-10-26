@@ -45,6 +45,9 @@ probe*.dem
 data/servidor.json
 data/candidato.json
 docker/runtime/
+# match_config de runtime de antes do P1.9 (agora em docker/runtime/): a
+# cópia local fica, fora do git; o versionado é o match_config.template.json.
+docker/match_config.spike.json
 # Board do Obsidian: vault próprio, fora do git (Q21=A). A KB em docs/ é
 # versionada; a config do Obsidian de quem abrir docs/ como vault, não.
 docs/board-cs2/

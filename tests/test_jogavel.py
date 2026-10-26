@@ -30,7 +30,11 @@ from jogavel import CRLF, FALHA, INCOMPLETA, OK, PARTIDA, RECUSA, VENCIDA, Execu
 AGORA = 1_800_000_000.0
 PS = r"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe"
 PY = r"C:\Users\Victor\Projetos\cs2-tracker\.venv\Scripts\python.exe"
-RUNTIME = "docker/match_config.spike.json"
+# O runtime de antes do P1.9 (rastreado em docker/, como nas tags velhas) e
+# o de depois, na pasta docker/runtime/, ignorada pelo git e montada inteira.
+RUNTIME_ANTIGO = "docker/match_config.spike.json"
+PASTA_RUNTIME = "docker/runtime"
+RUNTIME_NOVO = PASTA_RUNTIME + "/match_config.spike.json"
 CFG = "server-configs/cfg/gamemode_competitive_server.cfg"
 
 
@@ -64,7 +68,7 @@ class Mundo:
         # linha de comando: o caso desta máquina) ou "nenhum".
         self.listagem = "powershell"
         self.preflight = 0
-        self.binds = [CFG, "docker/pre.sh", RUNTIME]
+        self.binds = [CFG, "docker/pre.sh", RUNTIME_ANTIGO]
         self.compose_ok = True
         self.build, self.build_depois = "2000918", "2000918"
         self.docker = []
@@ -234,10 +238,10 @@ def mundo(tmp_path, monkeypatch):
                          ("user.email", "teste@example.invalid"), ("commit.gpgsign", "false")):
         _git(raiz, "config", chave, valor)
     _commit(raiz, "base", {"docker-compose.yml": "services: {}\n", "docker/pre.sh": "echo pre\n",
-                           RUNTIME: '{"matchid": 1}\n', CFG: "bot_quota 0\n",
+                           RUNTIME_ANTIGO: '{"matchid": 1}\n', CFG: "bot_quota 0\n",
                            "start_match.py": "v = 1\n"}, tag="jogavel-2026-09-26")
     _commit(raiz, "python", {"start_match.py": "v = 2\n"})
-    (raiz / RUNTIME).write_text('{"matchid": 99}\n')
+    (raiz / RUNTIME_ANTIGO).write_text('{"matchid": 99}\n')
     origem = tmp_path / "origem.git"
     subprocess.run(["git", "init", "-q", "--bare", str(origem)], check=True)
     _git(raiz, "remote", "add", "origin", str(origem))
@@ -374,7 +378,7 @@ def test_agora_pede_confirmacao_digitada(mundo, digitado, codigo):
 def test_agora_nao_le_docker_logs_antes_do_recreate(mundo, capsys):
     # docker logs com partida em curso é proibido (AGENTS.md): a build
     # "antes" fica sem leitura e a "depois" sai do container novo.
-    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME_ANTIGO)
     _commit(mundo.raiz, "cfg", {CFG: "bot_quota 5\n"})
     _current(mundo, ["round_start"], idade_s=5)
     mundo.build_depois = "2000919"
@@ -389,22 +393,22 @@ def test_agora_nao_le_docker_logs_antes_do_recreate(mundo, capsys):
 # ------------------------------------------------------ runtime file
 
 def test_runtime_modificado_nos_dois_commits_e_restaurado(mundo):
-    alvo = _commit(mundo.raiz, "match_config novo", {RUNTIME: '{"matchid": 2}\n'}, tag="jogavel-x")
+    alvo = _commit(mundo.raiz, "match_config novo", {RUNTIME_ANTIGO: '{"matchid": 2}\n'}, tag="jogavel-x")
     _git(mundo.raiz, "switch", "-q", "--detach", "HEAD~1")
-    (mundo.raiz / RUNTIME).write_text('{"matchid": 99}\n')
+    (mundo.raiz / RUNTIME_ANTIGO).write_text('{"matchid": 99}\n')
     assert _rodar(mundo, "voltar", "--tag", "jogavel-x") == OK
     assert _head(mundo) == alvo
-    assert (mundo.raiz / RUNTIME).read_text() == '{"matchid": 99}\n'
+    assert (mundo.raiz / RUNTIME_ANTIGO).read_text() == '{"matchid": 99}\n'
 
 
 def test_runtime_rastreado_para_nao_rastreado_fica_so_a_copia(mundo):
     # Sentido 1: HEAD rastreia (modificado), o alvo já não rastreia (P1.6).
-    alvo = _commit(mundo.raiz, "runtime fora do índice", remover=[RUNTIME], tag="jogavel-sem")
-    (mundo.raiz / RUNTIME).unlink()
+    alvo = _commit(mundo.raiz, "runtime fora do índice", remover=[RUNTIME_ANTIGO], tag="jogavel-sem")
+    (mundo.raiz / RUNTIME_ANTIGO).unlink()
     _git(mundo.raiz, "switch", "-q", "--detach", "jogavel-2026-09-26")
-    (mundo.raiz / RUNTIME).write_text('{"matchid": 99}\n')
+    (mundo.raiz / RUNTIME_ANTIGO).write_text('{"matchid": 99}\n')
     assert _rodar(mundo, "voltar", "--tag", "jogavel-sem") == OK
-    assert _head(mundo) == alvo and not (mundo.raiz / RUNTIME).exists()
+    assert _head(mundo) == alvo and not (mundo.raiz / RUNTIME_ANTIGO).exists()
     copias = list((mundo.raiz / "logs" / "jogavel").glob("*/match_config.spike.json"))
     assert [c.read_text() for c in copias] == ['{"matchid": 99}\n']
 
@@ -412,17 +416,17 @@ def test_runtime_rastreado_para_nao_rastreado_fica_so_a_copia(mundo):
 def test_runtime_nao_rastreado_para_rastreado_e_restaurado(mundo):
     # Sentido 2: HEAD não rastreia (arquivo solto), o alvo rastreia: sem o
     # tratamento, o git switch recusa sobrescrever o arquivo não rastreado.
-    _commit(mundo.raiz, "runtime fora do índice", remover=[RUNTIME])
-    (mundo.raiz / RUNTIME).write_text('{"matchid": 77}\n')
+    _commit(mundo.raiz, "runtime fora do índice", remover=[RUNTIME_ANTIGO])
+    (mundo.raiz / RUNTIME_ANTIGO).write_text('{"matchid": 77}\n')
     assert _rodar(mundo, "voltar", "--tag", "jogavel-2026-09-26") == OK
     assert _head(mundo) == _tag(mundo)
-    assert (mundo.raiz / RUNTIME).read_text() == '{"matchid": 77}\n'
+    assert (mundo.raiz / RUNTIME_ANTIGO).read_text() == '{"matchid": 77}\n'
 
 
 # ----------------------------------------------- pre.sh e infra
 
 def test_pre_sh_com_crlf_aborta_antes_do_recreate(mundo, capsys):
-    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME_ANTIGO)
     _git(mundo.raiz, "switch", "-q", "--detach", "jogavel-2026-09-26")
     _commit(mundo.raiz, "crlf", {"docker/pre.sh": b"echo pre\r\nexit 0\r\n",
                                  "docker-compose.yml": "services: {a: {}}\n"}, tag="jogavel-crlf")
@@ -442,7 +446,7 @@ def test_fontes_de_bind_so_as_de_dentro_do_checkout(mundo):
 
 
 def test_fonte_de_bind_mudada_recria_e_registra_a_build(mundo, capsys):
-    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME_ANTIGO)
     _commit(mundo.raiz, "cfg", {CFG: "bot_quota 5\n"})
     mundo.build_depois = "2000919"
     assert _rodar(mundo, "voltar") == OK
@@ -500,7 +504,7 @@ def test_sem_compose_config_todo_mudado_conta_como_infra(mundo):
 
 
 def test_recriar_forca_o_recreate_com_infra_igual(mundo):
-    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME_ANTIGO)
     _git(mundo.raiz, "switch", "-q", "--detach", "jogavel-2026-09-26")
     assert _rodar(mundo, "voltar", "--recriar") == OK
     assert "compose up -d --force-recreate" in mundo.docker
@@ -652,7 +656,7 @@ def test_voltar_seco_nao_troca_o_plugin(mundo, capsys):
 def test_pre_sh_crlf_aborta_antes_de_parar_pelo_plugin(mundo):
     sha_dll = _copia(mundo)
     pasta = _pasta_plugin(mundo, RUIM)
-    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME_ANTIGO)
     _git(mundo.raiz, "switch", "-q", "--detach", "jogavel-2026-09-26")
     _commit(mundo.raiz, "crlf", {"docker/pre.sh": b"echo pre\r\n"})
     _tag_com_plugin(mundo, sha_dll, commit="HEAD")
@@ -787,11 +791,11 @@ def test_marcar_seco_nao_cria_nada(mundo, capsys):
 
 def test_voltar_seco_nao_muda_nada(mundo, capsys):
     _commit(mundo.raiz, "cfg", {CFG: "bot_quota 5\n"})
-    (mundo.raiz / RUNTIME).write_text('{"matchid": 99}\n')
+    (mundo.raiz / RUNTIME_ANTIGO).write_text('{"matchid": 99}\n')
     antes = _head(mundo)
     assert _rodar(mundo, "voltar", "--seco") == OK
     saida = capsys.readouterr().out
-    assert _head(mundo) == antes and (mundo.raiz / RUNTIME).read_text() == '{"matchid": 99}\n'
+    assert _head(mundo) == antes and (mundo.raiz / RUNTIME_ANTIGO).read_text() == '{"matchid": 99}\n'
     assert not (mundo.raiz / "logs").exists()
     assert mundo.docker == ["compose config --format json"]
     for linha in ("[seco] git switch --detach jogavel-2026-09-26", "[seco] docker logs -t cs2-spike",
@@ -851,8 +855,82 @@ def test_atualizar_so_python_avisa_para_reabrir(mundo, capsys):
     novo = _publicar(mundo, {"start_match.py": "v = 3\n"})
     assert _rodar(mundo, "atualizar") == OK
     assert _head(mundo) == novo
-    assert (mundo.raiz / RUNTIME).read_text() == '{"matchid": 99}\n'
+    assert (mundo.raiz / RUNTIME_ANTIGO).read_text() == '{"matchid": 99}\n'
     assert "Reabra a TUI e o uvicorn." in capsys.readouterr().out
+
+
+def _publicar_p19(mundo):
+    """A origin/main do P1.9: o runtime antigo sai do git. O checkout fica
+    na main de antes, com o antigo modificado como o start_match deixa."""
+    _git(mundo.raiz, "switch", "-q", "-c", "outro")
+    _git(mundo.raiz, "rm", "-q", "-f", RUNTIME_ANTIGO)
+    sha = _commit(mundo.raiz, "P1.9")
+    _git(mundo.raiz, "push", "-q", "origin", "outro:main")
+    _git(mundo.raiz, "switch", "-q", "main")
+    _git(mundo.raiz, "branch", "-q", "-D", "outro")
+    (mundo.raiz / RUNTIME_ANTIGO).write_text('{"matchid": 99}\n')
+    mundo.binds = [CFG, "docker/pre.sh", PASTA_RUNTIME]
+    return sha
+
+
+def test_atualizar_para_o_p19_semeia_o_runtime_novo_do_antigo(mundo, capsys):
+    # P1.9b: o merge apaga o antigo (rastreado no HEAD, fora do alvo); o
+    # runtime novo nasce da cópia que a troca guardou, com o dado do Victor.
+    novo = _publicar_p19(mundo)
+    assert _rodar(mundo, "atualizar") == OK
+    assert _head(mundo) == novo and not (mundo.raiz / RUNTIME_ANTIGO).exists()
+    assert (mundo.raiz / RUNTIME_NOVO).read_text() == '{"matchid": 99}\n'
+    assert "docker/runtime/match_config.spike.json: semeado de " in capsys.readouterr().out
+
+
+def test_atualizar_semeia_do_antigo_solto_no_checkout(mundo, capsys):
+    # Antigo já fora do git (P1.9 trazido antes, sem o semear): ele é a fonte.
+    _publicar_p19(mundo)
+    _git(mundo.raiz, "rm", "-q", "--cached", RUNTIME_ANTIGO)
+    _commit(mundo.raiz, "P1.9 local")
+    _git(mundo.raiz, "push", "-q", "origin", "main:main", "--force")
+    novo = _publicar(mundo, {"start_match.py": "v = 3\n"})
+    (mundo.raiz / RUNTIME_ANTIGO).write_text('{"matchid": 42}\n')
+    assert _rodar(mundo, "atualizar") == OK
+    assert _head(mundo) == novo
+    assert (mundo.raiz / RUNTIME_NOVO).read_text() == '{"matchid": 42}\n'
+    assert (mundo.raiz / RUNTIME_ANTIGO).read_text() == '{"matchid": 42}\n'
+
+
+def test_atualizar_nao_sobrescreve_runtime_novo_existente(mundo, capsys):
+    _publicar_p19(mundo)
+    (mundo.raiz / PASTA_RUNTIME).mkdir()
+    (mundo.raiz / RUNTIME_NOVO).write_text('{"matchid": 5}\n')
+    assert _rodar(mundo, "atualizar") == OK
+    assert (mundo.raiz / RUNTIME_NOVO).read_text() == '{"matchid": 5}\n'
+    saida = capsys.readouterr().out
+    assert "semeado" not in saida
+    assert "docker/runtime/match_config.spike.json: fora do git, segue no lugar" in saida
+
+
+def test_atualizar_sem_runtime_nenhum_nao_semeia(mundo, capsys):
+    _publicar_p19(mundo)
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME_ANTIGO)
+    (mundo.raiz / RUNTIME_ANTIGO).unlink()
+    assert _rodar(mundo, "atualizar") == OK
+    assert not (mundo.raiz / RUNTIME_NOVO).exists()
+
+
+def test_atualizar_seco_nao_semeia(mundo, capsys):
+    _publicar_p19(mundo)
+    assert _rodar(mundo, "atualizar", "--seco") == OK
+    assert not (mundo.raiz / RUNTIME_NOVO).exists()
+    assert (mundo.raiz / RUNTIME_ANTIGO).read_text() == '{"matchid": 99}\n'
+
+
+def test_status_com_o_runtime_novo_presente(mundo, capsys):
+    (mundo.raiz / PASTA_RUNTIME).mkdir()
+    (mundo.raiz / RUNTIME_NOVO).write_text('{"matchid": 5}\n')
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME_ANTIGO)
+    assert _rodar(mundo, "status") == OK
+    saida = capsys.readouterr().out
+    assert "runtime file: docker/runtime/match_config.spike.json presente" in saida
+    assert "runtime de antes do P1.9: docker/match_config.spike.json sem mudança local" in saida
 
 
 def test_atualizar_merge_falho_volta_ao_head_destacado(mundo, capsys):
@@ -867,7 +945,7 @@ def test_atualizar_merge_falho_volta_ao_head_destacado(mundo, capsys):
     assert "voltei ao HEAD de antes (destacado em " in saida
     assert _head(mundo) == _tag(mundo)
     assert _git(mundo.raiz, "branch", "--show-current") == ""
-    assert (mundo.raiz / RUNTIME).read_text() == '{"matchid": 99}\n'
+    assert (mundo.raiz / RUNTIME_ANTIGO).read_text() == '{"matchid": 99}\n'
 
 
 def test_atualizar_seco_so_mostra(mundo, capsys):
@@ -890,7 +968,8 @@ def test_status_so_le(mundo, capsys):
     saida = capsys.readouterr().out
     assert "última jogável: jogavel-2026-09-26; HEAD está 1 commit(s) à frente dela" in saida
     assert "janela: aberta há 10 min" in saida and "pre.sh: LF" in saida
-    assert "runtime file: M docker/match_config.spike.json" in saida
+    assert "runtime file: docker/runtime/match_config.spike.json ausente" in saida
+    assert "runtime de antes do P1.9: M docker/match_config.spike.json" in saida
     assert "container cs2-spike: Up 2 hours" in saida
     # origin/main igual ao HEAD: sem delta, nem o compose config roda
     assert _head(mundo) == antes
@@ -1073,7 +1152,7 @@ def test_vigiar_aborta_quando_aparece_processo_do_victor(mundo, capsys, listagem
 
 @pytest.mark.parametrize("seco", [False, True])
 def test_vigiar_aborta_e_volta_ao_checkout_da_abertura(mundo, capsys, seco):
-    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME_ANTIGO)
     antes = _head(mundo)
     _marca(mundo, 600, head=_tag(mundo))  # na janela o servidor trouxe um commit
     mundo.processos = [(10, "cs2.exe", None)]
@@ -1209,7 +1288,7 @@ def test_vigiar_sem_lista_de_processos_conta_como_victor_jogando(mundo, capsys, 
 def test_vigiar_aborta_e_o_voltar_recusa_com_round_no_current_jsonl(mundo, capsys):
     # O Victor abriu o CS2 e já há round no current.jsonl: o voltar do aborto
     # recusa (partida em curso) e nada muda, nem checkout nem container.
-    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME_ANTIGO)
     antes = _head(mundo)
     _marca(mundo, 600, head=_tag(mundo))  # o checkout mudou na janela
     mundo.processos = [(10, "cs2.exe", None)]
@@ -1223,7 +1302,7 @@ def test_vigiar_aborta_e_o_voltar_recusa_com_round_no_current_jsonl(mundo, capsy
 def test_vigiar_aborta_e_volta_ao_head_da_abertura_nao_a_ultima_jogavel(mundo):
     # A abertura foi num commit à frente da jogavel-*; na janela o servidor
     # trouxe outro. O aborto volta à abertura, não à última jogavel-* (M16).
-    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME)
+    _git(mundo.raiz, "checkout", "-q", "--", RUNTIME_ANTIGO)
     abertura = _head(mundo)
     _marca(mundo, 600)
     _commit(mundo.raiz, "trazido na janela", {"start_match.py": "v = 3\n"})
@@ -1557,13 +1636,15 @@ def test_restaurar_com_sha256_que_nao_confere_nao_mexe_em_nada(janela, tmp_path,
 
 @pytest.fixture
 def montado(mundo):
-    """Os binds do compose de verdade: três arquivos, a pasta do plugin de
-    captura, uma pasta vazia de máscara e a events-live (saída do jogo)."""
-    mundo.binds = [CFG, "docker/pre.sh", RUNTIME, PLUGIN, "docker/plugins/_empty", "docker/events-live"]
+    """Os binds do compose de verdade (P1.9): dois arquivos, a pasta do
+    runtime, a do plugin de captura, uma pasta vazia de máscara e a
+    events-live (saída do jogo)."""
+    mundo.binds = [CFG, "docker/pre.sh", PASTA_RUNTIME, PLUGIN, "docker/plugins/_empty", "docker/events-live"]
     _pasta_plugin(mundo, BOM)
     (mundo.raiz / "docker/plugins/_empty").mkdir()
     (mundo.raiz / "docker/events-live").mkdir()
-    (mundo.raiz / RUNTIME).write_bytes(b'{"matchid": 99}\n')  # sem o CRLF do write_text
+    (mundo.raiz / PASTA_RUNTIME).mkdir()
+    (mundo.raiz / RUNTIME_NOVO).write_bytes(b'{"matchid": 99}\n')  # sem o CRLF do write_text
     return mundo
 
 
@@ -1575,7 +1656,7 @@ def test_coletar_com_preflight_0_salva_logs_config_hash_e_sha_dos_montados(monta
     assert montado.docker[:2] == ["inspect cs2-spike --format {{.State.StartedAt}}",
                                   "logs -t --since 2027-01-15T07:00:00.123456789Z cs2-spike"]
     exec_ = next(c for c in montado.docker if c.startswith("exec"))
-    assert exec_ == ("exec cs2-spike sha256sum /srv/" + CFG + " /srv/docker/pre.sh /srv/" + RUNTIME +
+    assert exec_ == ("exec cs2-spike sha256sum /srv/" + CFG + " /srv/docker/pre.sh /srv/" + RUNTIME_NOVO +
                      " /srv/docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.deps.json"
                      " /srv/docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.dll"
                      " /srv/docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.pdb")
@@ -1587,7 +1668,7 @@ def test_coletar_com_preflight_0_salva_logs_config_hash_e_sha_dos_montados(monta
     # conteúdos escritos pela fixture `mundo` e pelo BOM
     cfg, pre, runtime, deps = b"bot_quota 0\n", b"echo pre\n", b'{"matchid": 99}\n', b'{"deps": 1}'
     assert (g7 / "sha-referencia.txt").read_text() == (
-        f"{_sha(cfg)}  {CFG}\n{_sha(pre)}  docker/pre.sh\n{_sha(runtime)}  {RUNTIME}\n"
+        f"{_sha(cfg)}  {CFG}\n{_sha(pre)}  docker/pre.sh\n{_sha(runtime)}  {RUNTIME_NOVO}\n"
         f"{_sha(deps)}  {PLUGIN}/Cs2TrackerEvents.deps.json\n"
         f"{_sha(b'dll boa')}  {PLUGIN}/Cs2TrackerEvents.dll\n"
         f"{_sha(b'pdb bom')}  {PLUGIN}/Cs2TrackerEvents.pdb\n")

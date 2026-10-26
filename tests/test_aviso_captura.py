@@ -344,7 +344,7 @@ def test_run_match_sem_dll_avisa_na_tela_e_no_log_e_carrega_a_partida(partida, t
              "Cs2TrackerEvents.dll não existe no checkout.")
     assert aviso in partida.logs
     assert aviso in _log_da_partida(tmp_path)
-    assert partida.ordem == ["watcher", "wait_for_rcon", "matchzy_loadmatch match_config.spike.json"]
+    assert partida.ordem == ["watcher", "wait_for_rcon", "matchzy_loadmatch runtime/match_config.spike.json"]
     assert partida.watcher_parado is False
 
 
@@ -354,7 +354,7 @@ def test_run_match_confere_a_captura_depois_do_rcon_e_antes_do_loadmatch(partida
     with pytest.raises(Parar):
         _rodar(partida)
     assert partida.ordem == ["watcher", "wait_for_rcon", "css_plugins list",
-                             "matchzy_loadmatch match_config.spike.json"]
+                             "matchzy_loadmatch runtime/match_config.spike.json"]
     assert _avisos(partida.logs) == []
     assert "[CAPTURA] Plugin de captura carregado ('CS2 Tracker Events' no css_plugins list)." \
         in _log_da_partida(tmp_path)
@@ -410,7 +410,7 @@ def test_tui_com_a_captura_carregada_nao_mostra_aviso(servidor, launch_vigiado, 
     assert "[CAPTURA] Plugin de captura carregado ('CS2 Tracker Events' no css_plugins list)." in tela
     i_lista = servidor.rcon.index("css_plugins list")
     assert servidor.rcon.index("echo start_match_ready") < i_lista \
-        < servidor.rcon.index("matchzy_loadmatch match_config.spike.json")
+        < servidor.rcon.index("matchzy_loadmatch runtime/match_config.spike.json")
     assert servidor.rcon.count("css_start") == 1
 
 
@@ -422,7 +422,7 @@ def test_tui_sem_dll_mostra_o_aviso_e_a_partida_segue(servidor, launch_vigiado, 
     assert aviso in tela, tela
     assert aviso in _log_da_partida(tmp_path)
     assert [c for c in servidor.rcon if c.startswith("matchzy_loadmatch")] == \
-        ["matchzy_loadmatch match_config.spike.json"]
+        ["matchzy_loadmatch runtime/match_config.spike.json"]
     assert servidor.rcon.count("css_start") == 1
 
 

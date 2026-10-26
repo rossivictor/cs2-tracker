@@ -1075,6 +1075,38 @@ def test_sha_sem_os_arquivos_do_protocolo_e_sem_evidencia(banco, tmp_path):
                           "match_config.spike.json, Cs2TrackerEvents.deps.json"]}
 
 
+@pytest.mark.parametrize("no_container,no_checkout", [
+    # Coleta de antes do P1.9: bind do arquivo em game/csgo/.
+    ("/home/steam/cs2-dedicated/game/csgo/match_config.spike.json", "docker/match_config.spike.json"),
+    # Card P1.9b: a pasta docker/runtime/ montada em game/csgo/runtime/.
+    ("/home/steam/cs2-dedicated/game/csgo/runtime/match_config.spike.json",
+     "docker/runtime/match_config.spike.json"),
+])
+def test_sha_aceita_o_match_config_no_caminho_antigo_e_no_novo(banco, tmp_path, no_container, no_checkout):
+    # Os dois formatos do sha-montados.txt e do sha-referencia.txt que o
+    # `jogavel.py coletar` grava; o match_config casa pelo nome nos dois.
+    a, b, c, d, e = ("a" * 64, "b" * 64, "c" * 64, "d" * 64, "e" * 64)
+    plugin = "/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/Cs2TrackerEvents"
+    montados = _arquivo(tmp_path, "sha-montados.txt", [
+        f"{a}  /home/steam/cs2-dedicated/game/csgo/cfg/gamemode_competitive_server.cfg",
+        f"{b}  /home/steam/cs2-dedicated/pre.sh",
+        f"{c}  {no_container}",
+        f"{d}  {plugin}/Cs2TrackerEvents.deps.json",
+        f"{e}  {plugin}/Cs2TrackerEvents.dll"])
+    referencia = _arquivo(tmp_path, "sha-referencia.txt", [
+        f"{a}  server-configs/cfg/gamemode_competitive_server.cfg",
+        f"{b}  docker/pre.sh",
+        f"{c}  {no_checkout}",
+        f"{d}  docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.deps.json",
+        f"{e}  docker/plugins/Cs2TrackerEvents/Cs2TrackerEvents.dll"])
+    res = ep.avaliar(log=PARTIDA60, eventos=EVENTOS, db=banco, sha_montados=montados,
+                     sha_referencia=referencia, config_hash="cfg-1", config_hash_janela="cfg-1")
+    assert res["sha"]["conferidos"] == ["Cs2TrackerEvents.deps.json", "Cs2TrackerEvents.dll",
+                                        "gamemode_competitive_server.cfg", "match_config.spike.json",
+                                        "pre.sh"]
+    assert res["veredito"]["sem_evidencia"] == [] and res["veredito"]["g7"] == ep.OK
+
+
 def test_config_hash_diferente_do_da_janela_e_sem_evidencia(banco, tmp_path):
     kw = _completo(tmp_path)
     kw["config_hash_janela"] = "cfg-2"

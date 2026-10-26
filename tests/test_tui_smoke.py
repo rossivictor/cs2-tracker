@@ -50,9 +50,12 @@ MATCH_CONFIG_BASE = {
 @pytest.fixture
 def raiz_falsa(tmp_path, monkeypatch):
     """ROOT do wizard numa pasta temporária: match_config e compose à mão."""
-    (tmp_path / "docker").mkdir()
-    (tmp_path / "docker" / "match_config.spike.json").write_text(
-        json.dumps(MATCH_CONFIG_BASE, indent=2), encoding="utf-8")
+    # P1.9: o template versionado e o runtime em docker/runtime/, de onde
+    # a tela de identidade tira o SteamID do nick.
+    (tmp_path / "docker" / "runtime").mkdir(parents=True)
+    for arquivo in ("match_config.template.json", "runtime/match_config.spike.json"):
+        (tmp_path / "docker" / arquivo).write_text(
+            json.dumps(MATCH_CONFIG_BASE, indent=2), encoding="utf-8")
     (tmp_path / "docker-compose.yml").write_text(
         "services:\n  cs2:\n    environment:\n      - CS2_MAXPLAYERS=11\n", encoding="utf-8")
     monkeypatch.setattr(wizard_tui, "ROOT", tmp_path)
