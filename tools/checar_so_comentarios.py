@@ -12,10 +12,12 @@ O que conta como "só comentário", por tipo:
   .py        AST igual (ast.dump sem posições e sem docstrings) e a mesma
              sequência de tokens fora COMMENT, NL e as docstrings. Docstring
              de módulo, classe ou função pode mudar, mas a saída avisa: ela é
-             `__doc__`, e há código que a lê (help de argparse).
-  .yml/.yaml as linhas sem comentário `#` (fora de aspas e de bloco `|`/`>`)
-             e sem linha vazia, com o fim de linha preservado; com PyYAML na
-             .venv, também o parse. Não roda `docker compose config`: o dev
+             `__doc__`, e há código que a lê (help de argparse). Shebang e
+             `# -*- coding` não são só comentário: mudar conta.
+  .yml/.yaml as linhas sem comentário `#` (fora de aspas, com o escape da
+             aspa dupla, de string que atravessa linhas e de bloco `|`/`>`)
+             e sem linha vazia, com o fim de linha preservado; com PyYAML
+             instalado, também o parse. Não roda `docker compose config`: o dev
              não roda docker, e a prova do container é do servidor, na janela.
   .cfg       as linhas depois de tirar o comentário `//` (fora de aspas
              duplas: `//` dentro de valor entre aspas não é comentário) e as
@@ -121,12 +123,28 @@ def _tokens(fonte: str, posicoes_doc: set[tuple[int, int]]) -> list[str]:
     return saida
 
 
+_CODING = re.compile(r"^[ \t\f]*#.*?coding[:=]")
+
+
+def _cabecalho(fonte: str) -> list[str]:
+    """Shebang (linha 1) e declaração de encoding (linhas 1 e 2, PEP 263):
+    parecem comentário, mas mudam como o arquivo roda ou é lido."""
+    linhas = fonte.split("\n")[:2]
+    return [l.rstrip("\r") for n, l in enumerate(linhas)
+            if (n == 0 and l.startswith("#!")) or _CODING.match(l)]
+
+
 def comparar_python(antes: str, depois: str) -> tuple[list[str], list[str]]:
     """(diferenças, avisos). Diferença vazia = só comentários e docstrings."""
     try:
         a, d = ast.parse(antes), ast.parse(depois)
     except SyntaxError as exc:
         return [f"não compila: {exc}"], []
+    diffs = []
+    cab_a, cab_d = _cabecalho(antes), _cabecalho(depois)
+    if cab_a != cab_d:
+        diffs.append("shebang ou declaração de encoding diferente (não é só comentário):")
+        diffs += _diff(cab_a, cab_d)
     docs_a, docs_d = dict(_docstrings(a)), dict(_docstrings(d))
     pos_a = {(n.lineno, n.col_offset) for n in docs_a.values()}
     pos_d = {(n.lineno, n.col_offset) for n in docs_d.values()}
@@ -137,7 +155,6 @@ def comparar_python(antes: str, depois: str) -> tuple[list[str], list[str]]:
         if va != vd:
             estado = "removida" if vd is None else "nova" if va is None else "mudou"
             avisos.append(f"docstring de {dono} {estado} (é __doc__: confira quem a lê)")
-    diffs = []
     dump_a, dump_d = _sem_docstrings(a), _sem_docstrings(d)
     if dump_a != dump_d:
         diffs.append("AST diferente:")
@@ -154,30 +171,36 @@ def comparar_python(antes: str, depois: str) -> tuple[list[str], list[str]]:
 
 # ---------------------------------------------------------------- YAML
 
-def _tirar_comentario(linha: str, marca: str, aspas: str) -> str:
-    """A linha até o comentário `marca`, ignorando o que está entre `aspas`.
+def _varrer(linha: str, marca: str, aspas: str, dentro: str | None = None) -> tuple[str, str | None]:
+    """(a linha até o comentário `marca`, a aspa que ficou aberta no fim).
 
-    No YAML (`#`), o comentário começa no início da linha ou depois de
-    espaço; no cfg (`//`), em qualquer ponto fora das aspas duplas."""
-    dentro = None
+    O que está entre `aspas` não é comentário; dentro de aspa dupla, a
+    barra invertida escapa o caractere seguinte. Linha que termina com aspa
+    aberta fica inteira: falha fechado. No YAML (`#`), o comentário começa no
+    início da linha ou depois de espaço; no cfg (`//`), em qualquer ponto."""
     i = 0
     while i < len(linha):
         c = linha[i]
         if dentro:
+            if dentro == '"' and c == "\\":
+                i += 2
+                continue
             if c == dentro:
                 dentro = None
         elif c in aspas:
             dentro = c
         elif linha.startswith(marca, i) and (marca != "#" or i == 0 or linha[i - 1] in " \t"):
-            return linha[:i]
+            return linha[:i], None
         i += 1
-    return linha
+    return linha, dentro
 
 
 def normalizar_yaml(texto: str) -> list[str]:
-    """Linhas sem comentário e sem linha vazia; bloco `|`/`>` fica literal."""
+    """Linhas sem comentário e sem linha vazia; bloco `|`/`>` e string entre
+    aspas que atravessa linhas ficam literais."""
     saida = []
     bloco_recuo = None
+    aspa = None
     for linha in texto.split("\n"):
         recuo = len(linha) - len(linha.lstrip(" "))
         if bloco_recuo is not None:
@@ -185,10 +208,12 @@ def normalizar_yaml(texto: str) -> list[str]:
                 saida.append(linha)
                 continue
             bloco_recuo = None
-        codigo = _tirar_comentario(linha, "#", "'\"").rstrip(" \t")
-        if codigo.strip():
+        continuacao = aspa is not None
+        codigo, aspa = _varrer(linha, "#", "'\"", aspa)
+        codigo = codigo.rstrip(" \t")
+        if codigo.strip() or continuacao:
             saida.append(codigo)
-            if _BLOCO_YAML.search(codigo):
+            if aspa is None and _BLOCO_YAML.search(codigo):
                 bloco_recuo = recuo
     while saida and not saida[-1].strip():
         saida.pop()
@@ -218,7 +243,7 @@ def normalizar_cfg(texto: str) -> list[str]:
     """Linhas do cfg sem o comentário `//` (fora de aspas duplas) e sem vazias."""
     saida = []
     for linha in texto.split("\n"):
-        codigo = _tirar_comentario(linha, "//", '"').rstrip(" \t")
+        codigo = _varrer(linha, "//", '"')[0].rstrip(" \t")
         if codigo.strip():
             saida.append(codigo)
     return saida
