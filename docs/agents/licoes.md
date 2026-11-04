@@ -90,7 +90,7 @@ Lição pendente é aviso: a regra ainda não chegou a quem age.
 - **Causa:** o `atualizar` faz o ff até a ponta do `origin/main` (`tools/jogavel.py:798-810`), não até o SHA que o PM conferiu; um merge entre a conferência e o ff entra junto.
 - **Regra:** o ff do checkout principal vai pelo SHA conferido: logo antes do ff, `origin/main` tem de ser esse SHA; se andou, o ff espera e o delta se confere de novo.
 - **Onde mora:** [pm-playbook](pm-playbook.md), "Checkout principal".
-- **Estado:** pendente (o PM já tem a regra; falta no `servidor.md`, passo 3, que ainda diz `merge --ff-only origin/main`, e no `atualizar`, que não aceita SHA: card a criar, decide o PM com o Victor).
+- **Estado:** aplicada (card B0.7i): `jogavel.py atualizar <SHA>` faz o ff até o SHA e recusa se o `origin/main` não é ele nem o contém; o `servidor.md`, passo 3, faz o ff pelo SHA conferido.
 
 ### L07 · O candidato anunciado antes de chegar ao checkout
 - **Quando:** 19, 22 e 25/10 (datas do card K1.23). Registros achados: 20/10 13:27 (card 84) e 22/10 (janela, linha 14).

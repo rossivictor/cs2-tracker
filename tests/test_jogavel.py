@@ -93,6 +93,9 @@ class Mundo:
         # falso) de cada chamada; e o que fica pendurado até estourar o
         # timeout ("ps" e/ou "listagem"), avançando o relógio por ele.
         self.chamadas, self.pendurados = [], set()
+        # B0.7i: o que o boot do container novo escreve (None: o Pronto da
+        # captura e o GC) e o estado em que o container fica depois do up.
+        self.boot_depois, self.container_depois = None, None
 
     def _pendurar(self, argv, timeout):
         if self.relogio:
@@ -162,7 +165,9 @@ class Mundo:
         if args[:2] == ["compose", "up"]:
             # Container novo: json-file novo, só com o boot da build nova.
             self.build, self.inicio = self.build_depois, "2027-01-15T08:00:00.000000000Z"
-            self.json_file = [f"2027-01-15T08:00:05.000000000Z {GC.format(self.build)}"]
+            boot = self.boot_depois if self.boot_depois is not None else [PRONTO, GC.format(self.build)]
+            self.json_file = [f"2027-01-15T08:00:{5 + i:02d}.000000000Z {linha}" for i, linha in enumerate(boot)]
+            self.container = self.container_depois or self.container
             return _feito(args, 0, "")
         if args[:1] == ["ps"]:
             if self.docker_lento:
@@ -212,12 +217,16 @@ class Mundo:
 
 
 GC = "GC Connection established for server version {}, instance idx 1"
+PRONTO = "[Cs2TrackerEvents] Pronto — gravando em /home/steam/events-live/current.jsonl"
 CORROMPIDA = "<entrada corrompida>"  # nunca sai: o docker para nela
 # A build lida pelo fim no log padrão (B0.7h): o StartedAt e duas leituras,
 # a última linha (o GC do boot) e as 201 últimas, que já trazem uma linha de
 # antes do StartedAt (ou, no container novo, não crescem: começo do log).
 BUILD_PELO_FIM = ["inspect cs2-spike --format {{.State.StartedAt}}",
                   "logs -t --tail 1 cs2-spike", "logs -t --tail 201 cs2-spike"]
+# O mesmo no container novo, com o Pronto e o GC (B0.7i): as 201 últimas já
+# trazem as duas linhas, e as 402 não crescem (começo do json-file).
+BOOT_NOVO_PELO_FIM = [*BUILD_PELO_FIM, "logs -t --tail 402 cs2-spike"]
 
 
 def _feito(argv, codigo, saida):
@@ -384,7 +393,7 @@ def test_agora_nao_le_docker_logs_antes_do_recreate(mundo, capsys):
     mundo.build_depois = "2000919"
     assert _rodar(mundo, "voltar", "--agora", entrada=lambda _t: "VOLTAR") == OK
     saida = capsys.readouterr().out
-    assert mundo.docker == ["compose config --format json", "compose up -d --force-recreate", *BUILD_PELO_FIM]
+    assert mundo.docker == ["compose config --format json", "compose up -d --force-recreate", *BOOT_NOVO_PELO_FIM]
     assert "build do CS2 antes: não lida (partida em curso)" in saida
     assert "build do CS2 depois: 2000919" in saida and "a build do CS2 mudou" not in saida
     assert not list((mundo.raiz / "logs" / "jogavel").glob("*/docker-logs.txt"))
@@ -954,6 +963,69 @@ def test_atualizar_seco_so_mostra(mundo, capsys):
     assert _rodar(mundo, "atualizar", "--seco") == OK
     assert _head(mundo) == antes
     assert "[seco] git merge --ff-only origin/main" in capsys.readouterr().out
+
+
+def test_atualizar_com_o_sha_da_ponta_traz_ele(mundo, capsys):
+    novo = _publicar(mundo, {"start_match.py": "v = 3\n"})
+    assert _rodar(mundo, "atualizar", novo[:9]) == OK
+    assert _head(mundo) == novo
+    assert f"alvo: {novo[:9]} (o SHA pedido); origin/main em {novo[:9]}" in capsys.readouterr().out
+
+
+def test_atualizar_com_sha_atras_da_ponta_para_nele(mundo, capsys):
+    # L06: um merge entre a conferência e o ff não entra junto.
+    conferido = _publicar(mundo, {"start_match.py": "v = 3\n"})
+    _git(mundo.raiz, "fetch", "-q", "origin")
+    _git(mundo.raiz, "switch", "-q", "--detach", conferido)
+    _commit(mundo.raiz, "depois da conferência", {"watcher.py": "w = 1\n"})
+    _git(mundo.raiz, "push", "-q", "origin", "HEAD:main")
+    _git(mundo.raiz, "switch", "-q", "main")
+    assert _rodar(mundo, "atualizar", conferido) == OK
+    assert _head(mundo) == conferido
+    assert not (mundo.raiz / "watcher.py").exists()
+
+
+def test_atualizar_recusa_sha_fora_da_origin_main_sem_mudar_nada(mundo, capsys):
+    _publicar(mundo, {"start_match.py": "v = 3\n"})
+    _git(mundo.raiz, "switch", "-q", "-c", "lateral")
+    lateral = _commit(mundo.raiz, "fora da main", {"notas.txt": "x\n"})
+    _git(mundo.raiz, "switch", "-q", "main")
+    antes, runtime = _head(mundo), (mundo.raiz / RUNTIME_ANTIGO).read_text()
+    assert _rodar(mundo, "atualizar", lateral) == RECUSA
+    assert "não é " + lateral + " nem o contém; nada mudou" in capsys.readouterr().out
+    assert _head(mundo) == antes and _git(mundo.raiz, "branch", "--show-current") == "main"
+    assert (mundo.raiz / RUNTIME_ANTIGO).read_text() == runtime
+    assert not (mundo.raiz / "logs").exists()
+
+
+def test_atualizar_recusa_sha_que_nao_existe(mundo, capsys):
+    _publicar(mundo, {"start_match.py": "v = 3\n"})
+    antes = _head(mundo)
+    assert _rodar(mundo, "atualizar", "0123456789abcdef") == RECUSA
+    assert "o commit 0123456789abcdef não existe aqui" in capsys.readouterr().out
+    assert _head(mundo) == antes
+
+
+def test_atualizar_recusa_ref_no_lugar_do_sha(mundo, capsys):
+    _publicar(mundo, {"start_match.py": "v = 3\n"})
+    antes = _head(mundo)
+    assert _rodar(mundo, "atualizar", "origin/main") == jogavel.USO
+    assert _head(mundo) == antes
+
+
+def test_atualizar_sem_sha_traz_a_ponta_e_imprime_o_sha(mundo, capsys):
+    novo = _publicar(mundo, {"start_match.py": "v = 3\n"})
+    assert _rodar(mundo, "atualizar") == OK
+    assert _head(mundo) == novo
+    assert f"alvo: a ponta da origin/main, {novo[:9]}" in capsys.readouterr().out
+
+
+def test_atualizar_com_sha_seco_mostra_o_ff_pelo_sha(mundo, capsys):
+    novo = _publicar(mundo, {"start_match.py": "v = 3\n"})
+    antes = _head(mundo)
+    assert _rodar(mundo, "atualizar", novo, "--seco") == OK
+    assert _head(mundo) == antes
+    assert f"[seco] git merge --ff-only {novo}" in capsys.readouterr().out
 
 
 # ------------------------------------------------- status e janela
@@ -1541,7 +1613,7 @@ def test_comando_do_servidor_exige_janela_e_checkout_principal(mundo, monkeypatc
 def test_recriar_salva_os_logs_e_recria_com_force_recreate(janela):
     assert _rodar(janela, "up") == OK
     assert janela.docker == ["logs -t cs2-spike", *BUILD_PELO_FIM, "compose up -d --force-recreate",
-                             *BUILD_PELO_FIM]
+                             *BOOT_NOVO_PELO_FIM]
     assert list((janela.raiz / "logs" / "jogavel").glob("*-recriar/docker-logs.txt"))
     assert " jogavel.py up: saída 0\n" in _registro(janela)
 
@@ -1550,6 +1622,64 @@ def test_recriar_com_pre_sh_crlf_nao_recria(janela):
     (janela.raiz / "docker/pre.sh").write_bytes(b"echo pre\r\n")
     assert _rodar(janela, "recriar") == CRLF
     assert not any(c.startswith("compose up") for c in janela.docker)
+
+
+# Boot de 26/10 09:53 (B0.7i): o SteamCMD estoura o tempo e o container sai com 5.
+BOOT_STEAMCMD_FALHO = ["Redirecting stderr to '/home/steam/Steam/logs/stderr.txt'",
+                       "Info request for AppId 7 returned error Timeout",
+                       "Failed to load platform info",
+                       "Error! App '730' state is 0x6 after update job."]
+
+
+def test_recriar_com_o_container_saindo_no_boot_sai_1_com_a_causa(janela, capsys):
+    janela.boot_depois, janela.container_depois = BOOT_STEAMCMD_FALHO, "Exited (5) 3 seconds ago"
+    assert _rodar(janela, "recriar") == FALHA
+    saida = capsys.readouterr().out
+    assert "BOOT FALHOU: o container saiu durante o boot (Exited (5) 3 seconds ago)" in saida
+    assert "últimas linhas do boot:" in saida and "Info request for AppId 7 returned error Timeout" in saida
+    assert "boot pronto" not in saida
+    assert " jogavel.py recriar: saída 1\n" in _registro(janela)
+
+
+def test_recriar_sem_o_pronto_em_10_min_sai_1(janela, capsys):
+    # Container de pé, boot preso no SteamCMD: o relógio falso passa dos 10 min.
+    janela.boot_depois = BOOT_STEAMCMD_FALHO[:2]
+    rel = Relogio()
+    janela.relogio = rel
+
+    def fabrica(raiz, seco=False):
+        return Executor(raiz, seco=seco, rodar=janela.rodar, relogio=rel, dormir=rel.dormir)
+    assert main(["--raiz", str(janela.raiz), "recriar"], fabrica=fabrica, relogio=rel,
+                entrada=lambda t: pytest.fail(t), agora=AGORA) == FALHA
+    saida = capsys.readouterr().out
+    assert "BOOT FALHOU: sem a linha `[Cs2TrackerEvents] Pronto` em 10 min (container: Up 2 hours)" in saida
+    assert rel.sonos == [10] * 60
+
+
+def test_recriar_com_o_gc_e_sem_o_pronto_nao_e_boot_saudavel(janela, capsys):
+    # A build lida não basta: sem a captura pronta o boot não chegou ao sinal.
+    janela.boot_depois = [GC.format("2000935")]
+    janela.container_depois = "Exited (139) 1 second ago"
+    assert _rodar(janela, "recriar") == FALHA
+    saida = capsys.readouterr().out
+    assert "build do CS2 depois: 2000935" in saida and "BOOT FALHOU" in saida
+
+
+def test_vanilla_e_voltar_tambem_saem_1_com_o_boot_falho(janela, capsys):
+    janela.boot_depois, janela.container_depois = BOOT_STEAMCMD_FALHO, "Exited (5) 1 second ago"
+    assert _rodar(janela, "vanilla", "off") == FALHA
+    saida = capsys.readouterr().out
+    assert "BOOT FALHOU: o container saiu durante o boot" in saida
+    assert "o estado ficou vanilla off, mas o recreate falhou" in saida
+    janela.preflight = 0
+    _git(janela.raiz, "checkout", "-q", "--", RUNTIME_ANTIGO)
+    assert _rodar(janela, "voltar", "--recriar") == FALHA
+    assert "BOOT FALHOU: o container saiu durante o boot" in capsys.readouterr().out
+
+
+def test_recriar_com_boot_saudavel_anuncia_o_pronto(janela, capsys):
+    assert _rodar(janela, "recriar") == OK
+    assert "boot pronto: `[Cs2TrackerEvents] Pronto` no log do boot novo" in capsys.readouterr().out
 
 
 def test_parar_confere_que_parou(janela):

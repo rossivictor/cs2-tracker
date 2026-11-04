@@ -10,8 +10,13 @@ de 26/09). Runbook: docs/runbooks/voltar-ao-jogavel.md.
              checkout para a última jogavel-* (ou X), restaura a pasta do
              plugin de captura pelo manifesto sha256 (container parado) e
              recria o container se a infra ou a pasta do plugin mudou.
-  atualizar  [--seco]: traz a origin/main com preflight 0; commit de infra só
-             com janela aberta (preflight 4).
+  atualizar  [SHA] [--seco]: traz a origin/main com preflight 0; commit de
+             infra só com janela aberta (preflight 4). Com SHA (o conferido
+             pelo PM ou pelo servidor; L06, card B0.7i), o ff vai até esse
+             commit, e recusa sem mudar nada se ele não existe ou se a
+             origin/main depois do fetch não é ele nem o contém. Sem SHA, o ff
+             vai até a ponta da origin/main lida no fetch, e o SHA trazido sai
+             impresso: é o uso do Victor sem agente; agente sempre passa o SHA.
   janela     abrir --por "frase" [--teto N] | fechar [--feito ITEM...] |
              vigiar [--intervalo S], todos com [--seco] e só no checkout
              principal (fatia 2; protocolo, seção 8).
@@ -28,7 +33,11 @@ de 26/09). Runbook: docs/runbooks/voltar-ao-jogavel.md.
   restaurar --de TGZ | soak, todos com [--seco]: comandos do servidor, só
              com logs/janelas/ABERTA dentro dos 45 min, preflight 4 e cwd e
              --raiz no checkout principal (protocolo 9). Cada uso vira uma
-             linha no registro da janela.
+             linha no registro da janela. Todo recreate (recriar, vanilla,
+             restaurar e o do voltar) espera o sinal de pronto do boot novo
+             (`[Cs2TrackerEvents] Pronto`, servidor-boot-saudavel, linha 12)
+             e sai 1, com a causa e as últimas linhas do log, se o container
+             sai antes dele ou ele não chega em 10 min (card B0.7i).
   vanilla    on|off [--seco]: grava `vanilla` em data/servidor.json e recria
              (comando do servidor, card P1.2); `vanilla status` só lê.
 
@@ -119,6 +128,12 @@ CAUDA_BYTES = 4 << 20
 # "GC Connection established for server version 2000918, instance idx 1"
 RE_BUILD = re.compile(r"GC Connection established for server version (\d+)")
 ESPERA_BUILD_S, INTERVALO_BUILD_S = 600, 10
+# Sinal de pronto do boot (servidor-boot-saudavel, seção 1, linha 12; servidor.md,
+# passo 8, "até o Pronto"): a captura carregou e abriu o current.jsonl. Sem ele,
+# o recreate falhou (26/10 09:53: SteamCMD com Timeout e exit 5, card B0.7i).
+SINAL_PRONTO = "[Cs2TrackerEvents] Pronto"
+ULTIMAS_DO_BOOT = 8
+RE_SHA_GIT = re.compile(r"^[0-9a-f]{7,40}$")
 O_QUE_FECHAR = {"cs2.exe": "feche o CS2", "python wizard_tui": "feche a TUI",
                 "python start_match": "feche o start_match (terminal da partida)"}
 
@@ -494,15 +509,36 @@ def salvar_logs(ex: Executor, pasta: Path) -> Optional[str]:
     return build_do_boot(ex)
 
 
-def esperar_build(ex: Executor) -> Optional[str]:
-    """Espera a linha do GC do boot novo, lida pelo fim e do StartedAt do
-    container novo em diante (B0.7h). O StartedAt se relê a cada volta: se
-    o container reiniciar no boot, vale a build do boot que ficou."""
+@dataclass
+class Boot:
+    build: Optional[str] = None
+    pronto: bool = False
+    causa: Optional[str] = None  # None: o boot chegou ao sinal de pronto
+    ultimas: list = field(default_factory=list)
+
+
+def esperar_boot(ex: Executor) -> Boot:
+    """Espera o sinal de pronto (SINAL_PRONTO) e a linha do GC do boot novo,
+    lidos pelo fim e do StartedAt do container novo em diante (B0.7h). O
+    StartedAt se relê a cada volta: se o container reiniciar no boot, vale o
+    boot que ficou. Container parado antes do pronto, ou o pronto que não
+    chega em ESPERA_BUILD_S, é boot falho, com a causa (card B0.7i)."""
     fim = ex.relogio() + ESPERA_BUILD_S
     while True:
-        build = build_do_boot(ex)
-        if build or ex.relogio() >= fim:
-            return build
+        linhas = linhas_do_boot(ex)
+        boot = Boot(build=_build_das(linhas), pronto=any(SINAL_PRONTO in linha for linha in linhas),
+                    ultimas=linhas[-ULTIMAS_DO_BOOT:])
+        if boot.pronto and boot.build:
+            return boot
+        estado = estado_container(ex)
+        if estado.startswith(PARADO):
+            boot.causa = f"o container saiu durante o boot ({estado})"
+            return boot
+        if ex.relogio() >= fim:
+            if not boot.pronto:
+                boot.causa = (f"sem a linha `{SINAL_PRONTO}` em {ESPERA_BUILD_S // 60} min "
+                              f"(container: {estado})")
+            return boot
         ex.dormir(INTERVALO_BUILD_S)
 
 
@@ -532,11 +568,19 @@ def recriar(ex: Executor, build_antes: Optional[str], sem_build: str = "não reg
         return FALHA
     if ex.seco:
         return OK
-    depois = esperar_build(ex)
-    print(f"build do CS2 depois: {depois or f'sem a linha do GC em {ESPERA_BUILD_S // 60} min'}")
+    boot = esperar_boot(ex)
+    depois = boot.build
+    print(f"build do CS2 depois: {depois or 'sem a linha do GC no boot novo'}")
     if build_antes and depois and depois != build_antes:
         print(f"ATENÇÃO: a build do CS2 mudou ({build_antes} -> {depois}). São duas "
               "variáveis, e o cliente do Victor precisa da mesma build.")
+    if boot.causa:
+        print(f"BOOT FALHOU: {boot.causa}. O servidor não está jogável; "
+              "veja docs/runbooks/servidor-boot-saudavel.md.")
+        if boot.ultimas:
+            print("últimas linhas do boot:\n" + "\n".join("  " + linha for linha in boot.ultimas))
+        return FALHA
+    print(f"boot pronto: `{SINAL_PRONTO}` no log do boot novo")
     return OK
 
 
@@ -795,9 +839,26 @@ def cmd_atualizar(args, ex: Executor, **_kw) -> int:
     if ramo not in ("main", ""):
         print(f"atualizar recusado: o checkout está na branch {ramo}, não na main")
         return RECUSA
+    sha = getattr(args, "sha", None)
+    if sha is not None and not RE_SHA_GIT.match(sha.lower()):
+        print(f"atualizar: {sha!r} não é um SHA (7 a 40 dígitos hex); o ff vai pelo SHA conferido (L06)")
+        return USO
     alvo = "origin/main"
     if not ex.git("fetch", "origin", "--tags", timeout=300).ok:
         print(f"aviso: git fetch falhou; comparando com a {alvo} que já estava aqui")
+    ponta = ex.git("rev-parse", "--verify", "--quiet", f"{alvo}^{{commit}}").saida.strip()
+    if sha is not None:
+        alvo = ex.git("rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}").saida.strip()
+        if not alvo:
+            print(f"atualizar recusado: o commit {sha} não existe aqui (nem depois do fetch); nada mudou")
+            return RECUSA
+        if not ponta or (alvo != ponta and not ex.git("merge-base", "--is-ancestor", alvo, ponta).ok):
+            print(f"atualizar recusado: a origin/main ({ponta[:9] or 'não encontrada'}) não é {sha} "
+                  "nem o contém; nada mudou. Confira o delta de novo e passe o SHA conferido (L06).")
+            return RECUSA
+        print(f"alvo: {alvo[:9]} (o SHA pedido); origin/main em {ponta[:9]}")
+    elif ponta:
+        print(f"alvo: a ponta da origin/main, {ponta[:9]} (sem SHA: agente passa o conferido, L06)")
     mudados = arquivos_mudados(ex, "HEAD", alvo)
     if mudados is None:
         print(f"atualizar: {alvo} não encontrada")
@@ -1520,19 +1581,26 @@ def ler_pelo_fim(ex: Executor, inicio: Optional[str]) -> PeloFim:
     return pf
 
 
-def build_do_boot(ex: Executor) -> Optional[str]:
-    """Build do CS2 do boot atual: a última linha do GC com carimbo do
-    StartedAt em diante, lida pelo fim (B0.7h). Sem o StartedAt, a última
-    linha do GC que se lê pelo fim."""
+def linhas_do_boot(ex: Executor) -> list:
+    """Linhas do boot atual, lidas pelo fim (B0.7h): as de carimbo do
+    StartedAt em diante. Sem o StartedAt, todas as que se leem pelo fim."""
     ch = ex.docker("inspect", CONTAINER, "--format", "{{.State.StartedAt}}")
     inicio = ch.saida.strip() if ch.ok and ch.saida.strip() else None
     desde = instante_ns(inicio) if inicio else None
     lido = ler_pelo_fim(ex, inicio)
     if lido.erro:
         print(f"aviso: {lido.erro}")
-    builds = [achado.group(1) for linha in lido.linhas
-              if (desde is None or instante_ns(linha) >= desde) and (achado := RE_BUILD.search(linha))]
+    return [linha for linha in lido.linhas if desde is None or instante_ns(linha) >= desde]
+
+
+def _build_das(linhas: list) -> Optional[str]:
+    builds = [achado.group(1) for linha in linhas if (achado := RE_BUILD.search(linha))]
     return builds[-1] if builds else None
+
+
+def build_do_boot(ex: Executor) -> Optional[str]:
+    """Build do CS2 do boot atual: a última linha do GC do boot atual."""
+    return _build_das(linhas_do_boot(ex))
 
 
 def _carimbo(linha: Optional[str]) -> str:
@@ -1941,7 +2009,9 @@ def montar_parser() -> argparse.ArgumentParser:
                         help="recria o container mesmo com a infra igual (depois do conserto do pre.sh)")
     voltar.add_argument("--plugin", type=_sha256_arg, default=None,
                         help="sha256 da DLL de captura a restaurar (tag sem o registro do `marcar`)")
-    atualizar = sub.add_parser("atualizar", help="traz a origin/main para o checkout")
+    atualizar = sub.add_parser("atualizar", help="traz a origin/main (ou o SHA conferido) para o checkout")
+    atualizar.add_argument("sha", nargs="?", default=None,
+                           help="SHA conferido: o ff vai até ele, e recusa se a origin/main não é ele nem o contém")
     atualizar.add_argument("--seco", action="store_true", help="só mostra o que faria")
     janela = sub.add_parser("janela", help="abrir, fechar ou vigiar a janela de manutenção")
     janela.add_argument("acao", choices=("abrir", "fechar", "vigiar"))

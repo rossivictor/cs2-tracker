@@ -24,7 +24,10 @@ fontes:
   - "config.py:50-99 (compose_files e data/servidor.json, P1.2)"
   - "tools/jogavel.py:1724-1782 (vanilla on, off e status, P1.2)"
   - "docker-compose.vanilla.yml:1-31 (o que o override mascara)"
-atualizado: 2026-10-16
+  - "tools/jogavel.py:832-885 (cmd_atualizar: ff pelo SHA conferido, B0.7i; lição L06)"
+  - "tools/jogavel.py:513-584 (esperar_boot e recriar: sinal de pronto do boot, B0.7i)"
+  - "docs/runbooks/servidor-boot-saudavel.md:52 (o Pronto da captura)"
+atualizado: 2026-11-04
 ---
 
 # Voltar ao jogável
@@ -111,8 +114,18 @@ binds de lá ([reconstruir-volume](reconstruir-volume.md)), e o `jogavel.py` rec
 
 - `jogavel.py status` só lê: HEAD, última tag `jogavel-*`, delta até a `origin/main` (sem
   fetch) e a infra dele, janela, preflight, `pre.sh`, runtime file, candidato e container.
-- `jogavel.py atualizar [--seco]` traz a `origin/main` (fetch e `merge --ff-only`; do HEAD
-  destacado, antes `switch main`). Precisa de preflight 0. Commit que toca infra só passa com
+- `jogavel.py atualizar [SHA] [--seco]` traz a `origin/main` (fetch e `merge --ff-only`; do
+  HEAD destacado, antes `switch main`). Precisa de preflight 0.
+  - **Com SHA** (B0.7i; [lição L06](../agents/licoes.md)): o ff vai até esse commit, nunca
+    até a ponta. Depois do fetch, a `origin/main` tem de ser esse SHA ou contê-lo; se não for
+    (ou o SHA não existe, saída 5; ou não é hex de 7 a 40 dígitos, saída 2), recusa sem mudar
+    nada: confira o delta de novo e passe o SHA novo. Um merge entre a conferência e o ff fica
+    de fora. PM e servidor sempre passam o SHA que conferiram.
+  - **Sem SHA**: o ff vai até a ponta da `origin/main` lida no fetch, como antes, e a saída
+    imprime o SHA trazido (`alvo: a ponta da origin/main, <sha>`). É o uso do Victor sem
+    agente, que confere pelo `status` e decide na hora.
+
+  As regras abaixo valem para os dois. Commit que toca infra só passa com
   janela aberta (preflight 4); sem ela, recusa (saída 5) e lista os arquivos. No fim imprime
   "Reabra a TUI e o uvicorn". Infra trazida na janela ainda pede o recreate do servidor.
   Se o `merge --ff-only` falhar depois do `switch main` (a main local divergiu), ele volta ao
@@ -215,6 +228,17 @@ do começo, o log mostraria a de um boot de antes da primeira parada brusca (na 
 "antes 2000924" quando o boot era da 2000930). O `docker-logs.txt` que o `recriar` salva antes
 do recreate continua sendo o `docker logs -t` lido do começo.
 
+### Boot pronto
+
+Todo recreate pelo `jogavel.py` (`recriar`, `vanilla on|off`, `restaurar` e o do `voltar`)
+espera, pela mesma leitura, o sinal de pronto do boot novo: a linha `[Cs2TrackerEvents] Pronto`
+([boot saudável](servidor-boot-saudavel.md), seção 1, linha 12), com a do GC. Se o container
+sai antes dela, ou ela não chega em 10 min, o comando sai com 1 e imprime `BOOT FALHOU:` com a
+causa (o estado do container ou o tempo) e as últimas linhas do boot (card B0.7i). Até o
+B0.7i ele saía 0 com o boot falho: em 26/10 09:53 o SteamCMD estourou o tempo, o container saiu
+com 5, e o `recriar` devolveu 0. Com `BOOT FALHOU` o jogo não está jogável: o servidor segue o
+runbook do passo (subir de novo ou voltar), não o G6.
+
 ### Coleta incompleta
 
 Em 12/10 o `docker-logs.txt` saiu com 0 bytes e código 0: o json-file do container tinha uma
@@ -290,10 +314,10 @@ C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/jogavel.py v
 | Código | Quer dizer |
 |---|---|
 | 0 | ok |
-| 1 | falha (tag inexistente, git ou docker falhou) |
+| 1 | falha (tag inexistente, git ou docker falhou, boot do recreate sem o `Pronto`) |
 | 2 | uso errado |
 | 3 | partida em curso, preflight que não libera o `atualizar` ou o `janela abrir`, vigília abortada por processo do Victor |
-| 5 | recusado por regra: infra sem janela, confirmação errada, branch que não é a `main`, recreate ou janela fora do checkout principal, janela já aberta ou sem `--por`, checklist pendente |
+| 5 | recusado por regra: infra sem janela, `atualizar` com SHA que a `origin/main` não é nem contém, confirmação errada, branch que não é a `main`, recreate ou janela fora do checkout principal, janela já aberta ou sem `--por`, checklist pendente |
 | 6 | `docker/pre.sh` com `\r` depois da troca |
 | 7 | janela vencida (teto da marca ou 45 min pelo mtime) |
 | 8 | coleta incompleta: `docker-logs.txt` vazio ou sem linha do StartedAt em diante, e a reconstrução pelo fim também; veja [Coleta incompleta](#coleta-incompleta) |
