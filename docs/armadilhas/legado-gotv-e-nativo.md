@@ -3,7 +3,7 @@ tipo: armadilha
 status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/audit/infra.json (findings[13], itens 53-54)"
-  - "server-configs/cfg/gamemode_competitive_server.cfg:53-131"
+  - "server-configs/cfg/gamemode_competitive_server.cfg:53-57"
   - "watcher.py:13-56"
   - "README.md:404-482"
 atualizado: 2026-10-13
@@ -19,7 +19,7 @@ código. Quando o código sair, o item fica, com a fonte trocada pelo commit da 
 - **Sintoma:** com `tv_delay 960`, a MatchZy loga `Going to stop demorecording in 974.5s` e o `.dem` nunca é escrito; o `mp_match_restart_delay` estica (105 virou 130 s) e o cliente cai na votação entre mapas.
 - **Causa:** o engine limita o delay a 960 s, e a gravação só cobre o buffer: a duração da demo sempre acompanhou o delay, sem conter a partida.
 - **Contorno:** `tv_delay 0`. A captura de verdade é o plugin; a demo é só reserva do nome do mapa.
-- **Fonte:** `server-configs/cfg/gamemode_competitive_server.cfg:90-129` · `watcher.py:426-430`
+- **Fonte:** `server-configs/cfg/gamemode_competitive_server.cfg:53-55` · `watcher.py:426-430`
 
 ### 54. Listen server não abre RCON TCP (modo nativo)
 - **Sintoma:** RCON não conecta numa partida local pelo menu; `netstat` só mostra UDP na porta do jogo.
