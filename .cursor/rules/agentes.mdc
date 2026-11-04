@@ -27,7 +27,7 @@ processo.
 - Usar outro Python que não `C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe` (o do sistema é o 3.14, incompatível).
 - `pip install`/`uninstall`, `python -m pip install`/`uninstall` ou `uv pip`: a `.venv` é a do jogo.
 - Ler ou escrever o `cs2_tracker.db` real, o `.env`, o `data/profile.json` ou `docker/events-live/`.
-- Editar, reverter ou commitar `docker/match_config.spike.json` (estado de runtime).
+- Editar, apagar ou commitar o `docker/runtime/` (o `match_config` de runtime do `start_match`, fora do git desde o P1.9): o versionado é o `docker/match_config.template.json`, e `git add` só por caminho.
 - Tocar no volume `cs2-tracker_cs2-data` ou em `C:/cs2server`.
 - `docker compose down` (com ou sem `-v`), `docker volume rm`/`prune`, `docker system prune`, `docker compose run`.
 - `docker compose` fora do checkout principal `C:/Users/Victor/Projetos/cs2-tracker`: o volume é external, então de outra pasta o compose monta o volume VIVO e, com o `cs2-spike` removido, sobe com os binds dela (`docs/runbooks/reconstruir-volume.md`). Só o papel servidor, do checkout principal.
