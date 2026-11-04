@@ -105,8 +105,8 @@ Lição pendente é aviso: a regra ainda não chegou a quem age.
 - **Sintoma:** um `cd` numa subpasta do checkout principal mudou o diretório da sessão, e as worktrees dos agentes sumiram.
 - **Causa:** o diretório do shell persiste entre comandos na sessão. O mecanismo do sumiço das worktrees não ficou registrado em card nem em janela (relato do PM no card K1.23).
 - **Regra:** nenhum `cd` para dentro do checkout principal: caminho absoluto em todo comando, e `git -C <raiz>` para git.
-- **Onde mora:** [pm-playbook](pm-playbook.md), "Checkout principal"; os prompts de despacho do PM já levam a regra.
-- **Estado:** pendente (falta no `AGENTS.md`, para todos os papéis; decide o PM).
+- **Onde mora:** `AGENTS.md`, "Lições da B0 que viraram regra"; [pm-playbook](pm-playbook.md), "Checkout principal"; os prompts de despacho do PM já levam a regra.
+- **Estado:** aplicada (card P1.14): o `AGENTS.md`, "Lições da B0 que viraram regra", traz a regra para todos os papéis.
 
 ### L09 · Janelas vencidas esperando aprovação de comando docker
 - **Quando:** 13/10 (card 29,8), 16/10 (card 81), 19/10 (T2) e 26/10 09:52, as quatro que os registros mostram.
@@ -121,29 +121,29 @@ Lição pendente é aviso: a regra ainda não chegou a quem age.
 - **Sintoma:** as duas janelas pararam no passo 5, sem mudança no servidor e com o jogo fora do ar: em 24/10 o runbook exigia dono `steam` e o volume é todo `0:0`; em 25/10, `addons/counterstrikesharp/shared/` inteiro é `1000:1000` (109 entradas). Os PRs #113 e #114 acertaram o runbook, e a 3ª janela (25/10 15:01) instalou a v1.0.378.
 - **Causa:** o runbook supôs donos e árvore do volume sem conferir os registros reais (inventário e janelas anteriores).
 - **Regra:** antes da 1ª janela de um runbook, toda premissa sobre o volume é conferida contra registros reais; o que só a janela confirma vira passo de leitura com PARE explícito, antes do snapshot.
-- **Onde mora:** `docs/runbooks/b1.3s-cssharp-1.0.378.md` ("O que as janelas de 24 e 25/10 mostraram").
-- **Estado:** pendente (a regra geral falta no `dev.md`, para quem escreve runbook, e no `qa.md`, fase 1; decide o PM).
+- **Onde mora:** `docs/runbooks/b1.3s-cssharp-1.0.378.md` ("O que as janelas de 24 e 25/10 mostraram"); `dev.md`, "Trabalhar"; `qa.md`, "Duas fases" (fase 1).
+- **Estado:** aplicada (card P1.14): o `dev.md`, "Trabalhar", para quem escreve runbook, e o `qa.md`, fase 1, que devolve premissa sem fonte.
 
 ### L11 · Build nova do CS2 quebra o CSSharp e plugins nativos
 - **Quando:** build 2000935, de 22/10 (recreate da janela do P1.10) a 26/10 (B1.13).
 - **Sintoma:** na janela de 22/10 só o BotAI do fork foi conferido (40/40). Em 23 e 24/10 o servidor caiu com segfault 11 a 30 s depois da entrada do humano, 3 vezes, até com a válvula vanilla on; no smoke de 23/10 o NadeSystem logou `Invalid function pointer`.
 - **Causa:** o update v1.41.9.2 mudou vtables e assinaturas que a CSSharp v1.0.375 e a smoke do NadeSystem 1.2.1 usam. A conferência por build cobria só o BotAI.
 - **Regra:** a cada build nova, antes de jogar com plugins nativos, todos se conferem sobre a cópia do `libserver.so` da build (o gamedata da CSSharp e os 6 de bot, pelo `tools/conferir_plugins_bot.py`), não só o BotAI.
-- **Onde mora:** [b1.13](../runbooks/b1.13-plugins-de-bot-2000935.md); `tools/conferir_plugins_bot.py`.
-- **Estado:** pendente (o `servidor.md`, passo 9, ainda cita só o BotAI do fork; decide o PM).
+- **Onde mora:** [b1.13](../runbooks/b1.13-plugins-de-bot-2000935.md); `tools/conferir_plugins_bot.py`; `servidor.md`, passo 9.
+- **Estado:** aplicada (card P1.14): o `servidor.md`, passo 9, confere o gamedata da CSSharp e os 6 plugins de bot pelo `tools/conferir_plugins_bot.py`, não só o BotAI.
 
 ### L12 · A contagem pelo `status` do RCON inclui a CSTV
 - **Quando:** P1.7, G7 reprovado na partida 95 (20/10).
 - **Sintoma:** o `start_match` contou 11 clientes num 5x5 e disparou o aviso falso de 11 jogadores em campo.
 - **Causa:** o `status` lista o cliente da SourceTV; o fake do teste (`tests/test_balanceamento.py`) não tinha a CSTV, e por isso a fase 1 passou.
 - **Regra:** fake de servidor em teste reproduz uma amostra real da saída (aqui, a linha da CSTV no `status`).
-- **Onde mora:** `start_match.py` (P1.7 refeito, PR #108: a CSTV sai da contagem, com testes com a CSTV no fake).
-- **Estado:** pendente (a regra geral do fake falta no `dev.md`; decide o PM).
+- **Onde mora:** `start_match.py` (P1.7 refeito, PR #108: a CSTV sai da contagem, com testes com a CSTV no fake); `dev.md`, "Trabalhar".
+- **Estado:** aplicada (card P1.14): o `dev.md`, "Trabalhar", pede fake de servidor com amostra real da saída.
 
 ### L13 · DLL compilada com o container de pé
 - **Quando:** janela do P1.10, 22/10.
 - **Sintoma:** o servidor rodou o build da DLL 0.4.1 (`docker/build-events-plugin.sh`, que escreve em `docker/plugins/`, montado) sem parar o container antes; ele estava `Exited (255)` desde 15:02Z por causa da queda do Docker Desktop, e por isso nada pegou o servidor vivo.
 - **Causa:** a estrutura da janela no `servidor.md` não tem passo de build; a ordem saiu do runbook do card.
 - **Regra:** build de plugin montado só depois do passo 4 (Parar), com o container parado conferido e registrado; o `AGENTS.md` já proíbe trocar DLL com o servidor vivo.
-- **Onde mora:** `AGENTS.md`, zonas proibidas ("trocar VPK ou DLL com o servidor vivo").
-- **Estado:** pendente (o passo de build depois do 4 falta no `servidor.md`; decide o PM).
+- **Onde mora:** `AGENTS.md`, zonas proibidas ("trocar VPK ou DLL com o servidor vivo"); `servidor.md`, passo 4.
+- **Estado:** aplicada (card P1.14): o `servidor.md`, passo 4, só deixa o build de plugin em pasta montada depois do container parado conferido e registrado.

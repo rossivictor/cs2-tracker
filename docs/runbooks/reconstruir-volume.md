@@ -99,7 +99,7 @@ worktree**, não os do checkout principal:
 - as pastas ignoradas pelo git não existem numa worktree nova
   (`docker/plugins/Cs2TrackerEvents/`, `BotAimImprover/`, `BotRandomizer/`). O bind monta uma
   pasta vazia, e a captura e esses dois plugins somem dentro do container;
-- `cfg`, `pre.sh` e `match_config.spike.json` passam a ser os da branch da worktree;
+- `cfg` e `pre.sh` passam a ser os da branch da worktree, e o `docker/runtime/` (o `match_config` de runtime, ignorado pelo git) passa a ser o da worktree, que nasce sem ele;
 - `demos-live`, `stats-live` e `events-live` passam a gravar na worktree, onde o watcher do
   checkout principal não lê;
 - a worktree nasce sem `.env`: `SRCDS_TOKEN`, `CS2_RCONPW` e `MATCHZY_ADMINS` saem vazios.

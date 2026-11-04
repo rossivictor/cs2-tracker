@@ -53,7 +53,7 @@ Tags: `git tag -a <nome> <sha> -m "<card e evidência>" && git push origin <nome
 
 ### 4. Revisão estrutural (barata; o julgamento é do QA)
 
-Confira no relatório do dev e no `git diff --stat origin/main...origin/<branch>`: STATUS PRONTO e todo critério ATENDIDO, ou DEPOIS DO MERGE quando só se prova na janela ou na partida; FALHAS VS BASELINE igual à lista conhecida; diff só nos arquivos do card e dentro do tamanho de PR do AGENTS.md, sem `wizard_tui.py`, `docker/match_config.spike.json`, banco ou `.env`; commits em pt-BR com `(card <ID>)`; caminho de jogo declarado bate com o protocolo 1, e degrau traz ROLLBACK.
+Confira no relatório do dev e no `git diff --stat origin/main...origin/<branch>`: STATUS PRONTO e todo critério ATENDIDO, ou DEPOIS DO MERGE quando só se prova na janela ou na partida; FALHAS VS BASELINE igual à lista conhecida; diff só nos arquivos do card e dentro do tamanho de PR do AGENTS.md, sem `wizard_tui.py`, `docker/runtime/`, banco ou `.env`; commits em pt-BR com `(card <ID>)`; caminho de jogo declarado bate com o protocolo 1, e degrau traz ROLLBACK.
 
 Passou: `gh pr create --base main --head <branch>` com título do card e corpo em pt-BR (critérios, como verificar, caminho de jogo, rollback, links de poda), terminando com a linha de atribuição que o ambiente pedir. Depois, `mover --card=<ID> --status="Em testes" --branch=<branch> --pr=<url>`. Em retomada, se o PR da branch já existe (`gh pr list --head <branch>`), não abra outro: só `mover --card=<ID> --status="Em testes"`. Quem abre o QA é o PM. Dev BLOQUEADO: `mover --card=<ID> --status=Bloqueada --texto="<motivo>"` e escale.
 
