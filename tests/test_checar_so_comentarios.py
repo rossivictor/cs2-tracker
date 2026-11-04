@@ -354,6 +354,21 @@ def test_tipo_sem_comparador_e_arquivo_novo_contam_como_mudanca(tmp_path, capsys
     assert "só existe numa das refs" in saida
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="ambiguidade de drive é do git do Windows")
+def test_ref_com_nome_de_drive_nao_vira_caminho(tmp_path, capsys, monkeypatch):
+    # No runner (D:\a\...), `git show d:docker-compose.yml` dava "ambiguous
+    # argument": o git do Windows lê `d:` como o drive D. Aqui a ref leva a
+    # letra do drive do repo, com o arquivo no cwd.
+    repo = _repo(tmp_path, {"docker-compose.yml": "a: 1\n"}, {"docker-compose.yml": "a: 1  # c\n"})
+    drive = str(tmp_path)[0].lower()
+    _git(repo, "tag", drive, "d")
+    monkeypatch.chdir(repo)
+    codigo = csc.main(["a", drive, "docker-compose.yml", "--repo", str(repo)])
+    capturado = capsys.readouterr()
+    assert codigo == 0, capturado.err
+    assert "OK docker-compose.yml (yaml)" in capturado.out
+
+
 def test_ref_inexistente_sai_2(tmp_path, capsys):
     repo = _repo(tmp_path, {"m.py": PY_ANTES}, {"m.py": PY_ANTES})
     assert csc.main(["a", "naoexiste", "m.py", "--repo", str(repo)]) == 2

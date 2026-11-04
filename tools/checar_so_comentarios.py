@@ -4,7 +4,7 @@ Prova que, entre dois commits, só comentários mudaram (card K1.9; política
 em docs/politica-de-comentarios.md, "Ordem: extrair antes de podar").
 
   <ref_antes> <ref_depois> [arquivos...]: compara cada arquivo nas duas
-             refs (pelo `git show`, sem tocar no working tree). Sem
+             refs (pelo `git cat-file`, sem tocar no working tree). Sem
              arquivos, usa os que o `git diff --name-only` aponta entre elas.
 
 O que conta como "só comentário", por tipo:
@@ -73,7 +73,9 @@ def ler(repo: Path, ref: str, caminho: str) -> str | None:
                        capture_output=True)
     if r.returncode != 0:
         return None
-    return git(repo, "show", f"{ref}:{caminho}").decode("utf-8")
+    # cat-file e não show: `git show d:arq` no Windows vira caminho do drive D:
+    # quando o arquivo existe no cwd ("ambiguous argument"), como no runner.
+    return git(repo, "cat-file", "blob", f"{ref}:{caminho}").decode("utf-8")
 
 
 # ---------------------------------------------------------------- Python
@@ -281,7 +283,7 @@ def comparar_arquivo(caminho: str, antes: str | None, depois: str | None):
 def checar(repo: Path, ref_antes: str, ref_depois: str, arquivos: list[str]) -> tuple[int, list[str]]:
     """(código de saída, linhas do relatório)."""
     if not arquivos:
-        saida = git(repo, "diff", "--name-only", ref_antes, ref_depois).decode("utf-8")
+        saida = git(repo, "diff", "--name-only", ref_antes, ref_depois, "--").decode("utf-8")
         arquivos = [l for l in saida.splitlines() if l.strip()]
     if not arquivos:
         return 0, [f"nada mudou entre {ref_antes} e {ref_depois}"]
