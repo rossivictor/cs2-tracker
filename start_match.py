@@ -52,14 +52,9 @@ ROOT = Path(__file__).resolve().parent
 # sink em vez de redirecionar o stdout do processo inteiro.
 Sink = Callable[[str], None]
 
-# Órfão real (P1.1): o plugin de captura trunca o current.jsonl no próximo
-# OnMapStart, e o loadmatch (ou a subida do container) dispara um. Se a
-# partida anterior caiu antes do watcher arquivar (BO3 matchid 75, 04/10:
-# segfault na troca para o mapa 2), os rounds dela estão só ali. Basta UM
-# destes eventos para ser partida de verdade. O resto (snapshot, round_stats,
-# round_officially_ended) é a cauda normal de toda partida já arquivada, e
-# segue sendo truncada pelo plugin, como antes. Exceção (P1.1d): a morte de
-# pós-jogo (morte_de_pos_jogo) também é cauda; contrato do JSONL, §7.
+# Órfão real: basta UM destes eventos para ser partida de verdade (o plugin trunca o
+# current.jsonl no próximo OnMapStart). O resto, inclusive a morte de pós-jogo, é a
+# cauda normal de toda partida já arquivada. ver [[contrato-events-jsonl]]
 EVENTOS_DE_PARTIDA = frozenset({"round_start", "player_death", "player_hurt"})
 
 
@@ -889,15 +884,9 @@ def _force_start_and_balance_bots(*, rcon_host, rcon_port, rcon_password, contai
             log(f"  [AVISO] css_start falhou via RCON ({exc}).")
             log("  Digite '.start' manualmente no chat do jogo.")
 
-        # Deixa o live.cfg + o override assentarem e reconcilia os times.
-        #
-        # Isto é obrigatório, não é paranoia: o gamemode_competitive_server.cfg
-        # tem `bot_quota 10` e é reexecutado pela engine na virada pro ao vivo,
-        # sobrepondo a quota do override. Observado ao vivo em 19/09/2026 —
-        # 11 clientes (CT 6 : TR 5) em vez de 10, com o bot extra sempre no CT.
-        #
-        # A ordem aqui importa: reafirmar a quota ANTES de kickar. Kickar com a
-        # quota ainda em 10 só faz o gerenciador repor o bot na sequência.
+        # Deixa o live.cfg + o override assentarem e reconcilia os times. Obrigatório: o
+        # engine reexecuta o cfg do modo (bot_quota 10) na virada pro ao vivo. Reafirmar a
+        # quota ANTES de kickar, senão o bot volta. ver [[bots-e-perfis]]
         time.sleep(3)
         if player:
             rcon_run(rcon_host, rcon_port, rcon_password,
@@ -1289,14 +1278,9 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
     cancelar: Event opcional que interrompe a espera dos mapas 2..N da série
     (P1.5); o fim do watcher também interrompe.
 
-    Dificuldade dos bots NÃO é configurável aqui: o plugin CS2-Bot-Improver
-    (github.com/ed0ard/CS2-Bot-Improver) que este projeto usa ignora os
-    cvars nativos bot_difficulty/custom_bot_difficulty — ele lê um arquivo
-    estático (game/csgo/overrides/botprofile.vpk) carregado só na subida do
-    processo do jogo, então não dá pra trocar via RCON em runtime. Fixo em
-    "Low" (fácil) por enquanto — ver overrides/{Low,Medium,High}/botprofile.vpk
-    já presentes na imagem se quiser trocar manualmente (copiar por cima de
-    overrides/botprofile.vpk dentro do container e reiniciá-lo).
+    Dificuldade dos bots NÃO é configurável aqui: vem do botprofile.vpk (Low),
+    lido só na subida do jogo. Nunca trocar o VPK com o servidor vivo (FATAL):
+    só em janela, com o servidor parado; ver [[bots-e-perfis]].
     """
     compose_file_path = ROOT / compose_file
     rcon_lock = rcon_lock or threading.Lock()
@@ -1373,13 +1357,8 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
                          f"matchzy_loadmatch {match_config}")
     log(f"  -> {response or '(sem resposta)'}")
 
-    # A MatchZy recusa carregar um match novo se já tiver um "meio carregado"
-    # na memória (ex.: uma execução anterior que travou antes do css_start) —
-    # ela responde com essa mensagem em vez de um erro RCON de verdade, então
-    # sem checar o texto o script seguia em frente e forçava o início do
-    # match ANTIGO (observado: vetou um mapa, subiu outro). Falha explícita
-    # aqui é melhor que seguir com o servidor num estado que não bate com o
-    # match_config que acabamos de escrever.
+    # A MatchZy recusa o loadmatch com partida meio carregada na memória e responde em
+    # texto: sem checar, o fluxo forçava o match ANTIGO. ver [[matchzy]]
     if response and "cannot load a new match" in response:
         sys.exit(
             "[ERRO] O servidor já tinha uma partida carregada e recusou o "
@@ -1408,14 +1387,9 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
         enemy_team_name=enemy_team_name, enemy_team_logo=enemy_team_logo,
     )
 
-    # BO3/BO5: a MatchZy troca de mapa sozinha ao fim de cada um (mp_
-    # match_restart_delay + changelevel), mas o mapa seguinte cai na mesma
-    # trava de warmup do primeiro ([IsTeamReady] minPlayers:5 playerCount:0
-    # — bots não contam como "prontos") e os bots não voltam sozinhos
-    # (bot_quota_mode volta pra "fill" quando gamemode_competitive_server.cfg
-    # reexecuta no load do novo mapa). Sem repetir force_start_and_balance_bots
-    # aqui, a série trava no warmup do mapa 2 pra sempre — observado ao vivo.
-    # Você já está conectado, então não precisa de confirm_ready de novo.
+    # BO3/BO5: no mapa seguinte a MatchZy cai na mesma trava de warmup (bots não dão
+    # .ready) e o cfg do modo volta a quota para fill: sem repetir force_start_and_
+    # balance_bots, a série trava no mapa 2. ver [[matchzy]] e [[bots-e-perfis]]
     # P1.5: a espera dura o mapa anterior inteiro (teto de 3 h por mapa) e lê
     # o docker logs por um cursor só, da série toda, que nunca volta. Ela para
     # se quem chamou setar `cancelar` ou se o watcher encerrar: fechar a TUI

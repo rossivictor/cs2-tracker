@@ -10,53 +10,10 @@ plugamos o parser (awpy) e a gravação no banco.
 Requisitos (rode a partir do .venv do projeto — awpy exige Python <3.14):
     .venv\\Scripts\\python.exe -m pip install -r requirements.txt
 
-IMPORTANTE — RCON só funciona em servidor DEDICADO:
-    Listen server (client hospedando partida local/offline com bots, via
-    "Practice with Bots" do menu) NUNCA abre o listener TCP de RCON no
-    CS2, mesmo com rcon_password e -usercon configurados — confirmado
-    via netstat (só aparece UDP, nunca TCP, na porta do jogo). Não é bug
-    de configuração, é limitação do modo listen server nessa engine.
-    Pra RCON funcionar de verdade, suba um servidor dedicado (SteamCMD,
-    app 730, `cs2.exe -dedicated`) e conecte nele como client normal
-    (`connect 127.0.0.1:27015`).
-
-    Além disso, em servidor dedicado o comando de client `record`/`stop`
-    não existe ("Can't record on dedicated server.") — a gravação
-    server-side é feita via GOTV: `tv_enable 1` uma vez no startup, e
-    depois `tv_record <nome>` / `tv_stoprecord` por partida (é o que
-    este script manda).
-
-Setup necessário no servidor:
-    1. Habilite o log em arquivo via opção de inicialização:
-         -condebug -conclearlog -usercon
-       Não existe cvar pra customizar nome/caminho do arquivo na Source 2
-       (con_logfile era do CS:GO/Source 1 e foi removido — o CS2 nem
-       reconhece o comando). Com -condebug o log sempre vai parar, sem
-       exceção, em:
-         <install>/game/csgo/console.log
-
-    2. No server.cfg (não confie em autoexec.cfg pra servidor dedicado —
-       o auto-exec de cfg no CS2 é instável; force com `+exec server.cfg`
-       na linha de comando de qualquer forma):
-         log on                  # sem isso, "World triggered ..." e
-                                  # "Game Over: ..." nem aparecem no log
-         rcon_password "sua_senha_local"
-         sv_lan 1                # dispensa GSLT pra teste local
-         tv_enable 1
-
-    3. Bind explícito em todas as interfaces, senão o RCON escuta só no
-       IP da rede local (ex.: 192.168.x.x) e não em 127.0.0.1:
-         +ip 0.0.0.0
-
-    4. bot_quota/bot_quota_mode/bot_difficulty e outras cvars de partida
-       NÃO vão em server.cfg — o config interno do modo (ex.: competitive)
-       roda depois e sobrescreve. Coloque essas em
-       game/csgo/cfg/gamemode_competitive_server.cfg, que o engine executa
-       depois do gamemode base especificamente pra permitir isso.
-
-    5. --print-only continua disponível como fallback manual (imprime o
-       comando em vez de mandar via RCON) caso o RCON falhe por qualquer
-       outro motivo além dos dois acima.
+Só servidor dedicado: o listen server do menu nunca abre RCON por TCP, e o
+dedicado precisa de -condebug, `log on` e +ip 0.0.0.0; as cvars de partida
+vão no gamemode_competitive_server.cfg. Ver [[legado-gotv-e-nativo]] e
+[[ADR-0007]]. --print-only imprime o comando em vez de mandar pela RCON.
 
 Uso:
     .venv\\Scripts\\python.exe watcher.py --log "C:/.../csgo/console.log" \\
@@ -176,24 +133,9 @@ PATTERNS = {
 }
 
 # ---------------------------------------------------------------------------
-# Passo 3 (Camada 1) — fim de partida via MatchZy (log do container Docker,
-# não mais o console.log nativo). Calibrado em cima de duas partidas reais:
-#
-#   matchid 6: veio HandleMatchEnd "MAP ENDED" seguido de um segundo
-#   HandleMatchEnd "MATCH ENDED, remainingMaps: 0, NumMaps: 1,
-#   Team1SeriesScore: 1, Team2SeriesScore: 0" antes do SetMatchEndData.
-#
-#   matchid 9: só veio o HandleMatchEnd "MAP ENDED" — a segunda linha
-#   "MATCH ENDED" com o placar de série NÃO apareceu.
-#
-# Ou seja, a linha "MATCH ENDED" com placar não é confiável como gatilho
-# (curioso — mesmo tipo de match bo1, com e sem ela). WritePlayerStatsToCsv
-# é o único evento que se repetiu nas duas partidas E é logicamente o
-# último passo do pipeline do MatchZy (stats já persistidas), então é o
-# gatilho definitivo de "partida terminou de verdade". SetMatchEndData vem
-# antes dele sempre e carrega o winnerName — o watcher guarda esse valor
-# e só dispara o hook de fim de partida quando o WritePlayerStatsToCsv
-# do MESMO matchid chegar.
+# Fim de partida pela MatchZy (docker logs do container). O gatilho é o
+# WritePlayerStatsToCsv do MESMO matchid: o MATCH ENDED nem sempre vem, e o
+# SetMatchEndData, antes dele, traz o winnerName. ver [[matchzy]]
 # ---------------------------------------------------------------------------
 MATCHZY_PATTERNS = {
     "match_winner": re.compile(
@@ -545,12 +487,9 @@ class MatchWatcher:
         current = self.events_live_dir / "current.jsonl"
         tem_eventos = current.exists() and current.stat().st_size > 0
 
-        # Colisão (P1.1a): o nome já existe em disco ou no banco, e o
-        # current.jsonl tem uma partida nova. Antes o watcher não renomeava e
-        # mandava ingerir o arquivo ANTIGO, que o parser pulava ("já está no
-        # banco"): a partida nova sumia no truncamento do mapa seguinte. Agora
-        # ela ganha um nome livre, events_<matchid>_map<N>__<utc>, e o antigo
-        # fica intacto.
+        # Colisão: o nome já existe em disco ou no banco e o current.jsonl tem partida
+        # nova; ela ganha um nome livre (events_<matchid>_map<N>__<utc>) e o antigo
+        # fica intacto. ver [[contrato-events-jsonl]]
         no_banco = tem_eventos and demo_name_no_banco(self.db_path, demo_name)
         if tem_eventos and (archived.exists() or no_banco):
             antigo = demo_name
