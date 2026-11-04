@@ -597,7 +597,10 @@ def test_merge_do_degrau_de_infra_sai_antes_da_janela_e_o_passo_3_e_so_o_ff():
     passo3 = _passos_do_servidor()["3"]
     assert passo3.startswith("**Candidato: ff do checkout para o candidato.**")
     assert "já está no `origin/main`, com a tag `candidato-N`" in passo3
-    assert "merge --ff-only origin/main" in passo3 and "sem ff, feche sem mudança" in passo3
+    # B0.7i (lição L06): o ff vai pelo SHA conferido, nunca pela ponta do origin/main.
+    assert "jogavel.py atualizar <SHA>" in passo3 and "sem ff, feche sem mudança" in passo3
+    assert "nunca até a ponta do `origin/main`" in passo3
+    assert "merge --ff-only origin/main" not in passo3
     ff_sem_janela = next(x for x in servidor.splitlines() if "**Ff sem janela**" in x)
     assert "sem infra" in ff_sem_janela and "Infra no delta" in ff_sem_janela
 
