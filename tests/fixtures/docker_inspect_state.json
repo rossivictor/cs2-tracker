@@ -1,0 +1,5 @@
+{
+  "_origem": "card P1.15: a linha que o `docker inspect -f \"{{json .State}}\" cs2-spike` imprime (Docker Engine 28, struct State, sem Health porque o compose não tem healthcheck). Horários da 1ª tentativa de 23/10 (boot das 21:50:04Z parado pela pausa, docs/armadilhas/windows-e-docker.md); Pid fictício. O `{{.State.Running}}` do mesmo container pausado imprime `true`.",
+  "pausado": "{\"Status\":\"paused\",\"Running\":true,\"Paused\":true,\"Restarting\":false,\"OOMKilled\":false,\"Dead\":false,\"Pid\":2187,\"ExitCode\":0,\"Error\":\"\",\"StartedAt\":\"2026-10-23T21:50:04.512381093Z\",\"FinishedAt\":\"2026-10-23T21:48:31.036114201Z\"}\n",
+  "rodando": "{\"Status\":\"running\",\"Running\":true,\"Paused\":false,\"Restarting\":false,\"OOMKilled\":false,\"Dead\":false,\"Pid\":2187,\"ExitCode\":0,\"Error\":\"\",\"StartedAt\":\"2026-10-23T21:50:04.512381093Z\",\"FinishedAt\":\"2026-10-23T21:48:31.036114201Z\"}\n"
+}

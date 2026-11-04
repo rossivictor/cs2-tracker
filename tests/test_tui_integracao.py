@@ -22,6 +22,7 @@ import sys
 import threading
 import time
 import types
+from pathlib import Path
 
 import pytest
 
@@ -50,6 +51,10 @@ MATCH_CONFIG_BASE = {
 
 # Resposta do `status` com 10 clientes (9 bots + você): o gate de
 # wait_for_client_count do 5x5.
+# P1.15: a saída do `docker inspect -f "{{json .State}}"` de um container pausado.
+INSPECT_STATE = json.loads((Path(__file__).parent / "fixtures" / "docker_inspect_state.json")
+                           .read_text(encoding="utf-8"))
+
 STATUS_10 = "---------players--------\n" + "".join(
     f"  {i} 00:01 0 0 active 0 'jogador{i}'\n" for i in range(10)) + "#end\n"
 
@@ -71,6 +76,7 @@ class Servidor:
         self.conexoes = []    # (host, porta, senha)
         self.lock = threading.Lock()
         self.daemon_no_ar = True  # P1.1c: False simula o Docker Desktop parado
+        self.pausado = False      # P1.15: True simula o container pausado
         self.carimbo = int(time.time()) + 3600  # do docker logs -t, à frente do relógio
 
     # -- docker (start_match.subprocess.run) --------------------------------
@@ -86,7 +92,13 @@ class Servidor:
         if not self.daemon_no_ar:
             raise EsperaIndevida(f"docker com o daemon fora do ar: {argv!r}")
         if argv[1] == "inspect":
+            if self.pausado:  # P1.15: a saída do docker de verdade, Running true e Paused true
+                if argv[3] == "{{.State.Running}}":
+                    return subprocess.CompletedProcess(argv, 0, "true\n", "")
+                return subprocess.CompletedProcess(argv, 0, INSPECT_STATE["pausado"], "")
             return subprocess.CompletedProcess(argv, 1, "", "No such object")
+        if self.pausado:
+            raise EsperaIndevida(f"docker com o container pausado: {argv!r}")
         if argv[1:3] == ["logs", "-t"]:
             # Série (P1.5): cada leitura traz o próximo mapa carregado, você
             # dentro e o warmup, com carimbos novos (o cursor só anda).
@@ -104,8 +116,8 @@ class Servidor:
     def Popen(self, argv, **kwargs):
         with self.lock:
             self.popen.append(list(argv))
-        if not self.daemon_no_ar:
-            raise EsperaIndevida(f"watcher com o daemon fora do ar: {argv!r}")
+        if not self.daemon_no_ar or self.pausado:
+            raise EsperaIndevida(f"watcher com o daemon fora do ar ou pausado: {argv!r}")
         # poll None: o watcher segue vivo (o fim dele interrompe a série, P1.5).
         return types.SimpleNamespace(stdout=io.StringIO(""), wait=lambda timeout=None: 0,
                                      poll=lambda: None, terminate=lambda: None,
@@ -119,8 +131,8 @@ class Servidor:
             def __init__(self, host, port, passwd=None, timeout=None):
                 with servidor.lock:
                     servidor.conexoes.append((host, port, passwd))
-                if not servidor.daemon_no_ar:
-                    raise EsperaIndevida("RCON com o daemon fora do ar")
+                if not servidor.daemon_no_ar or servidor.pausado:
+                    raise EsperaIndevida("RCON com o daemon fora do ar ou pausado")
 
             def __enter__(self):
                 return self
@@ -350,3 +362,32 @@ def test_tui_com_o_docker_fora_do_ar_mostra_a_mensagem_e_nao_espera(
     arquivos = list((tmp_path / "logs" / "partidas").glob("partida_*.log"))
     assert len(arquivos) == 1, arquivos
     assert msg in arquivos[0].read_text(encoding="utf-8")
+
+
+def test_tui_com_o_container_pausado_mostra_a_causa_e_nao_espera_o_rcon(
+        servidor, launch_vigiado, tmp_path):
+    """Card P1.15: com o container pausado (Running true e Paused true no
+    inspect), o "Iniciar partida" termina logo com a causa e o que fazer no
+    painel da TUI (sem diff no wizard_tui.py), em vez de "Esperando RCON"
+    para sempre; nada de compose, unpause, RCON ou watcher."""
+    servidor.pausado = True
+    inicio = time.monotonic()
+    tela = lancar_pela_tui("bo1", ["de_nuke"], ["t"], launch_vigiado, ate_o_ready=False)
+    assert time.monotonic() - inicio < 30
+
+    assert isinstance(launch_vigiado.erro, SystemExit)
+    msg = ("[ERRO] O container 'cs2-spike' está pausado no Docker Desktop: o servidor parou "
+           "no meio e o RCON não vai responder. Abra o Docker Desktop, dê play (Resume) no "
+           "container e tente de novo; se o servidor cair ao despausar, tente de novo que ele "
+           "sobe do zero.")
+    painel = "".join(tela)  # o painel quebra a linha longa na largura da tela
+    assert msg in painel, tela
+    assert "[ERRO] Partida não iniciada: o container do servidor está pausado." in painel, tela
+    assert "[RCON] Esperando" not in painel, tela
+
+    assert [argv for argv, _kw in servidor.docker] == [
+        ["docker", "version", "--format", "{{.Server.Version}}"],
+        ["docker", "inspect", "-f", "{{.State.Running}}", "cs2-spike"],
+        ["docker", "inspect", "-f", "{{json .State}}", "cs2-spike"],
+    ]
+    assert servidor.rcon == [] and servidor.conexoes == [] and servidor.popen == []

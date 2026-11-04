@@ -316,6 +316,7 @@ def partida(tmp_path, monkeypatch, servidor_falso):
     monkeypatch.setattr(start_match, "read_max_players", lambda _: None)
     monkeypatch.setattr(start_match, "docker_fora_do_ar", lambda: None)
     monkeypatch.setattr(start_match, "container_running", lambda _: True)
+    monkeypatch.setattr(start_match, "container_pausado", lambda _: False)  # P1.15
     monkeypatch.setattr(start_match, "wait_for_rcon",
                         lambda *_a, **_k: estado.ordem.append("wait_for_rcon"))
     monkeypatch.setattr(start_match, "rcon_run", rcon_run)

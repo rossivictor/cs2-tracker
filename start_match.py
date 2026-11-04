@@ -331,6 +331,35 @@ def container_running(container_name: str) -> bool:
     return result.returncode == 0 and result.stdout.strip() == "true"
 
 
+# P1.15: container pausado (o Docker Desktop cai de madrugada) tem
+# State.Running = true E State.Paused = true, então o container_running sozinho
+# pulava o compose up e a TUI ficava em "Esperando RCON" para sempre
+# (docs/armadilhas/windows-e-docker.md). O start_match não despausa: despausado,
+# o watchdog do engine derruba o processo, e a decisão fica com o Victor.
+CONTAINER_PAUSADO = (
+    "O container '{nome}' está pausado no Docker Desktop: o servidor parou no meio "
+    "e o RCON não vai responder. Abra o Docker Desktop, dê play (Resume) no container "
+    "e tente de novo; se o servidor cair ao despausar, tente de novo que ele sobe do zero."
+)
+
+
+def container_pausado(container_name: str) -> bool:
+    """True só se o `docker inspect` diz State.Paused = true. Inspect que
+    falha ou saída que não é o JSON do State conta como não pausado: segue o
+    caminho de antes do P1.15."""
+    result = subprocess.run(
+        ["docker", "inspect", "-f", "{{json .State}}", container_name],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return False
+    try:
+        estado = json.loads(result.stdout)
+    except ValueError:
+        return False
+    return isinstance(estado, dict) and estado.get("Paused") is True
+
+
 def compose_up(compose_file: Path, log: Sink = print):
     """`docker compose up -d` com os -f de config.compose_files() (card
     P1.2): o compose_file e, com o vanilla ligado, o override dele. Com o
@@ -1316,6 +1345,10 @@ def run_match(*, container_name, match_config, compose_file, rcon_host, rcon_por
             log(f"[DOCKER] Detalhe: {motivo}")
             sys.exit("Partida não iniciada: o Docker não respondeu.")
         if container_running(container_name):
+            if container_pausado(container_name):
+                # P1.15: antes da espera do RCON, pelo mesmo canal do P1.1c.
+                log(f"[ERRO] {CONTAINER_PAUSADO.format(nome=container_name)}")
+                sys.exit("Partida não iniciada: o container do servidor está pausado.")
             log(f"[DOCKER] Container '{container_name}' já está rodando.")
         else:
             compose_up(compose_file_path, log=log)
