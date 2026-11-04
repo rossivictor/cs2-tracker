@@ -29,6 +29,7 @@ Procedimentos passo a passo, com pré-condição, rollback e o que conferir no f
 - [reconstruir-volume.md](reconstruir-volume.md): o que o `cs2-data` external protege e o que não, e a reconstrução a partir do `C:/cs2server` (B0.8).
 - [servidor-boot-saudavel.md](servidor-boot-saudavel.md): o que o log, a RCON e os arquivos montados mostram num boot saudável, o ruído conhecido e as linhas proibidas, ligadas às [armadilhas](../armadilhas/README.md) (K1.4).
 - [inventario-volume.md](inventario-volume.md): o inventário do volume da Janela 0 (B0.9).
+- [janela-de-dados.md](janela-de-dados.md): o V1.4a, a janela que põe no banco a órfã aprovada na Q10 (`events_105_map0`, de_ancient 13x3) e arquiva as outras 9, com backup, ensaio numa cópia, ingestão pelo `reingest_events` e conferência pelo `ficha_orfas` (rascunho: sem comando para o `played_at`, o mapa, a restauração do banco e a saída dos originais do `events-live`, a escrita no banco real espera essas lacunas).
 
 ## Previstos
 
