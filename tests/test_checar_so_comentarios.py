@@ -27,7 +27,7 @@ def _git(repo: Path, *args: str) -> str:
 def _repo(tmp_path: Path, antes: dict, depois: dict) -> Path:
     """Repo com o commit "antes" (tag a) e o "depois" (tag d)."""
     repo = tmp_path / "repo"
-    repo.mkdir()
+    repo.mkdir(parents=True)
     _git(repo, "init", "-q")
     _git(repo, "config", "user.email", "teste@example.invalid")
     _git(repo, "config", "user.name", "Teste")
@@ -48,7 +48,9 @@ def _repo(tmp_path: Path, antes: dict, depois: dict) -> Path:
 
 def _rodar(repo, *arquivos, capsys):
     codigo = csc.main(["a", "d", "--repo", str(repo), *arquivos])
-    return codigo, capsys.readouterr().out
+    capturado = capsys.readouterr()
+    assert codigo != 2, f"uso errado ou git falhou: {capturado.err}"
+    return codigo, capturado.out
 
 
 # ------------------------------------------------------------ Python
@@ -126,6 +128,24 @@ def test_python_aspas_trocadas_mudam_os_tokens_mas_nao_o_ast(tmp_path, capsys):
     assert "tokens diferentes" in saida
 
 
+@pytest.mark.parametrize("cabeca", [
+    "# -*- coding: utf-8 -*-\n",
+    "#!/usr/bin/env python3\n",
+    "#!/usr/bin/env python3\n# vim: set fileencoding=latin-1 :\n",
+])
+def test_python_shebang_ou_coding_removido_conta(tmp_path, capsys, cabeca):
+    repo = _repo(tmp_path, {"m.py": cabeca + "X = 1\n"}, {"m.py": "X = 1\n"})
+    codigo, saida = _rodar(repo, "m.py", capsys=capsys)
+    assert codigo == 1
+    assert "shebang ou declaração de encoding diferente" in saida
+
+
+def test_python_comentario_comum_na_linha_1_nao_e_cabecalho(tmp_path, capsys):
+    repo = _repo(tmp_path, {"m.py": "# comentário qualquer\nX = 1\n"}, {"m.py": "X = 1\n"})
+    codigo, _ = _rodar(repo, "m.py", capsys=capsys)
+    assert codigo == 0
+
+
 def test_python_que_nao_compila_conta_como_mudanca(tmp_path, capsys):
     repo = _repo(tmp_path, {"m.py": PY_ANTES}, {"m.py": PY_ANTES + "def (\n"})
     codigo, saida = _rodar(repo, "m.py", capsys=capsys)
@@ -181,6 +201,95 @@ def test_yaml_linha_descomentada_conta(tmp_path, capsys):
     codigo, saida = _rodar(repo, "docker-compose.yml", capsys=capsys)
     assert codigo == 1
     assert "+  - ./a:/b" in saida
+
+
+@pytest.mark.parametrize("antes,depois", [
+    # aspa dupla escapada: o `# x` ainda está dentro da string
+    ('k: "a\\" # x"\n', 'k: "a\\"\n'),
+    # string entre aspas que atravessa linhas: a 2ª linha não é comentário
+    ('k: "abc\n  # dentro"\n', 'k: "abc\n  "\n'),
+    ("k: 'abc\n  # dentro'\n", "k: 'abc\n  '\n"),
+])
+def test_yaml_aspa_escapada_ou_aberta_falha_fechado(tmp_path, capsys, antes, depois):
+    repo = _repo(tmp_path, {"docker-compose.yml": antes}, {"docker-compose.yml": depois})
+    codigo, saida = _rodar(repo, "docker-compose.yml", capsys=capsys)
+    assert codigo == 1
+    assert "MUDOU docker-compose.yml (yaml)" in saida
+
+
+def test_yaml_comentario_depois_da_aspa_fechada_continua_comentario(tmp_path, capsys):
+    antes = 'k: "a\\"b" # x\nj: \'it\'\'s\' # y\n'
+    depois = 'k: "a\\"b"\nj: \'it\'\'s\'\n'
+    repo = _repo(tmp_path, {"docker-compose.yml": antes}, {"docker-compose.yml": depois})
+    codigo, saida = _rodar(repo, "docker-compose.yml", capsys=capsys)
+    assert codigo == 0, saida
+
+
+class _YamlFalso:
+    """Módulo yaml de mentira: o teste diz o que o safe_load devolve."""
+
+    class YAMLError(Exception):
+        pass
+
+    def __init__(self, resultado):
+        self.resultado = resultado
+        self.chamadas = 0
+
+    def safe_load(self, texto):
+        self.chamadas += 1
+        if isinstance(self.resultado, Exception):
+            raise self.resultado
+        return self.resultado(texto)
+
+
+def test_yaml_sem_pyyaml_avisa_e_compara_so_as_linhas(tmp_path, capsys, monkeypatch):
+    monkeypatch.setitem(sys.modules, "yaml", None)  # import yaml dá ImportError
+    repo = _repo(tmp_path, {"docker-compose.yml": YML_ANTES},
+                 {"docker-compose.yml": YML_ANTES.replace("# cabeçalho\n", "")})
+    codigo, saida = _rodar(repo, "docker-compose.yml", capsys=capsys)
+    assert codigo == 0
+    assert "aviso: PyYAML ausente: só a comparação de linhas" in saida
+
+
+def test_yaml_com_pyyaml_parse_igual_sai_0_sem_aviso(tmp_path, capsys, monkeypatch):
+    falso = _YamlFalso(lambda texto: {"services": 1})
+    monkeypatch.setitem(sys.modules, "yaml", falso)
+    repo = _repo(tmp_path, {"docker-compose.yml": YML_ANTES},
+                 {"docker-compose.yml": YML_ANTES.replace("# cabeçalho\n", "")})
+    codigo, saida = _rodar(repo, "docker-compose.yml", capsys=capsys)
+    assert codigo == 0
+    assert falso.chamadas == 2
+    assert "PyYAML ausente" not in saida
+
+
+def test_yaml_com_pyyaml_parse_diferente_sai_1(tmp_path, capsys, monkeypatch):
+    # as linhas sem comentário são iguais; só o parse (de mentira) difere
+    monkeypatch.setitem(sys.modules, "yaml", _YamlFalso(lambda texto: len(texto)))
+    repo = _repo(tmp_path, {"docker-compose.yml": YML_ANTES},
+                 {"docker-compose.yml": YML_ANTES.replace("# cabeçalho\n", "")})
+    codigo, saida = _rodar(repo, "docker-compose.yml", capsys=capsys)
+    assert codigo == 1
+    assert "parse YAML diferente" in saida
+
+
+def test_yaml_com_pyyaml_ilegivel_sai_1(tmp_path, capsys, monkeypatch):
+    monkeypatch.setitem(sys.modules, "yaml", _YamlFalso(_YamlFalso.YAMLError("quebrado")))
+    repo = _repo(tmp_path, {"docker-compose.yml": YML_ANTES}, {"docker-compose.yml": YML_ANTES})
+    codigo, saida = _rodar(repo, "docker-compose.yml", capsys=capsys)
+    assert codigo == 1
+    assert "YAML ilegível: quebrado" in saida
+
+
+def test_yaml_com_pyyaml_de_verdade(tmp_path, capsys):
+    pytest.importorskip("yaml")
+    depois = YML_ANTES.replace("# cabeçalho\n", "").replace("  # comentário inline", "")
+    repo = _repo(tmp_path, {"docker-compose.yml": YML_ANTES}, {"docker-compose.yml": depois})
+    codigo, saida = _rodar(repo, "docker-compose.yml", capsys=capsys)
+    assert codigo == 0, saida
+    repo2 = _repo(tmp_path / "2", {"docker-compose.yml": YML_ANTES},
+                  {"docker-compose.yml": YML_ANTES.replace("- A=1", "- A=2")})
+    codigo, saida = _rodar(repo2, "docker-compose.yml", capsys=capsys)
+    assert codigo == 1
 
 
 # ------------------------------------------------------------ cfg
