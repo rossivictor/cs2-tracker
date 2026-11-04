@@ -6,7 +6,7 @@ fontes:
   - "commit fde0ed5"
   - "commit 779a979"
   - "PR #4"
-  - "docker-compose.yml:55-64"
+  - "docker-compose.yml:31-36"
   - "docs/armadilhas/imagem-e-boot.md:18-22 (item 1)"
   - "docs/runbooks/versoes-conhecidas.md:79-89 (o que não mudou em nenhuma tag)"
   - ".github/workflows/ci.yml:31-49 (job compose)"
@@ -21,7 +21,7 @@ A imagem `xbird/cs2-matchzy` ([ADR-0007](0007-servidor-dedicado-em-docker-com-ma
 
 ## Decisão
 
-- **As três versões ficam fixas no `docker-compose.yml`**, pelas variáveis da própria imagem: `MMSOURCE_FIXED_VERSION`, `CSSHARP_FIXED_VERSION` e `MATCHZY_FIXED_VERSION` (`docker-compose.yml:55-64`). Decidido no `fde0ed5` (11/09), com as versões que funcionavam naquela sessão.
+- **As três versões ficam fixas no `docker-compose.yml`**, pelas variáveis da própria imagem: `MMSOURCE_FIXED_VERSION`, `CSSHARP_FIXED_VERSION` e `MATCHZY_FIXED_VERSION` (`docker-compose.yml:31-36`). Decidido no `fde0ed5` (11/09), com as versões que funcionavam naquela sessão.
 - **Versão só muda por card, em janela, como degrau** ([ADR-0004](0004-jogo-sempre-jogavel.md)). Foi assim na única troca até hoje: Metamod 2.0.0.1411 e CSSharp v1.0.373 para 2.0.0.1469 e v1.0.375 (`779a979`, PR #4, B1.3r).
 - **Metamod e CSSharp formam um par que não se separa** (a regra do par é do [ADR-0005](0005-trilha-de-bots-uma-variavel-por-vez.md)). A MatchZy segue na 0.8.15 desde o pin (`docs/runbooks/versoes-conhecidas.md:79-89`).
 - **O que cada tag jogável rodou** fica em [versoes-conhecidas](../runbooks/versoes-conhecidas.md).

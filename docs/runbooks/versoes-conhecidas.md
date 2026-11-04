@@ -10,7 +10,7 @@ fontes:
   - "backup:../2026-10-12/g7-candidato-9-copia/logs/janelas/2026-09-28.md (linha 26: as três variantes relidas na janela VPK Low)"
   - "docs/runbooks/b1.4b-botaimimprover-upstream.md:17-32"
   - "docs/runbooks/b1.9-botrandomizer-upstream.md:30-36"
-  - "docker-compose.yml:62-64"
+  - "docker-compose.yml:34-36"
   - "commit efcaa42"
   - "backup:MANIFESTO.sha256 (repo-local/plugin-dll)"
   - "backup:2026-10-01/g7-2000922-partida/sha-montados.txt (coleta G7 da partida 36)"

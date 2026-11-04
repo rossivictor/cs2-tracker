@@ -153,7 +153,7 @@ O `freeze_end` e o `round_stats` trazem também o bot do GOTV (nome do servidor 
 ## 6. Arquivos e nomes
 
 Todos na pasta da captura: `game/csgo/events-live/` no container, `docker/events-live/` no host
-(`docker-compose.yml:188`, `config.py:43`, `docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:85`). A pasta real é zona
+(`docker-compose.yml:102`, `config.py:43`, `docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:85`). A pasta real é zona
 proibida para agentes: os arquivos têm SteamID64 e nicks reais.
 
 | Arquivo | Quem cria | Quando |

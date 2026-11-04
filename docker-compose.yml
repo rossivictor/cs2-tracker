@@ -1,49 +1,25 @@
-# Spike do Passo 0 (Camada 1) — ver docker/SPIKE.md.
-# Objetivo único deste compose: validar se o MatchZy reconhece uma
-# partida como "ao vivo" e reporta resultado quando team2 não tem
-# jogadores humanos (só bots do CS2 preenchendo via bot_quota fill).
-# Não é a stack final — não tem orquestração de torneio nem watcher
-# plugado ainda.
-#
-# Usa xbird/cs2-matchzy (Metamod + CounterStrikeSharp + MatchZy já
-# instalados, baseada em joedwards32/cs2) em vez da imagem base +
-# instalação manual — já validada no seu repo cs2-ai-bot-coach.
+# Servidor CS2 dedicado (container cs2-spike): imagem xbird/cs2-matchzy, com Metamod,
+# CounterStrikeSharp e MatchZy já instalados. ver [[ADR-0007]]
 
 services:
   cs2-server:
     image: xbird/cs2-matchzy
     container_name: cs2-spike
     environment:
-      # Sem isso, o SteamCMD usa $HOME=/root pra logs/cache — pasta fora
-      # do volume persistente e não pertencente ao usuário "steam" (uid
-      # 1000) que o processo roda. Causa raiz documentada de falhas de
-      # verificação recorrentes (joedwards32/CS2#130).
+      # SteamCMD com HOME no volume e no usuário steam (uid 1000); com /root, falha a
+      # verificação. ver [[imagem-e-boot]]
       - HOME=/home/steam
       - SRCDS_TOKEN=${SRCDS_TOKEN}
       - CS2_SERVERNAME=CS2 Tracker - Spike MatchZy
       - CS2_RCONPW=${CS2_RCONPW}
-      # Passo 1 (Camada 1): estava em 1 ("dispensa GSLT pra teste local"), mas
-      # isso força o servidor em modo "insecure" (VAC desligado) mesmo com um
-      # SRCDS_TOKEN válido — confirmado via RCON `status` (insecure) e no log
-      # do container ("SV: VAC secure mode disabled."). Era a suspeita pras
-      # demos do GOTV saírem sem nenhum evento de combate.
-      #
-      # DESCARTADA (21/09/2026): as demos gravadas DEPOIS desta mudança (21/09,
-      # matchids 48 e 49) são as piores da série — 0 ticks e só o evento
-      # server_cvar. Manter em 0 continua certo por causa do VAC, mas não é a
-      # causa. A medição das 39 demos e o experimento em curso estão em
-      # server-configs/cfg/gamemode_competitive_server.cfg, no bloco GOTV:
-      # a duração gravada acompanha tv_delay, ou seja, a partida nunca entra
-      # no arquivo. (Ressalva: isto vale se o container foi recriado após a
-      # edição — se não foi, o teste precisa ser refeito.)
+      # 0, não 1: CS2_LAN=1 força o modo insecure (VAC desligado) mesmo com GSLT.
+      # ver [[imagem-e-boot]]
       - CS2_LAN=0
       - CS2_GAMETYPE=0
       - CS2_GAMEMODE=1
       - CS2_STARTMAP=de_mirage
-      # 2x team_size (5x5 = 10) + 1 slot pro GOTV/SourceTV, que consome uma
-      # vaga própria mesmo sendo um "bot" à parte dos times. Com só 10, os
-      # 9 bots do 5x5 enchiam o servidor inteiro antes do humano conectar
-      # ("Não foi possível se conectar — o servidor está cheio").
+      # 2 x team_size + 1: o GOTV ocupa um slot (com 10, o 5x5 enchia o servidor
+      # antes do humano conectar). ver [[imagem-e-boot]]
       - CS2_MAXPLAYERS=11
       - CS2_LOG=on
       - TV_ENABLE=1
@@ -52,23 +28,15 @@ services:
       # funcionarem sem editar admins.json na mão) — mesmo valor que o
       # wizard grava no team1 do docker/runtime/match_config.spike.json.
       - MATCHZY_ADMINS=${MATCHZY_ADMINS}
-      # Versões fixadas: sem pin, a imagem baixa o "latest" a cada boot, e
-      # isso já derrubou MatchZy e captura uma vez ("[META] Loaded 0 plugins").
-      # Metamod e CSSharp formam um par que não se separa: Metamod >= 1459
-      # recusa plugins da interface 17, e a CSSharp >= 1.0.375 exige Metamod
-      # com KHook (interface 18, build >= 1467). Pares válidos: 1411 com
-      # CSSharp <= 1.0.374, ou 1469 com 1.0.375 a 1.0.378. A 1.0.378 é o
-      # fix oficial do CS2 v1.41.9.2 (build 2000935), instalada à mão no
-      # volume com sha256 conferido: o setup da imagem só vê a versão igual.
-      # Troca e volta: docs/runbooks/b1.3s-cssharp-1.0.378.md (B1.3s); a do
-      # par, docs/runbooks/b1.3-cssharp-1.0.375.md (B1.3r).
+      # Versões fixadas: sem pin, o boot baixa o latest e quebra MatchZy e captura. Metamod e
+      # CSSharp são par (1411 com <= 1.0.374; 1469 com 1.0.375 a 1.0.378); a 1.0.378 está no
+      # volume, instalada à mão. Troca só por runbook, em janela: ver [[ADR-0009]] e [[b1.3s-cssharp-1.0.378]]
       - MMSOURCE_FIXED_VERSION=2.0.0.1469
       - CSSHARP_FIXED_VERSION=v1.0.378
       - MATCHZY_FIXED_VERSION=0.8.15
     volumes:
-      # Dados persistentes do servidor (jogo + addons instalados pela imagem).
-      # Guarda também os plugins de bot instalados à mão em 05/09 (B1.1) e
-      # não se reproduz: é external (bloco volumes: no fim do arquivo).
+      # Jogo e addons (plugins de bot instalados à mão): não se reproduz, é external.
+      # ver [[ADR-0010]]
       - cs2-data:/home/steam/cs2-dedicated/
       # Reaproveita o cfg já validado no fluxo nativo (bot_difficulty,
       # economia de bot, mp_roundtime etc.) — é o arquivo que a engine
@@ -80,74 +48,22 @@ services:
       # arquivo prende o inode (armadilha 50). O `matchzy_loadmatch` usa o
       # caminho relativo a game/csgo: runtime/match_config.spike.json.
       - ./docker/runtime:/home/steam/cs2-dedicated/game/csgo/runtime
-      # Hook oficial da imagem (entry.sh roda `source pre.sh` depois do
-      # steamcmd e antes de subir o cs2.sh) — sem isso, o gameinfo.gi nunca
-      # registra overrides/botprofile.vpk como search path e bot_add_ct com
-      # nome de pro falha com "no profile exists" mesmo com o VPK certo
-      # instalado (docs/SPEC.md §10, Passo 0). Bind mount em vez de deixar a
-      # imagem copiar o default uma vez pro volume, pra sobreviver a um
-      # `docker compose down -v` ou a uma máquina nova.
+      # Hook da imagem (o entry.sh faz `source pre.sh` antes do cs2.sh): registra o
+      # overrides/botprofile.vpk no gameinfo.gi; sem ele, perfil pro dá "no profile".
+      # ver [[bots-e-perfis]] e [[reconstruir-volume]]
       - ./docker/pre.sh:/home/steam/cs2-dedicated/pre.sh
-      # Plugin DefaultAgents-CS2 (CounterStrikeSharp) — os arquivos continuam
-      # versionados em docker/plugins/DefaultAgents/, mas o mount pra dentro
-      # do container está DESLIGADO: forçar o agente default trava o load de
-      # um recurso de modelo (RESOURCE_TYPE_MODEL B6EC56677600A473 "not
-      # resident") — testado ao vivo (viewmodel de arma gigante/quebrado +
-      # textura faltando no HUD, sumiu ao desativar o plugin, reproduzido
-      # de novo ao reativar). Religar essa linha reintroduz o bug até
-      # investigarmos a causa (recurso não cacheado localmente? incompatível
-      # com a versão pinada do CSSharp/Metamod?).
+      # DefaultAgents desligado: religar a linha abaixo quebra o modelo da arma
+      # ("not resident"). ver [[imagem-e-boot]]
       # - ./docker/plugins/DefaultAgents:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/DefaultAgents
-      # RayTraceImpl (embutido na imagem) derruba o servidor DE VERDADE na
-      # segunda troca de mapa de qualquer sessão: "terminate called after
-      # throwing an instance of 'spdlog::spdlog_ex' — logger with name
-      # 'RayTrace' already exists", processo aborta (core dumped) — o
-      # plugin tenta registrar um logger sem checar se já existe de um
-      # load anterior. Reproduzido ao vivo numa série BO3 (crashou entre
-      # mapa 1 e mapa 2). Ocultado montando uma pasta vazia por cima —
-      # não tem como só "desligar" um plugin embutido na imagem sem isso.
+      # RayTraceImpl mascarado por pasta vazia: aborta o servidor na segunda troca de
+      # mapa (logger 'RayTrace' already exists). ver [[imagem-e-boot]]
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/RayTraceImpl
-      # RayTraceImpl acima é só o lado CounterStrikeSharp/.NET — existe um
-      # SEGUNDO componente, o plugin Metamod NATIVO por trás dele
-      # (addons/RayTrace/, registrado em addons/metamod/RayTrace.vdf), que
-      # é quem de fato possui o logger "RayTrace" e crashou de novo mesmo
-      # com o de cima já oculto (mesmo erro, mesmo ponto da série). Precisa
-      # ocultar os dois.
+      # E o lado Metamod nativo do RayTrace, que é quem age: mascarar só o wrapper
+      # CSSharp não basta. ver [[imagem-e-boot]]
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/RayTrace
-      # BotAI e BotAimImprover (embutidos na imagem) quebraram na atualização
-      # do CS2 de 23/09/2026 — os dois funcionam aplicando patch de memória
-      # na lógica de IA/mira dos bots, e uma build nova invalida as
-      # assinaturas. Eles mesmos reportam no log:
-      #
-      #   (plugin: Patches - Bot AI) Vision_...: FAILED   (15 detours)
-      #   (plugin: BotAimImprover) Fatal error during Load() (signature
-      #                            broken?). Plugin inactive.
-      #
-      # Um plugin nativo que erra o escaneamento de assinatura e segue rodando
-      # escreve em endereço errado — e o servidor passou a cair com
-      # "Segmentation fault (core dumped)" no warmup, derrubando o cliente
-      # antes disso com NETWORK_DISCONNECT_OVERFLOW (o relatório de spike do
-      # próprio motor culpa "Server Game", a camada dos plugins).
-      #
-      # Ocultados pelo mesmo truque de pasta vazia usado no RayTrace acima.
-      # Custo: os bots voltam pra IA e mira vanilla, então ficam mais fracos
-      # e as stats não comparam com as partidas anteriores. Religar estas
-      # duas linhas só faz sentido depois que a imagem publicar versões
-      # recompiladas pra build nova do jogo.
-      # A suíte INTEIRA de plugins de bot da imagem está desligada, não só os
-      # dois que reportaram falha. Mascarar parcialmente foi pior: o BotAI
-      # registra comandos que os outros chamam, e o log passou a encher de
-      # "Unknown command 'bv_reveal'!" logo antes de um dos crashes. Eles
-      # foram feitos pra build antiga do jogo e dependem uns dos outros.
-      #
-      # Isso NÃO afeta o roster de pros nomeados: os bots com nome vêm de
-      # `bot_add_ct "<perfil>"` com profile do VPK (docs/SPEC.md §D2), que é
-      # do jogo, não desses plugins. O que se perde é ajuste de IA, melhoria
-      # de mira e as granadas pré-gravadas — bots mais fracos e mais burros.
-      #
-      # Correção (B1.1, 26/09): esses plugins NÃO vêm da imagem; foram
-      # instalados à mão no volume em 05/09. Religar um por vez pela trilha de
-      # bots (docs/runbooks/trilha-de-bots.md), uma partida por passo.
+      # Plugins de bot: instalados à mão no volume, quebram com build nova do CS2 (patch
+      # por assinatura) e dependem uns dos outros; religar um por vez, uma partida por
+      # passo. O roster nomeado vem do VPK, não deles. ver [[imagem-e-boot]] e [[trilha-de-bots]]
       # B1.7: BotAI do fork local (CS2-BotAI a23f7e2 + patches B1.7b e B1.7c, m_gameState por assinatura).
       # Pasta gerada fora do repo (AGPL, gitignored); build e volta:
       # docs/runbooks/b1.7b-botai-fork-assinatura.md.
@@ -172,32 +88,16 @@ services:
       # Lado Metamod NATIVO do BotHider — mesma lição do RayTrace acima, onde
       # ocultar só o wrapper CSSharp não bastou.
       - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/BotHider
-      # NadeSystem reproduz granadas gravadas pros bots. Precedeu o segundo
-      # segfault diretamente, junto de "Failed to emit a sound. Signature for
-      # 'CBaseEntity_EmitSoundFilter' is not found. The latest update may have
-      # broken it." — ele spawna entidade e pede som por um caminho que a
-      # atualização quebrou.
-      # B1.8: NadeSystem religado (versão do volume). Sem guarda de assinatura,
-      # mas as chamadas nativas estão em try/catch; o DispatchSpawn que dava
-      # segfault na 1.0.373 resolve na 1.0.375 (B1.3r).
-      # B1.13: NadeSystem do fork local (1.2.1 + assinatura da smoke da 2000935),
-      # pasta inteira (DLL, deps, pdb e as 48 grenades/ do volume, que o plugin
-      # lê ao lado da DLL). Gerada fora do repo (AGPL, gitignored); build, volta
-      # e máscara: docs/runbooks/b1.13-plugins-de-bot-2000935.md.
+      # B1.13: NadeSystem do fork local (1.2.1 + assinatura da smoke da 2000935), pasta
+      # inteira com as grenades/ que o plugin lê ao lado da DLL; gerada fora do repo
+      # (AGPL, gitignored). Build, volta e máscara: ver [[b1.13-plugins-de-bot-2000935]]
       - ./docker/plugins/NadeSystem:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/NadeSystem
-      # Passo 1 (Camada 1): expõe as pastas onde o MatchZy grava demo e CSV
-      # de stats direto no host, sobrepondo o volume nomeado cs2-data só
-      # nesses subcaminhos — sem isso, precisaríamos de `docker cp` manual
-      # depois de cada partida pra tirar o .dem de dentro do container.
+      # Demo e CSV da MatchZy direto no host, por cima do cs2-data só nestes
+      # subcaminhos. ver [[reconstruir-volume]]
       - ./docker/demos-live:/home/steam/cs2-dedicated/game/csgo/MatchZy
       - ./docker/stats-live:/home/steam/cs2-dedicated/game/csgo/MatchZy_Stats
-      # Opção B do fluxo de stats: plugin próprio (CounterStrikeSharp) que
-      # escuta os hooks de combate direto no servidor (player_death,
-      # player_hurt, round_end, bomb plant/defuse) e escreve em
-      # events-live/current.jsonl — contorna o bug de eventos faltando na
-      # demo GOTV. Fonte em docker/plugins-src/Cs2TrackerEvents/, compilada
-      # via docker/build-events-plugin.sh (usa o SDK .NET dentro de um
-      # container, não precisa instalar nada no host).
+      # Captura: plugin próprio que grava a partida em events-live/current.jsonl
+      # (fonte em docker/plugins-src/Cs2TrackerEvents/). ver [[ADR-0008]] e [[contrato-events-jsonl]]
       - ./docker/plugins/Cs2TrackerEvents:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/Cs2TrackerEvents
       - ./docker/events-live:/home/steam/cs2-dedicated/game/csgo/events-live
     ports:
@@ -213,12 +113,8 @@ services:
     tty: true
 
 volumes:
-  # B0.8: o volume (~73 GB, não reproduzível) tem nome fixo e é external.
-  # Sem isso, o nome vinha do projeto (= nome da pasta), e um compose rodado
-  # de uma worktree criava um volume novo e vazio. Com external, o compose
-  # nunca cria nem apaga este volume: se ele não existir, o `up` falha.
-  # O projeto continua sem `name:`. O que isto NÃO protege e como
-  # reconstruir: docs/runbooks/reconstruir-volume.md.
+  # Nome fixo e external: o compose nunca cria nem apaga o volume (~73 GB, não
+  # reproduzível); se ele não existir, o `up` falha. ver [[ADR-0010]] e [[reconstruir-volume]]
   cs2-data:
     external: true
     name: cs2-tracker_cs2-data
