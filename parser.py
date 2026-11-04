@@ -1060,10 +1060,8 @@ def store_match_from_events(events_path, meta, db_path, identity: PlayerIdentity
     print(f"[PARSER] Lendo eventos de {events_path} ...")
     events = []
     bad_lines = 0
-    # utf-8-sig, não utf-8: o plugin escreve o arquivo com BOM, e ele fica
-    # colado na PRIMEIRA linha — que é sempre o round_start do round 1.
-    # Lendo como utf-8 puro, essa linha morria no JSONDecodeError abaixo e
-    # o round 1 perdia start_tick e human_side.
+    # utf-8-sig, não utf-8: arquivos de gerações antigas do plugin têm BOM colado
+    # na 1ª linha (o round_start do round 1). ver [[contrato-events-jsonl]]
     with open(events_path, encoding="utf-8-sig") as f:
         for lineno, line in enumerate(f, 1):
             line = line.strip()
