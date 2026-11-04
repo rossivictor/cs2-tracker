@@ -154,8 +154,8 @@ REGRAS_DAS_REVISOES = [
      "no máximo um candidato mergeado e ainda não validado"),
     ("R4-1 alguém pede a volta do checkout depois do revert", "tech-manager",
      'PRÓXIMO PASSO: "PM: servidor devolve o checkout (Ff sem janela, delta sem infra)"'),
-    ("R4-1 o ff sem janela não sai do detach", "servidor",
-     "Em detach, o ff roda em detach mesmo, sem `switch main`"),
+    ("R4-1 o ff sem janela em detach volta à main só pelo atualizar (P1.19)", "servidor",
+     "Em detach (na tag, depois de uma volta), o `atualizar` volta à `main` logo antes do ff"),
     ("R4-2 o boot medido vai para o registro", "servidor",
      "Grave no registro o tempo medido do recreate até o `Pronto`"),
     ("A-B7 banco sem cópia até o B0.6", "servidor", "banco sem cópia (guarda; B0.6)"),
@@ -660,8 +660,13 @@ def test_relogio_e_regra_de_caber_e_nao_numero_fixo():
     assert "Q5: teto de 30 min (runbook, pré-condição 2)" in abertura
 
 
-DELTA = 'git -C "$RAIZ" diff --stat HEAD origin/main'
-FF = 'git -C "$RAIZ" merge --ff-only origin/main'
+# P1.19 (lição L06): no servidor.md todo ff vai pelo SHA conferido, pelo
+# `jogavel.py atualizar <SHA>`; o runbook b1.3 ainda fala da ponta do origin/main.
+DELTA = 'git -C "$RAIZ" diff --stat HEAD <SHA>'
+FF = '"$PY" "$RAIZ/tools/jogavel.py" atualizar <SHA>'
+DELTA_RUNBOOK = 'git -C "$RAIZ" diff --stat HEAD origin/main'
+FF_RUNBOOK = 'git -C "$RAIZ" merge --ff-only origin/main'
+SHA_FICTICIO = "0123456789abcdef0123456789abcdef01234567"
 RUNBOOK_B13 = RAIZ / "docs" / "runbooks" / "b1.3-cssharp-1.0.375.md"
 
 
@@ -696,7 +701,7 @@ def test_switch_main_so_no_passo_3_e_a_volta_do_revert_confere_o_delta_antes_do_
     comandos = "\n".join(re.findall(r"^[ \t]*```bash\n(.*?)^[ \t]*```", volta_rb,
                                     re.MULTILINE | re.DOTALL))
     assert "switch main" not in comandos
-    assert comandos.index(DELTA) < comandos.index(FF)
+    assert comandos.index(DELTA_RUNBOOK) < comandos.index(FF_RUNBOOK)
     assert "Com infra no delta" in volta_rb and "fique na tag" in volta_rb
 
 
@@ -704,7 +709,7 @@ def test_switch_main_so_no_passo_3_e_a_volta_do_revert_confere_o_delta_antes_do_
 def test_a_volta_do_revert_passa_pela_guarda_com_preflight_0(guarda_no_checkout, comando):
     # R4-1: a volta depois do revert é fora de janela, com preflight 0.
     assert comando in _texto("servidor")
-    codigo, erro = guarda_no_checkout(comando, preflight=0)
+    codigo, erro = guarda_no_checkout(comando.replace("<SHA>", SHA_FICTICIO), preflight=0)
     assert codigo == 0, erro
 
 
