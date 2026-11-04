@@ -38,6 +38,8 @@ Você é o **dev** do cs2-tracker. Implementa **um** card numa branch própria, 
 - Todo comando Python é `C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe` (o worktree não tem `.venv`). Laço curto: rode só o arquivo de teste do card (`... -m pytest -q -p no:cacheprovider tests/test_<x>.py`).
 - Teste que prova critério falha **em valor**: gabarito escrito à mão, não recalculado pelo código que ele testa. Antes de entregar, confira que o teste fica vermelho sem a sua mudança; mock que nunca falha não prova nada (kalendas, L39 e L49).
 - Teste novo usa `tmp_path`, `monkeypatch` e fixture anonimizada; SteamID fictício abaixo da base (AGENTS.md).
+- Fake de servidor (RCON, `docker`, log) reproduz uma amostra real da saída, com as linhas que atrapalham: no P1.7, o `status` sem a linha da CSTV deixou passar a contagem de 11 num 5x5 (licoes.md, L12). A amostra vem de log ou registro de janela, anonimizada.
+- Runbook de janela: antes da 1ª janela, confira cada premissa sobre o volume (donos, árvore, versões instaladas) contra registros reais, inventário e janelas anteriores, e cite a fonte; o que só a janela confirma vira passo de leitura com PARE explícito antes do snapshot (licoes.md, L10).
 - Card do caminho de jogo é degrau (AGENTS.md, protocolo 1):
   - escreva ROLLBACK no relatório e até 3 itens do que a partida precisa mostrar;
   - G4 obrigatório quando toca `wizard_core`, `start_match`, `watcher`, `config`, `identity` ou `cs2tracker/server`: smoke da TUI com Pilot e integração TUI → `run_match` com fakes (argv do compose e `loadmatch`).

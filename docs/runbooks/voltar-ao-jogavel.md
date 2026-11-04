@@ -82,10 +82,10 @@ log do container antigo se perde no recreate, e a build "depois" é lida normalm
    established for server version N`) não sai desse arquivo: sai do log lido pelo fim, e só
    de linha com carimbo do StartedAt em diante, a do boot atual (B0.7h; veja
    [leitura pelo fim](#leitura-pelo-fim)). Com `--agora` e partida em curso, pula este passo.
-2. Protege o `docker/match_config.spike.json`, que o `start_match` reescreve a cada partida:
-   copia para a mesma pasta, tira do caminho (`git checkout --` se rastreado; apaga se não
+2. Protege o `match_config` de runtime, que o `start_match` reescreve a cada partida: o vivo, `docker/runtime/match_config.spike.json` (P1.9), fica no lugar, ignorado, com cópia na pasta;
+   o de antes do P1.9, na raiz de `docker/` e rastreado nas tags velhas (histórico), se existir: copia para a mesma pasta, tira do caminho (`git checkout --` se rastreado; apaga se não
    rastreado e a tag o rastreia) e, depois da troca, restaura a cópia se a tag o rastreia. Se
-   a tag não o rastreia (depois do P1.6), a cópia fica só na pasta. Sem `git stash`.
+   a tag não o rastreia, a cópia fica só na pasta. Sem `git stash`.
 3. `git switch --detach <tag>`.
 4. Confere que `docker/pre.sh` não tem `\r`. Se tiver, para antes do recreate (saída 6) e
    imprime o comando de conserto; depois rode o que ele manda (`voltar --tag X --recriar`).
