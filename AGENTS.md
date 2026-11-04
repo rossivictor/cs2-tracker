@@ -28,7 +28,7 @@ Aqui fica só o que vale para todo mundo, inclusive para a sessão que conversa 
 | ler, copiar ou imprimir o `.env` | `.env.example`; worktree nasce sem `.env` | critic; B0.5 |
 | mexer em `data/profile.json` | perfil em `tmp_path` nos testes | D8 |
 | mexer em `docker/events-live/` (current e arquivados) | fixture anonimizada em `tests/fixtures/` | critic (events_50) |
-| editar, reverter ou commitar `docker/match_config.spike.json` | é estado de runtime do `start_match`: deixe como está; `git add` só por caminho | auditoria git |
+| editar, apagar ou commitar o `docker/runtime/` (o `match_config` de runtime) | é estado de runtime do `start_match`, fora do git desde o P1.9: deixe como está, e a cópia de antes do P1.9 na raiz de `docker/` (ignorada, histórica) também; o versionado é o `docker/match_config.template.json`, e `git add` só por caminho | auditoria git; P1.9 |
 | tocar no volume `cs2-tracker_cs2-data` ou em `C:/cs2server` | nada: o volume não é reproduzível e o `C:/cs2server` é a única semente de recuperação | critic, infra |
 | `docker compose down` (com ou sem `-v`), `docker volume rm`/`prune`, `docker system prune` | nada disso; parar o jogo é do papel servidor, em janela | deny B0.4 |
 | `docker compose run` | build do plugin só pelo papel servidor, em janela | deny B0.4 |
@@ -131,3 +131,4 @@ A história de cada uma (sintoma, causa, data) está em [`docs/agents/licoes.md`
 - Não abra janela com outro agente rodando python: o `jogavel.py janela vigiar` aborta por processo. O B0.7e só perdoa o python sem linha legível que some na releitura; o que segue vivo (o pytest de um dev ou QA cuja linha não se lê) aborta. Antes de despachar o servidor, confira que nenhum dev ou QA está de pé. (lições da B0 em `sprints.md`; B0.7e; memória do Victor)
 - Guarda com teto: enumerar formas de contorno não converge, e regra que falha fechado converge. Classe nova de forma indireta não reabre rodada de guarda: vira limite em "O que a guarda NÃO cobre", no docstring de `tools/hooks/guarda.py`; conserto, só por card próprio na fila (ex.: B0.5e). (Victor: B0.5c com teto, B0.5d encerrado na 3ª rodada, opção a; lições da B0)
 - O harness às vezes nega `gh pr merge` ao tech-manager. Não repita o comando nem contorne (API, outro papel, outra ferramenta): reporte ao PM, e o Victor mergeia. A negação não vem do `.claude/settings.json`. (lições da B0)
+- Nenhum `cd` numa subpasta do checkout principal: o diretório do shell persiste na sessão, e em 20/10 um `cd` desses sumiu com as worktrees dos agentes. Caminho absoluto em todo comando e `git -C <raiz>` para git; o `cd "$RAIZ" &&` do servidor, na mesma chamada do `docker compose`, vai à raiz e não fica. (L08)

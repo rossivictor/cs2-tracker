@@ -14,7 +14,7 @@ fontes:
   - "backup:../2026-09-27/b1.5/docker-logs-smoke.txt (Pronto e StartWarmup das duas trocas: linhas 218, 374, 460 e 604)"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:114-138 (Pronto no OnMapStart)"
   - "server-configs/cfg/gamemode_competitive_server.cfg:9-11"
-  - "docker-compose.yml:42"
+  - "docker-compose.yml:20"
   - "start_match.py:448-473 (zera a quota, bot_kick, um bot por vez e a quota reafirmada)"
   - "tools/preflight.py:21-25"
   - ".claude/agents/servidor.md:54-64"
@@ -92,7 +92,7 @@ O fechamento devolve estes valores. A referência é a da **mesma** janela, pela
 
 | cvar ou estado | Visto no boot | De onde vem |
 |---|---|---|
-| mapa | `de_mirage` | `CS2_STARTMAP` (`docker-compose.yml:42`) |
+| mapa | `de_mirage` | `CS2_STARTMAP` (`docker-compose.yml:20`) |
 | `get5_status` | `"gamestate":"none"` | MatchZy sem partida carregada |
 | `bot_join_after_player` | `true` (G6 do B1.4 e fechamento do B1.5, 27/09) | padrão do jogo; não está no repo |
 | `sv_hibernate_when_empty` | `false` (antes e depois do B1.3r, 27/09) | padrão da imagem; não está no repo |

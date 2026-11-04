@@ -40,7 +40,7 @@ O PM é a sessão principal do Claude Code, a que conversa com o Victor. Não te
 - O ff vai pelo SHA conferido, nunca pela ponta do `origin/main`: o `jogavel.py atualizar` vai até a ponta, então, logo antes dele, `git -C <raiz> rev-parse origin/main` tem de dar o SHA conferido. Se o `origin/main` andou, confira o delta de novo antes (L06).
 - O `data/candidato.json` nasce no `marcar`, antes de o código chegar ao checkout, e a TUI o anuncia sem conferir o HEAD. Antes de liberar a partida, `git -C <raiz> merge-base --is-ancestor candidato-N HEAD` sai 0; senão, avise o Victor que a partida não vale como G7 (L07).
 - Com infra no delta, quem traz a main é o papel servidor, dentro da janela.
-- O `docker/match_config.spike.json` modificado é estado de runtime: nunca mexa nele.
+- O `docker/runtime/` (o `match_config` de runtime, que o `start_match` reescreve a partir do `docker/match_config.template.json`) é estado de runtime fora do git desde o P1.9: nunca mexa nele.
 
 ## Merge negado
 

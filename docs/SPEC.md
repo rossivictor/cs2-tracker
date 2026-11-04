@@ -358,7 +358,7 @@ causa provada e não é este bug. O estado dela fica no
 | D4 | **Sem anti-cheat, sem ranking global** | vigente | nada no código implementa anti-cheat ou ranking global: o "ranking" de `stats.py:982` é por mapa, das partidas do próprio jogador |
 | D5 | **1 humano** + 9 bots | vigente | um `WizardSession` só (`web/app.py:79-82`); tamanho de time de 1 até o máximo do compose (`web/app.py:260-274`), 9 bots no 5x5 |
 | D6 | **Evoluir o `cs2-tracker`**, não recomeçar | vigente | o repo é o mesmo desde o `b953406` (02/09), e o produto da SPEC foi construído sobre ele (`f6a4e6b`, `193cd6c`) |
-| D7 | **Local**: Docker Desktop + localhost; ritual de entrada idêntico ao atual | vigente | [ADR-0007](adr/0007-servidor-dedicado-em-docker-com-matchzy.md) e [ADR-0010](adr/0010-volume-cs2-data-external.md); `docker-compose.yml:14-15`, `docker-compose.yml:189-191` |
+| D7 | **Local**: Docker Desktop + localhost; ritual de entrada idêntico ao atual | vigente | [ADR-0007](adr/0007-servidor-dedicado-em-docker-com-matchzy.md) e [ADR-0010](adr/0010-volume-cs2-data-external.md); `docker-compose.yml:6-7`, `docker-compose.yml:103-111` |
 | D8 | **Perfil local** (nick + SteamID salvo), sem Steam OpenID | vigente | `data/profile.json` lido e gravado em `web/app.py:141-152` |
 | D9 | **MD1/MD3/MD5**, cada um com escolha direta de mapas **ou** veto | vigente | `wizard_core.py:52`, `wizard_core.py:96-139`, `wizard_core.py:220-229`; rotas `/maps` e `/veto` em `web/app.py:571-655` |
 | D10 | **SQLite atual**, sem migração | parcialmente cumprida; revisão prevista no S2.5 | SQLite segue único (`parser.py:433-436`), mas já há migração aditiva por `ALTER TABLE` (`parser.py:420-430`); o S2.5 escreve o ADR que revisa a D10 (`docs/agents/plano-2026-09-26.json:1924`) |

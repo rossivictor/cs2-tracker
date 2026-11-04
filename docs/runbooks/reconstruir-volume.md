@@ -2,13 +2,13 @@
 tipo: runbook
 status: vigente
 fontes:
-  - "docker-compose.yml:15 (container_name: cs2-spike)"
-  - "docker-compose.yml:66-69 (mount do cs2-data)"
-  - "docker-compose.yml:199-208 (cs2-data external, name cs2-tracker_cs2-data; B0.8)"
-  - "docker-compose.yml:83 (bind do pre.sh)"
-  - "docker-compose.yml:152 (bind do BotAimImprover)"
-  - "docker-compose.yml:160 (bind do BotRandomizer)"
-  - "docker-compose.yml:181-191 (binds de saída e da captura)"
+  - "docker-compose.yml:7 (container_name: cs2-spike)"
+  - "docker-compose.yml:37-40 (mount do cs2-data)"
+  - "docker-compose.yml:115-120 (cs2-data external, name cs2-tracker_cs2-data; B0.8)"
+  - "docker-compose.yml:54 (bind do pre.sh)"
+  - "docker-compose.yml:75 (bind do BotAimImprover)"
+  - "docker-compose.yml:83 (bind do BotRandomizer)"
+  - "docker-compose.yml:95-102 (binds de saída e da captura)"
   - ".gitignore:4-24 (pastas de plugin, de saída e .env fora do git)"
   - "docker/SPIKE.md:160-167 (0x602 e a semeadura a partir do C:/cs2server)"
   - "docs/adr/0004-jogo-sempre-jogavel.md:40"
@@ -99,7 +99,7 @@ worktree**, não os do checkout principal:
 - as pastas ignoradas pelo git não existem numa worktree nova
   (`docker/plugins/Cs2TrackerEvents/`, `BotAimImprover/`, `BotRandomizer/`). O bind monta uma
   pasta vazia, e a captura e esses dois plugins somem dentro do container;
-- `cfg`, `pre.sh` e `match_config.spike.json` passam a ser os da branch da worktree;
+- `cfg` e `pre.sh` passam a ser os da branch da worktree, e o `docker/runtime/` (o `match_config` de runtime, ignorado pelo git) passa a ser o da worktree, que nasce sem ele;
 - `demos-live`, `stats-live` e `events-live` passam a gravar na worktree, onde o watcher do
   checkout principal não lê;
 - a worktree nasce sem `.env`: `SRCDS_TOKEN`, `CS2_RCONPW` e `MATCHZY_ADMINS` saem vazios.

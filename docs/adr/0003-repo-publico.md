@@ -48,7 +48,7 @@ Perguntado, o Victor respondeu: "Pode subir, não tem uso comercial".
 
 - Todo agente escreve fixture anonimizada: o T1.3 troca SteamID64, SteamID3 e IP antes de o dado entrar em `tests/fixtures/`. Dado real só vem das cópias de backup, nunca do banco, do `events-live` ou do `.env` vivos.
 - O SteamID que já está na árvore sai arquivo por arquivo, e o hook impede que ele se espalhe enquanto isso:
-  - `docker/match_config.spike.json`: o P1.9 separa template versionado e runtime fora do git, e é a hora de tirar dele a identidade;
+  - `docker/match_config.spike.json` (histórico): o P1.9 separou template versionado (`docker/match_config.template.json`) e runtime fora do git (`docker/runtime/`), e era a hora de tirar dele a identidade;
   - `docs/img/06-resumo.svg`: regenerar com ID fictício, pelo `tools/make_screenshots.py`, que o T1.5 conserta. Até lá, o check de PII do T1.6 em `docs/` acha esse SVG se ler SVG;
   - `tests/test_wizard_session.py` e `web/templates/setup.html`: trocar pelo ID fictício. Nenhum card do plano cobre isso: o PM abre um card no board;
   - `wizard_tui.py`: espera a D13, porque fica sem diff até lá.

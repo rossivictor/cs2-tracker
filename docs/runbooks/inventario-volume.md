@@ -23,9 +23,9 @@ fontes:
   - "tools/jogavel.py:1668-1705 (tirar_snapshot)"
   - "tools/jogavel.py:1749-1777 (cmd_restaurar)"
   - "watcher.py:523-562 (demo_name events_<matchid>_map<N>, a colisão do P1.1a e o arquivamento)"
-  - "docker-compose.yml:152 (bind do BotAimImprover)"
-  - "docker-compose.yml:160 (bind do BotRandomizer)"
-  - "docker-compose.yml:199-208 (cs2-data external; B0.8)"
+  - "docker-compose.yml:75 (bind do BotAimImprover)"
+  - "docker-compose.yml:83 (bind do BotRandomizer)"
+  - "docker-compose.yml:115-120 (cs2-data external; B0.8)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:387-416 (snapshot só leitura)"
   - "docs/runbooks/b1.3-cssharp-1.0.375.md:697-710 (exclude do matchzy.db e do gameinfo.gi)"
   - "docs/runbooks/reconstruir-volume.md:123-133 (o que a semente não tem)"
@@ -112,7 +112,7 @@ registro de 02/10). No volume há `addons/RayTrace/` (`RayTrace.so`, `gamedata.j
 
 ## Deps: o BotRandomizer do volume
 
-O compose monta `./docker/plugins/BotRandomizer` por cima da pasta (`docker-compose.yml:160`).
+O compose monta `./docker/plugins/BotRandomizer` por cima da pasta (`docker-compose.yml:83`).
 A pasta do volume, que é a instalação manual de 05/09, segue lá embaixo e só reaparece se o bind
 sair. Ela tem 6 arquivos, contra os 5 do bind (o bind não tem `BotHiderApi.dll`):
 

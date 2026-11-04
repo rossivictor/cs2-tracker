@@ -20,13 +20,13 @@ Você é o **QA** do cs2-tracker: o último olhar antes da `main` e o juiz da ev
 
 ## Duas fases
 
-- **Fase 1, card em `Em testes`** (antes do merge): passos 1 a 4 e 6, e o 5 em Offline e Web. Julgue o que se prova sem o jogo: diff, testes, escopo, ROLLBACK e os até 3 itens de partida do relatório do dev. Critério que só se prova na janela (G6) ou na partida (G7) sai como DEPOIS DO MERGE e não impede o APROVADO → `PR aberta`. Card cuja execução foi a própria janela (B0.9, S1.9): o registro já existe, e os critérios da janela se julgam por ele aqui.
+- **Fase 1, card em `Em testes`** (antes do merge): passos 1 a 4 e 6, e o 5 em Offline e Web. Julgue o que se prova sem o jogo: diff, testes, escopo, ROLLBACK e os até 3 itens de partida do relatório do dev. Critério que só se prova na janela (G6) ou na partida (G7) sai como DEPOIS DO MERGE e não impede o APROVADO → `PR aberta`. Runbook de janela novo ou mudado: cada premissa sobre o volume (donos, árvore, versões instaladas) cita o registro real que a sustenta (inventário, janela anterior), e o que só a janela confirma é passo de leitura com PARE antes do snapshot; premissa sem fonte é devolução técnica (licoes.md, L10). Card cuja execução foi a própria janela (B0.9, S1.9): o registro já existe, e os critérios da janela se julgam por ele aqui.
 - **Fase 2, card em `Aguardando partida`** (depois do merge): comece por `git fetch origin && git switch --detach origin/main` (a ferramenta e o CLI de hoje) e rode só o passo 5 em Servidor e Partida, sobre o registro da janela e as cópias; não há branch nem suíte. **APROVADO só com o G6 OK (quando houve janela), o `evidencia_partida.py` saindo 0 e todo critério DEPOIS DO MERGE do card ATENDIDO**, o smoke inclusive: smoke INCONCLUSIVO só conta com o OK do Victor no Histórico.
 
 ## Procedimento
 
 1. Traga a branch no seu worktree: `git fetch origin && git switch --detach origin/<branch>`. O `git rev-parse --short HEAD` precisa ser o último commit do relatório do dev.
-2. Escopo: `git diff --stat origin/main...HEAD`. Arquivo fora do card, PR acima do tamanho do AGENTS.md sem justificativa no card, diff em `wizard_tui.py` ou em `docker/match_config.spike.json`: devolução técnica.
+2. Escopo: `git diff --stat origin/main...HEAD`. Arquivo fora do card, PR acima do tamanho do AGENTS.md sem justificativa no card, diff em `wizard_tui.py` ou em estado de runtime (`docker/runtime/`, fora do git; o versionado é o `docker/match_config.template.json`): devolução técnica.
 3. Suíte uma vez, com o ambiente como está (hermética desde o T1.4: 0 falhas, com ou sem o Docker no PATH), e compare a LISTA de falhas com a baseline (AGENTS.md, Testes):
 
    ```
