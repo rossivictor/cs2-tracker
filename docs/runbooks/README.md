@@ -3,7 +3,7 @@ tipo: indice
 status: vigente
 fontes:
   - "backup:temp-artifacts/eb5adec0/plan/all.json (final.kb_structure; playability_protocol)"
-atualizado: 2026-10-24
+atualizado: 2026-11-04
 ---
 
 # Runbooks
@@ -19,6 +19,7 @@ Procedimentos passo a passo, com pré-condição, rollback e o que conferir no f
 - [b1.4b-botaimimprover-upstream.md](b1.4b-botaimimprover-upstream.md): o B1.4b, BotAimImprover compilado do upstream por bind mount, com o sha256 fixado.
 - [b1.9-botrandomizer-upstream.md](b1.9-botrandomizer-upstream.md): o B1.9, BotRandomizer compilado do upstream por bind mount, com o smoke só de bots na janela.
 - [b1.13-plugins-de-bot-2000935.md](b1.13-plugins-de-bot-2000935.md): o B1.13, os 6 plugins de bot conferidos offline na 2000935 com a CSSharp 1.0.378 (`tools/conferir_plugins_bot.py`), o NadeSystem de um fork com a assinatura da smoke refeita e o roteiro da janela que desliga a válvula vanilla (rascunho: build e janela pendentes).
+- [b1.15-plugins-de-bot-2000940.md](b1.15-plugins-de-bot-2000940.md): o B1.15, os 6 plugins de bot conferidos offline na build 2000940 (CS2 v1.41.9.5) sem mudar nada, os releases e issues lidos e o roteiro da janela que desliga a válvula vanilla junto com o ff do K1.9 (executado em 04/11: G6, smoke e partida 107 com G7 OK; a ressalva do overflow no signon e o critério "sem queda depois de `FULL` + 60 s e sem segfault").
 - [b1.9b-botrandomizer-2000930.md](b1.9b-botrandomizer-2000930.md): o B1.9b, a assinatura do construtor de `CEconItemView` corrigida no upstream para a build 2000930, com a conferência no `libserver.so`, o plano de build e a volta à mão (rascunho: build e janela pendentes).
 - [b1.12-segfault-troca-de-mapa-md3.md](b1.12-segfault-troca-de-mapa-md3.md): o B1.12, investigação do segfault na virada de série da MD3 de 04/10, com as hipóteses e os testes de janela (rascunho: T0 e T1 braço A em 13/10, T2 em 19/10 e 20/10, sem queda reproduzida).
 - [b1.7b-botai-fork-assinatura.md](b1.7b-botai-fork-assinatura.md): o B1.7b, BotAI de um fork do 1.8.12 com o `m_gameState` lido por assinatura no load, a conferência no `libserver.so` da 2000930, o build e a troca por bind (rascunho: build e janela pendentes).
