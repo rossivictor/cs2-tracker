@@ -6,7 +6,9 @@ fontes:
   - "PR #24"
   - "PR #46"
   - "docs/agents/licoes.md:87-117 (L06 a L09, as regras do PM do fechamento da P1)"
-atualizado: 2026-10-26
+  - "tools/jogavel.py:834-863 (o atualizar com SHA recusa se o origin/main não o contém; sem SHA vai até a ponta)"
+  - ".claude/agents/servidor.md:14 (Ff sem janela: diff --stat HEAD <SHA> e atualizar <SHA>)"
+atualizado: 2026-11-05
 ---
 
 # PM: como conduzir o programa
@@ -36,8 +38,8 @@ O PM é a sessão principal do Claude Code, a que conversa com o Victor. Não te
 ## Checkout principal
 
 - Nenhum `cd` para dentro do checkout principal: caminho absoluto em todo comando e `git -C <raiz>` para git. Em 20/10 um `cd` numa subpasta mudou o diretório da sessão e as worktrees dos agentes sumiram (L08). Os prompts de despacho levam a mesma regra.
-- O PM faz o ff com preflight 0 só quando `git diff --name-only HEAD origin/main` não tem `docker-compose.yml`, `docker/` nem `server-configs/`.
-- O ff vai pelo SHA conferido, nunca pela ponta do `origin/main`: o `jogavel.py atualizar` vai até a ponta, então, logo antes dele, `git -C <raiz> rev-parse origin/main` tem de dar o SHA conferido. Se o `origin/main` andou, confira o delta de novo antes (L06).
+- O PM faz o ff com preflight 0 só quando `git -C <raiz> diff --name-only HEAD <SHA>`, com o SHA conferido, não tem `docker-compose.yml`, `docker/` nem `server-configs/`.
+- O ff vai pelo SHA conferido, nunca pela ponta do `origin/main`: `jogavel.py atualizar <SHA>`, que só avança até esse SHA e recusa sem mudar nada se o `origin/main` não é ele nem o contém. Sem o SHA, o `atualizar` vai até a ponta: não rode sem ele. Se o `origin/main` andou, confira o delta de novo antes (L06).
 - O `data/candidato.json` nasce no `marcar`, antes de o código chegar ao checkout, e a TUI o anuncia sem conferir o HEAD. Antes de liberar a partida, `git -C <raiz> merge-base --is-ancestor candidato-N HEAD` sai 0; senão, avise o Victor que a partida não vale como G7 (L07).
 - Com infra no delta, quem traz a main é o papel servidor, dentro da janela.
 - O `docker/runtime/` (o `match_config` de runtime, que o `start_match` reescreve a partir do `docker/match_config.template.json`) é estado de runtime fora do git desde o P1.9: nunca mexa nele.

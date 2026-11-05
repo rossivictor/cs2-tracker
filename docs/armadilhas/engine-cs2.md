@@ -24,7 +24,10 @@ fontes:
   - "backup:../2026-10-25/b1.3s-1501/g7-1541/docker-logs.txt (linhas 1762-1770: Long frame (MatchEnded) de 37 ms e os UNEXPECTED LONG FRAME do fim da partida 97)"
   - "backup:../2026-10-21/coleta-g7-p1.7-p1.8-v2/docker-logs-desde-startedat.txt (linha 4360: Long frame (MatchEnded) de 44 ms na partida 96)"
   - "backup:../2026-10-20/coleta-g7-p1.5-p1.6/docker-logs-reconstruido.txt (linhas 5696, 9546 e 12742: Long frame (MatchEnded) de 29 a 54 ms)"
-atualizado: 2026-10-25
+  - "backup:../2026-11-04/b1.15/docker-logs-antes.txt (linhas 892-896: FULL às 17:34:39Z, 615 ms em 3 mensagens e o OVERFLOW, com a válvula on; registro logs/janelas/2026-11-04.md, linha 135, só no checkout principal)"
+  - "backup:../2026-11-04/partida-k19-b115/coleta/docker-logs.txt (linhas 1920 e 1930-1933: FULL às 21:06:05Z, 1218 ms em 6 mensagens e o OVERFLOW da partida 107, 9 plugins; 2006: FULL da reentrada; registro, linha 134)"
+  - "backup:../2026-11-04/partida-p115/coleta/docker-logs.txt (linhas 5318-5319: FULL às 23:35:41Z e 419 ms em 3 mensagens, sem DISCONNECTING, na partida 108; registro, linha 145)"
+atualizado: 2026-11-05
 ---
 
 # Armadilhas do engine do CS2
@@ -168,7 +171,7 @@ arquivos em `repo-local/events-live/` e `stats-live/`.
 Os digests de transcript de 19/09 a 23/09 não têm nenhum outro relato de overflow. Isso não é
 evidência de ausência: só cobrem as sessões com o Claude aberto.
 
-#### De 23/09 21:41Z a 12/10: uma linha por entrada do humano
+#### De 23/09 21:41Z a 12/10, e as entradas de 04/11: uma linha por entrada do humano
 
 "Sem humano" é o tempo desde o último boot do processo ou a última saída do jogador, o que
 vier depois. "Custo" é o tempo de sim do primeiro `Long frame` até 1,5 s depois do FULL, com o
@@ -206,6 +209,9 @@ rastro de atividade de agente nas cópias, e só se lê como indício.
 | 05/10 22:26:35 | sem matchid (provável 77; 5 min) | 2000924 · Low (inferido) | nova | 0,0 h | 33 | não | saiu (DISCONNECT_BY_USER) | 0 |
 | 05/10 23:12:44 | 78 | 2000924 · Low (inferido) | nova | 0,0 h | 1 | não | seguiu | 0 |
 | 12/10 21:38:30 | 79 | 2000930 · Low (inferido) | nova | 0,0 h | 22 | não | seguiu | 0 |
+| **04/11 17:34:39** | sem matchid (antes da janela de 17:41) | 2000940 · Low (inferido) · válvula vanilla on: só MatchZy, captura e RoundDamageRecap | nova | não medido | não medido | **signon, +0,6 s** (615 ms em 3 `CNETMsg_SignonState`) | derrubado; 1 tentativa só no registro | não contado |
+| **04/11 21:06:05** | **107** | 2000940 · Low (inferido) · 9 plugins, os 6 de bot religados (B1.15) | nova | 0,4 h (boot 20:44:37) | não medido | **signon, +1,7 s** (1218 ms em 6 `CNETMsg_SignonState`) | derrubado; reentrou 80 s depois (`FULL` 21:07:25) e jogou até o fim | não contado |
+| 04/11 23:35:41 | 108 | 2000940 · Low (inferido) · 9 plugins | nova | 2,1 h (saída às 21:29:03) | não medido | não (o maior `ProcessMessages` foi de 419 ms em 3 `CNETMsg_SignonState`, só aviso, sem `DISCONNECTING`) | seguiu | não contado |
 
 - As épocas são as da [trilha](../runbooks/trilha-de-bots.md#épocas). O VPK antes de 26/09
   16:01Z não está registrado. O transcript de 26/09 diz que o High foi copiado naquele
@@ -220,6 +226,12 @@ rastro de atividade de agente nas cópias, e só se lê como indício.
   é o aviso S2 de 103 ms das 20:52:10: não houve queda.
 - Resultado: **2 overflows no signon em 25 entradas novas, ou 2 em 22 sessões de jogo.** O
   Victor caiu na entrada nas partidas 60 e 75 e voltou nas duas.
+- As três linhas de 04/11 (P1.21) saíram do registro da janela de 04/11 e das cópias de log
+  daquele dia, fora da contagem acima, que vai até 12/10. Nelas, o "Custo" não foi medido pela
+  regra desta tabela: o tempo entre parênteses na coluna do overflow é o do `ProcessMessages`
+  do log. A queda das 17:34 veio com a válvula on, sem nenhum plugin de bot, e a das 21:06 com
+  os 9: a armadilha é anterior aos plugins de bot (G7 do B1.15, com ressalva). A reentrada das
+  21:07 e a entrada das 23:35 passaram, sem queda depois de FULL + 60 s.
 
 ### Hipóteses
 
