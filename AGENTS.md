@@ -90,7 +90,7 @@ C:/Users/Victor/Projetos/cs2-tracker/.venv/Scripts/python.exe tools/preflight.py
 ## Onde mora o conhecimento
 
 - Sprints: [`docs/agents/sprints.md`](docs/agents/sprints.md) traz a ordem das sprints pelas siglas do board, o que cada uma contempla, as exceções aprovadas e a seção "Posição em <data>" (a sprint da vez e a fila). Leia antes de propor ou despachar card: sprint seguinte só começa com a anterior fechada, salvo exceção do Victor registrada lá. (H1.9)
-- Poda: [`docs/arquitetura/nao-apagar.md`](docs/arquitetura/nao-apagar.md) é a régua. Só se apaga o que está confirmado e fora dela; refutado, preservado por decisão e incerto nunca saem sem veredito novo ou decisão registrada; o `docs/prototypes/home.html`, nunca. (S1.1)
+- Poda: [`docs/arquitetura/nao-apagar.md`](docs/arquitetura/nao-apagar.md) é a régua. Só se apaga o que está confirmado e fora dos refutados, preservados e incertos dela; os confirmados com ressalva, só na forma que ela permite; refutado, preservado por decisão e incerto nunca saem sem veredito novo ou decisão registrada; o `docs/prototypes/home.html`, nunca. (S1.1)
 - `docs/`: KB em construção (`SPEC.md`, `features/`; depois `adr/`, `runbooks/`, `armadilhas/`). O código diz o quê; a KB diz o porquê. (K1)
 - Board: `C:/Users/Victor/Projetos/cs2-tracker/docs/board-cs2/`, vault do Obsidian que só existe no checkout principal. Nasce do modelo versionado em `tools/board/modelo/` pelo `-m tools.board iniciar`, que só cria o que falta e nunca sobrescreve. (Q21=A; H1.4)
 - Backups, auditoria e plano: `C:/Users/Victor/cs2-tracker-backups/2026-09-26/` (plano em `temp-artifacts/eb5adec0/plan/all.json`). (B0.2)

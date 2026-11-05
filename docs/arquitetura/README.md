@@ -13,7 +13,7 @@ Como o sistema funciona hoje, entre módulos: caminho de jogo, pipeline de captu
 Notas:
 
 - [contrato-events-jsonl.md](contrato-events-jsonl.md) (rascunho): tipos, gerações, BOM, nomes de arquivo e a regra do round que define órfão e cauda (K1.5).
-- [nao-apagar.md](nao-apagar.md): a régua da poda, com os refutados, os preservados por decisão e os incertos, cada um com a condição que o libera e quem decide (S1.1).
+- [nao-apagar.md](nao-apagar.md): a régua da poda, com os refutados, os preservados por decisão e os incertos, cada um com a condição que o libera e quem decide, e os confirmados com ressalva, com a forma que cada ressalva permite (S1.1).
 
 Notas previstas:
 

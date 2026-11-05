@@ -5,12 +5,20 @@ fontes:
   - "backup:temp-artifacts/eb5adec0/audit/dead_captura.json (candidates[]: verification.verdict, reason e evidence)"
   - "backup:temp-artifacts/eb5adec0/audit/dead_apresentacao.json (candidates[]: verification.verdict, reason e evidence)"
   - "backup:temp-artifacts/eb5adec0/audit/dead_orquestracao.json (candidates[]: verification.verdict, reason e evidence)"
-  - "backup:temp-artifacts/eb5adec0/plan/all.json (críticas: preservados por decisão, SVGs a pedido do dono, home.html e tiles F3.5)"
+  - "backup:temp-artifacts/eb5adec0/plan/all.json (judgements: preservados por decisão, SVGs a pedido do dono, home.html, tiles F3.5 e o nome antigo S1.8 do card dos incertos)"
   - "docs/agents/plano-2026-09-26.json:13 (princípio: refutado nunca, incerto ganha card de checagem)"
   - "docs/agents/plano-2026-09-26.json:1418 (orquestracao-13 e 52 refutados: não apagar)"
   - "docs/agents/plano-2026-09-26.json:1634-1654 (S1.1)"
   - "docs/agents/plano-2026-09-26.json:1674-1712 (S1.3 e S1.4)"
   - "docs/agents/plano-2026-09-26.json:1751-1808 (S1.7, S1.8 e S1.9)"
+  - "docs/agents/plano-2026-09-26.json:1397-1418 (P1.9: match_config template × runtime)"
+  - "docs/agents/plano-2026-09-26.json:1809-1830 (S1.10: desligar o GOTV; bloco 53-131 do cfg na KB)"
+  - "docs/agents/plano-2026-09-26.json:1847-1864 (S2.1: import sem awpy)"
+  - "docs/agents/plano-2026-09-26.json:1888-1903 (S2.3: ALTERs viram migrações, com series_num_maps)"
+  - "docs/agents/plano-2026-09-26.json:1991-2007 (S3.3: escritor único, persist_match)"
+  - "docs/agents/plano-2026-09-26.json:2193-2208 (S5.2: RCON e Docker únicos)"
+  - "docs/agents/plano-2026-09-26.json:2251-2268 (S5.5: cfg sem disputa de quota)"
+  - "docs/agents/plano-2026-09-26.json:2437-2454 (S7.5: fim das regex de docker logs)"
   - "docs/agents/plano-2026-09-26.json:2043-2140 (S4.1, S4.4 e S4.5)"
   - "docs/agents/plano-2026-09-26.json:2080-2096 (S4.3: team_size e clutches)"
   - "docs/agents/plano-2026-09-26.json:2210-2251 (S5.3: o CLI mantém --map e --side; S5.4: MatchRunner)"
@@ -60,6 +68,27 @@ fontes:
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:597-735"
   - "docker/plugins-src/Cs2TrackerEvents/Cs2TrackerEventsPlugin.cs:805-841"
   - "tools/evidencia_partida.py:101"
+  - "server-configs/cfg/gamemode_competitive_server.cfg:9-10"
+  - "server-configs/cfg/gamemode_competitive_server.cfg:56-57"
+  - "docker-compose.yml:7"
+  - "docker-compose.yml:58-90"
+  - "config.py:45"
+  - "config.py:54"
+  - "parser.py:1154"
+  - "stats.py:10"
+  - "stats.py:21-24"
+  - "stats.py:94-96"
+  - "watcher.py:45"
+  - "watcher.py:171"
+  - "watcher.py:204"
+  - "watcher.py:318"
+  - "start_match.py:375"
+  - "start_match.py:465"
+  - "start_match.py:621"
+  - "tools/live_watch.py:123"
+  - "web/app.py:330"
+  - ".gitignore:32"
+  - ".gitignore:44"
   - "docs/runbooks/versoes-conhecidas.md:746"
   - "README.md:515"
 atualizado: 2026-11-05
@@ -67,19 +96,19 @@ atualizado: 2026-11-05
 
 # Não apagar
 
-A régua da poda (S1): o que nenhum card de poda tira, por que fica e o que muda isso. O QA confere o diff de cada card de poda contra esta lista: refutado, preservado ou incerto sumindo reprova.
+A régua da poda (S1): o que nenhum card de poda tira, por que fica e o que muda isso. O QA confere o diff de cada card de poda contra esta lista: refutado, preservado ou incerto sumindo reprova, e confirmado com ressalva mudado além da forma que a ressalva permite também.
 
-**Totais:** 14 refutados · 20 preservados por decisão (18 IDs da auditoria e 2 itens de fora dela) · 13 confirmados com ressalva · 7 incertos · 1 decisão pendente (Q11). A auditoria de 26/09 tem 144 vereditos: 123 confirmados, 14 refutados e 7 incertos.
+**Totais:** 14 refutados · 20 preservados por decisão (18 IDs da auditoria e 2 itens de fora dela) · 47 confirmados com ressalva · 7 incertos · 1 decisão pendente (Q11). A auditoria de 26/09 tem 144 vereditos: 123 confirmados (18 preservados por decisão, 47 com ressalva e 58 sem ressalva), 14 refutados e 7 incertos.
 
 As referências `arquivo:linha` foram conferidas no código de 05/11 (`origin/main` 01074ef); o veredito diz a linha de 26/09, que pode ter andado.
 
 ## Como usar
 
-1. **Só sai o que está CONFIRMADO e consta como removível no card de poda.** O ID tem de estar no critério ou no escopo do card, e fora das tabelas abaixo.
+1. **Só sai o que está CONFIRMADO e consta como removível no card de poda.** O ID tem de estar no critério ou no escopo do card, e fora das tabelas de refutados, preservados e incertos; se estiver em Confirmados com ressalva, só na forma da coluna "O que a ressalva permite".
 2. **REFUTADO, PRESERVADO POR DECISÃO e INCERTO nunca saem por card de poda**, nem em parte, nem "de carona" num bloco vizinho.
 3. **Refutado só volta a ser candidato por re-verificação registrada** que satisfaça a "condição que levanta a refutação" da linha, feita por quem a linha diz. Até lá, a linha vale.
 4. **Item de poda que toque em código de uma linha desta lista cita o ID dela no PR**, e diz o que ficou no lugar.
-5. A proteção de "preservado" vale só para os IDs da tabela de preservados. Os confirmados cuja ressalva manda consolidar ou corrigir sem apagar, ou que só saem pelo card do plano que os lista, estão em "Confirmados com ressalva", com a forma que cada ressalva permite.
+5. A proteção de "preservado" vale só para os IDs da tabela de preservados. Todo confirmado cujo veredito (`verification.reason`) limita a forma da mudança está em "Confirmados com ressalva", com a forma que cada ressalva permite: o veredito diz que algo fica, que não é removível (só consolidável ou corrigível), ou que só sai depois de uma decisão, de outro item, de um card do plano ou de validação ao vivo. Não entram as ressalvas que só pedem ajustar teste, README ou `.gitignore` na mesma PR, nem as que só tornam opcional apagar algo (ex.: as colunas do captura-5): esses confirmados saem sem forma especial.
 
 ## Refutados (14)
 
@@ -127,25 +156,59 @@ Confirmados mortos, sem uso ou incompletos, mas ficam por decisão do Victor ou 
 | (fora da auditoria) | `wizard_tui.py` | Vivo e sem diff até a D13 (AGENTS.md) | A D13 cumprida (MD3 pelo browser) e o OK do Victor | Victor | S8.3 |
 | (fora da auditoria) | `C:/cs2server` | Intocado: a única semente de recuperação (AGENTS.md) | Nenhuma | Victor | S1.4 (critério "intocado") |
 
-## Confirmados com ressalva (13)
+## Confirmados com ressalva (47)
 
-Confirmados pela auditoria, mas o próprio veredito limita a forma da mudança. Não são preservados: saem ou mudam só na forma da coluna "O que a ressalva permite", e o QA reprova o diff que for além dela.
+Confirmados pela auditoria, mas o próprio veredito limita a forma da mudança (regra 5). Não são preservados: saem ou mudam só na forma da coluna "O que a ressalva permite", e o QA reprova o diff que for além dela. O S1.7 não lista IDs ("só os IDs confirmados"): um confirmado da apresentação desta tabela pode chegar a ele, sempre nesta forma. Onde a forma toca o `wizard_tui.py`, vale também a linha dele nos preservados: sem diff até a D13.
 
 | ID | Onde / o quê | Ressalva do veredito | O que a ressalva permite | Card |
 |---|---|---|---|---|
-| captura-1 | modo nativo do watcher (`PATTERNS`, `tail`, `handle_line`, RCON `tv_record`, flags `--log`, `--rcon-*` etc.) | Decisão de produto (abandonar o bare-metal); o README ainda o documenta; amarrado ao captura-2 e 3 | Só pelo S1.4, na ordem dele, com o README na mesma PR e o item 54 já na KB | S1.4 |
+| captura-1 | modo nativo do watcher (`PATTERNS`, `tail`, `handle_line`, RCON `tv_record`, flags `--log`, `--rcon-*` etc.) | Decisão de produto (abandonar o bare-metal); o README ainda o documenta; amarrado ao captura-2 e 3 | Só pelo S1.4, na ordem dele, com o README na mesma PR; o docstring (`watcher.py:13-56` no plano) só sai com o item 54 já na KB | S1.4 |
+| captura-3 | import de awpy e polars no topo do `parser.py` (só o `parse_and_store` os usa) | O acoplamento procede, mas tirar a dependência não: o `tools/enrich_from_demos.py` importa os dois direto | Separar schema e ingestão num módulo sem dependência pesada; awpy e polars só saem do requirements com o `enrich_from_demos` fora (S1.2) e o veredito novo do S1.3 | S1.3, S1.5, S2.1 |
+| captura-10 | `tools/reingest_demos.py` | Uso único e cumprido; mas, se o captura-2 for corrigido em vez de removido, é o único meio de reparar as partidas 1 e 2 | Só pelo S1.4, na ordem dele, depois do veredito novo do S1.3; fica no lugar até a decisão da Q11 (abaixo) | S1.3, S1.4 |
 | captura-12 | `tools/live_watch.py` | Único que amostra `get5_status` a 0,25 s; apagar ou arquivar é decisão de produto | Só com decisão do Victor registrada; nenhum card de poda o lista | nenhum |
+| captura-13 | três clientes RCON: `send_command` (`watcher.py:204`), `rcon_run` (`start_match.py:375`) e `rcon` (`tools/live_watch.py:123`) | Duplicação real, mas apagar o do watcher depende da decisão sobre o modo nativo (captura-1) | Unificar num helper único (S5.2); a cópia do watcher só sai com o modo nativo, pelo S1.4 | S5.2, S1.4 |
+| captura-14 | três módulos que leem `docker logs` por conta própria: watcher em stream, start_match em snapshot, live_watch de diagnóstico (os leitores listados no orquestracao-28) | Nenhum dos três pode ser removido sem quebrar o seu fluxo; consolidar num módulo de eventos da MatchZy é viável | Consolidar; nenhum leitor se remove. É o mesmo conjunto do orquestracao-28 (incerto): até o veredito do S1.9, vale a regra 2 | S5.2, S7.5 |
+| captura-20 | `self.mode` (`watcher.py:171`), o `mkdir` de `./demos` e os imports `shutil`, `datetime` e `RconClient` do watcher (`watcher.py:45`) | Só o `self.mode` está morto incondicionalmente; o resto só morre com o modo nativo aposentado | O `self.mode` sai; os imports e o `mkdir` só com o modo nativo (S1.4) | S1.4 |
+| captura-21 | docstring de topo do `parser.py` | Incompleto, não falso: o `parse_and_store` continua vivo, e o topo descreve certo o caminho do `.dem` | Acrescentar o `store_match_from_events`, o caminho principal; a descrição do `.dem` fica enquanto o `parse_and_store` viver (captura-2) | nenhum |
+| captura-29 | compatibilidade entre gerações de JSONL espalhada em ramos e comentários, e o fallback de `equip_freeze_end` para `equip_round_start` (`parser.py:1154`) | O fallback não é compatibilidade entre gerações: o `equip_freeze_end` vem 0 ou None em ~90% das entradas | Documentar ou versionar o formato; o fallback para `equip_round_start` fica | nenhum |
+| captura-30 | infra do GOTV: `TV_ENABLE`/`TV_PORT`, slot extra, mount `demos-live`, porta 27020, o filtro `_participa` | Desligar tem pré-requisitos: o comportamento da MatchZy com `tv_enable 0` não se verifica offline, e o fallback 3 de `_map_name_for` e os tools de demo saem junto; o GOTV do modo nativo fica fora | Só pelo S1.10, em janela, com o fim de mapa validado ao vivo | S1.10 |
+| captura-31 | bloco GOTV do `gamemode_competitive_server.cfg` (linhas 53-131 em 26/09; hoje restam um comentário curto e as duas cvars, `:56-57`) | `tv_delay 0` e `tv_transmitall 1` estão em uso e ficam; o resto era diário de experimento | O diário vai para a KB, com quem aponta para ele atualizado; as duas cvars ficam (mudam só pelo S1.10, em janela) | S1.10 |
+| captura-32 | `server-configs/cfg/server.cfg` | Vivo enquanto o fluxo nativo existir (não é montado no compose) | Só pelo S1.4, no fim da ordem dele, com o modo nativo fora | S1.4 |
+| captura-36 | as definições de `ROOT` e os `sys.path.insert` das tools, do `web/app.py` e dos testes | Nos módulos da raiz o `ROOT` pode vir do `config.ROOT`; nas tools, no web e nos testes, `ROOT` e `sys.path.insert` são bootstrap obrigatório | O `ROOT` dos módulos da raiz pode vir do `config`; os inserts só saem como diz o orquestracao-53 | nenhum |
+| captura-38 | persistência duplicada entre `parse_and_store` e `store_match_from_events` | Os dois caminhos estão vivos; a divergência já virou bug (`r[8]`/`r[6]` no lugar de `r[9]`/`r[7]`) | Uma função de persistência única (S3.3) e o bug corrigido; nenhum dos dois caminhos se apaga aqui (o `parse_and_store` é o captura-2) | S3.3 |
 | captura-39 | `SCHEMA` e os `_NEW_*_COLUMNS` do `parser.py` | A migração é necessária hoje (atualiza o banco existente) | Unificar a declaração; a migração não se apaga | S2.3 |
 | captura-41 | leitores do `match_config` (watcher, identity, start_match, wizard_core, web) | Cada leitor usa chaves diferentes e todos estão em uso | Centralizar num módulo; nenhum leitor se apaga | nenhum |
-| captura-49 | artefatos locais: `probe2.dem`, `probe3.dem`, `logs/teste-correcao.log`, conteúdo de `docker/demos-live` e `docker/stats-live`, `demos/20260902_211440_de_mirage.dem` | A demo da partida 2 é o `demo_path` dela; `demos-live` e `stats-live` são bind mounts | Probes e o log saem; das duas pastas só o conteúdo, nunca a pasta; a demo da partida 2 fica (ver "Pendente: Q11") | S1.4 |
+| captura-43 | textos de UI e CLI que descrevem o pipeline de demo como atual | Parte é falsa, mas o ramo `source == 'demo'` do `match_detail.html` e a nota do `matches.html` sobre partidas de `.dem` seguem corretos enquanto as partidas 1 e 2 existirem; a regeneração do `report.html` é verdadeira (captura-17) | Corrigir só os textos falsos; os dois trechos de `.dem` ficam até a decisão da Q11; o texto do `wizard_tui.py`, só depois da D13 | nenhum |
+| captura-44 | README e docstrings (`watcher.py`, `identity.py`) que só descrevem a captura por demo | Incompletos, não falsos: o modo nativo ainda existe e é o default do CLI do watcher | Acrescentar o fluxo de eventos; o que descreve o modo nativo só sai com ele (captura-1, S1.4) | S1.4 |
+| captura-45 | os nomes `cs2-spike` (`docker-compose.yml:7`, `config.py:45`) e `match_config.spike.json` (`config.py:54`); o cabeçalho "Spike" do compose já foi corrigido | Renomear tem impacto cruzado (container, bind mount, `matchzy_loadmatch`, web) | Só como o rename coordenado do orquestracao-49 | nenhum |
+| captura-49 | artefatos locais: `probe2.dem`, `probe3.dem`, `logs/teste-correcao.log`, conteúdo de `docker/demos-live` e `docker/stats-live`, `demos/20260902_211440_de_mirage.dem` | A demo da partida 2 é o `demo_path` dela; `demos-live` e `stats-live` são bind mounts | Probes e o log saem como limpeza local, sem PR: são ignorados pelo git (`.gitignore:32` e `:44`). Das duas pastas, só o conteúdo, nunca a pasta; a demo da partida 2 fica (ver "Pendente: Q11") | nenhum |
 | captura-50 | `demo_name`/`demo_path` como identificador de JSONL | Débito de nomenclatura, não código morto (~47 referências) | Renomear só por card próprio de schema; nada se apaga | nenhum |
+| apresentacao-13 | `matches.py` usando funções privadas de `stats.py` e recalculando o `_map_leaderboard` | O reuso das funções de acumulação é proposital (não duplicar a fórmula); o problema é o acoplamento e o recálculo sem filtro | Expor uma API pública em `stats` e cortar o recálculo sem filtro de mapa; a fórmula não se copia | nenhum |
 | apresentacao-19 | três ambientes Jinja (`report.py`, `home.py`, `web/app.py`) | Os três caminhos estão vivos | Consolidar numa fábrica comum; não remover nenhum | nenhum |
+| apresentacao-32 | `MAP_ICON_OVERRIDES` (`stats.py:10`) e `static/inferno.webp` | Código vivo; o `inferno.webp` é WebP de fato | A tabela só sai com o `inferno.webp` convertido para PNG antes, ou com a convenção aceitando outra extensão; renomear sem converter, não | nenhum |
+| apresentacao-35 | comentários e docstrings obsoletos da apresentação | A maioria está errada, mas `stats.py:21-24` e `stats.py:94-96` seguem corretos (o JS do `report.html` ainda tem `WEAPON_LABEL` e `fmtMap`) e o topo do `stats.py` só está incompleto | Corrigir os errados; os dois espelhos ficam enquanto o `report.html` viver (S4.4); o topo do `stats.py` se completa, não se apaga | nenhum |
 | apresentacao-38 | `TEAM_SIZE = 5` (`stats.py:52`) e o uso em `_clutches` | Bug latente de correção, não código morto | Corrigir (team_size gravado, teste 3v3); a constante só sai com o substituto | S4.3 |
 | apresentacao-40 | componentes CSS redefinidos entre `templates/` e `web/templates/` | `.modal-box .box` é sobrescrita proposital; `.map-btn` é variante | Extrair componentes para o `shell.html`, sem apagar nenhum dos lados; os duplicados do `report.html` só somem com o `/report` (S4.4) | S4.4 |
 | orquestracao-14 | regras de lineup em `start_match`, `wizard_core` e no web | Duplicação real, mas cada camada tem chamador vivo | Uma função de validação compartilhada, chamada também pelo CLI; nenhuma camada se apaga | S5.3 |
+| orquestracao-15 | validação de `team_size` na TUI, no web, em `set_format` e em `run_match` (`needed_slots`) | Duplicação verdadeira, mas nenhuma cópia sai sem mover a regra para o núcleo; no CLI, a do `run_match` é a única | Mover a regra para o núcleo (validação única, S5.3) antes de tirar qualquer cópia; a da TUI, só depois da D13 | S5.3 |
+| orquestracao-17 | formatos, lados e numeração de passos em núcleo, TUI, web e CLI | Formatos e lados são duplicação pura; as numerações de passos diferem em parte legitimamente, porque os fluxos visíveis diferem | Formatos e lados num lugar só; a numeração de passos só se unifica parametrizada por UI; a TUI, só depois da D13 | nenhum |
+| orquestracao-18 | adaptadores do modelo de passos: `skip_lineups` e o segundo `back()` na TUI, `SideScreen.action_back`, IDENTITY e FORMAT fundidos no `GET`/`POST /setup` do web | Vivo e necessário enquanto o modelo de passos do núcleo for este | Nada se apaga; só some se o modelo de passos do núcleo mudar, e a TUI só depois da D13 | nenhum |
+| orquestracao-19 | turno do bot no veto, nas duas UIs | A decisão "é turno do bot: sorteia e resolve" é regra duplicada; o timing (2 s na TUI, 1,2 s no HTMX) é legitimamente de UI | Uma transição única no núcleo; o timing fica em cada UI; a TUI, só depois da D13 | nenhum |
+| orquestracao-20 | toggle da seleção direta de mapas nas duas UIs | A separação entre estado transitório de UI e estado de sessão é deliberada e documentada; o ganho de consolidar é baixo | Consolidar só o toggle; o estado transitório fica na UI; a TUI, só depois da D13 | nenhum |
 | orquestracao-21 | `LaunchScreen` da TUI (`wizard_tui.py:620`) | Código vivo, separação intencional; e a TUI fica sem diff até a D13 | Extrair um controlador de partida no núcleo sem tocar no `wizard_tui.py` | S5.4 |
 | orquestracao-25 | leitura de `CS2_RCONPW` e a sentinela, em três cópias | O `server-configs/cfg/server.cfg` não é código duplicado: é o template do bare-metal | Um helper no `config.py`; o `server.cfg` só sai pelo S1.4, no fim da ordem dele | S1.4 |
+| orquestracao-26 | os três clientes RCON do captura-13 | Cada chamador tem uma semântica de erro legítima | Um helper único com wrappers finos (S5.2), mantendo a semântica de cada chamador; a cópia do watcher só sai com o modo nativo (S1.4) | S5.2, S1.4 |
+| orquestracao-31 | docstring do `run_match` e a referência de `write_live_override` ao swap do VPK (`start_match.py:621`) | Texto obsoleto, mas o `docker exec` do `write_live_override` é legítimo (um `.cfg` não fica mapeado em memória) | Corrigir o texto; o `docker exec` do live_override fica | nenhum |
 | orquestracao-32 | textos do `start_match` sobre "gravar demo/stats" | Texto vivo e desatualizado, não código morto | Corrigir o texto; nada se apaga | nenhum |
+| orquestracao-33 | `docker/SPIKE.md` | Relatório datado, mas guarda conhecimento operacional que não existe em outro lugar (erro 0x602 do SteamCMD, GSLT preso, socket órfão, `FORCE_DELETE_ADDONS`, matchid inteiro) | Migrar o conteúdo para a KB, não apagar: nada dele sai sem estar lá, e quem cita o arquivo muda na mesma PR | nenhum |
+| orquestracao-36 | parâmetro `team_id` do buscador de perfis (`web/app.py:330`) | Lacuna entre spec e UI, não ideia abandonada: a `M4-seletor.md:23` especifica o filtro por time | Remover o parâmetro ou expor o filtro, só com decisão registrada e a spec atualizada na mesma PR | nenhum |
+| orquestracao-43 | GOTV e demo ligados no compose: `TV_ENABLE`, `TV_PORT`, porta 27020, slot extra, mounts `demos-live`/`stats-live` | Os consumidores saem junto (fallback do `_map_name_for`, o +1 slot no `start_match` e no `max_team_size`, os defaults do `config.py`), e desligar o `TV_ENABLE` precisa ser validado ao vivo: o fim de mapa da MatchZy depende do `tv_delay` | Só pelo S1.10, em janela, em dois passos, com o fim de mapa detectado | S1.10 |
+| orquestracao-44 | `server-configs/cfg/server.cfg` (fluxo nativo) | Remover exige aposentar também o modo nativo; o `parse_and_store` continua (o `reingest_demos` o usa) | Só pelo S1.4, no fim da ordem dele, com o modo nativo fora; o `parse_and_store` não sai de carona | S1.4 |
+| orquestracao-45 | `bot_quota 10` e `bot_quota_mode fill` no cfg (`gamemode_competitive_server.cfg:9-10`; 10-11 em 26/09) | Config viva e antagonista; a correção é remover as duas linhas, não zerá-las (com quota 0, a reexecução do cfg despejaria os bots), e o fill é a fonte de bots do fluxo nativo | Remover as linhas, nunca zerar, em janela e validado ao vivo | S5.5 |
+| orquestracao-48 | diário de laboratório nos comentários do compose, do cfg e do `start_match` | Nem tudo se apaga: as narrativas de crash do compose justificam os mounts `_empty` ativos (hoje em `docker-compose.yml:58-90`), e trechos do `start_match` explicam mecanismos atuais | Enxugar para o porquê atual, com a história indo para ADR ou incidente; os comentários dos mounts `_empty` ativos ficam | nenhum |
+| orquestracao-49 | os nomes `cs2-spike` e `match_config.spike.json` (os do captura-45) | Identificadores vivos e espalhados (config, compose, README, SPEC, SPIKE.md, roster, tools, imagens): rename coordenado, não limpeza | Só como rename coordenado, por card próprio, com o container recriado em janela; o volume não muda de nome | nenhum |
+| orquestracao-50 | `match_config`: template, estado de runtime e armazém de identidade num arquivo só | Vivo e essencial (montado no container, carregado pela MatchZy, lido pelo watcher): não se remove | Separar template, estado e identidade; nada se remove. O P1.9 já separou template e runtime (`docker/match_config.template.json` e `docker/runtime/`) | P1.9 |
+| orquestracao-53 | `ROOT = Path(__file__)...` repetido, os `sys.path.insert` das tools, do web e dos testes, e o alias `Sink` | Duplicação real, mas cada `sys.path.insert` é necessário hoje | O repo importável como pacote (pyproject com `pythonpath`, ou instalação) vem antes; só então os inserts saem | nenhum |
 
 ## Pendente: Q11 e o critério do S1.4
 
@@ -162,7 +225,7 @@ Até a decisão chegar ao S1.4, ficam **no lugar**: as linhas do banco das parti
 
 ## Incertos (7)
 
-O veredito não fechou. Todos apontam para o [S1.9, "Checar os incertos"](../agents/sprints.md#posição-em-0511) (card 109), que dá veredito novo a cada um, com dump de cvars de bot em janela, e **não remove nada**. Depois do veredito, o item vira confirmado (e só sai por um card de poda que o liste) ou refutado (e entra na tabela acima). As críticas do plano de 26/09 chamam esse card de "S1.8", numa numeração antiga; no plano e no board ele é o S1.9.
+O veredito não fechou. Todos apontam para o [S1.9, "Checar os incertos"](../agents/sprints.md#posição-em-0511) (card 109), que dá veredito novo a cada um, com dump de cvars de bot em janela, e **não remove nada**. Depois do veredito, o item vira confirmado (e só sai por um card de poda que o liste; se o veredito limitar a forma, entra em "Confirmados com ressalva") ou refutado (e entra na tabela de refutados). Os julgamentos (`judgements`) do plano de 26/09 chamam esse card de "S1.8", numa numeração antiga; no plano e no board ele é o S1.9.
 
 | ID | Onde / o quê | Por que é incerto (o que faltou) | Aponta para | Quem decide |
 |---|---|---|---|---|
@@ -176,7 +239,7 @@ O veredito não fechou. Todos apontam para o [S1.9, "Checar os incertos"](../age
 
 ## Como esta lista é mantida
 
-- Linha muda de status (refutado → removível, incerto → confirmado ou refutado, preservado → removível) só por veredito novo registrado no Histórico do card que o produziu, e por PR de docs que atualiza esta lista com o `atualizado` novo.
+- Linha muda de status (refutado → removível, incerto → confirmado ou refutado, preservado → removível, ressalva → sem ressalva) só por veredito novo registrado no Histórico do card que o produziu, e por PR de docs que atualiza esta lista com o `atualizado` novo.
 - O PR de poda que tira um item que estava aqui linka a linha atualizada desta lista.
 - A lista nunca encolhe por ser inconveniente: uma linha só sai quando a condição dela foi satisfeita e registrada.
 - Decisão nova do Victor (Q11 no S1.4, uma revisão da Q13 ou da Q14) entra no ADR-0006 primeiro e aqui depois.
