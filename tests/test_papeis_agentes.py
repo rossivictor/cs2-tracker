@@ -661,11 +661,11 @@ def test_relogio_e_regra_de_caber_e_nao_numero_fixo():
 
 
 # P1.19 (lição L06): no servidor.md todo ff vai pelo SHA conferido, pelo
-# `jogavel.py atualizar <SHA>`; o runbook b1.3 ainda fala da ponta do origin/main.
+# `jogavel.py atualizar <SHA>`; desde o P1.21, o runbook b1.3 também.
 DELTA = 'git -C "$RAIZ" diff --stat HEAD <SHA>'
 FF = '"$PY" "$RAIZ/tools/jogavel.py" atualizar <SHA>'
-DELTA_RUNBOOK = 'git -C "$RAIZ" diff --stat HEAD origin/main'
-FF_RUNBOOK = 'git -C "$RAIZ" merge --ff-only origin/main'
+DELTA_RUNBOOK = DELTA
+FF_RUNBOOK = FF
 SHA_FICTICIO = "0123456789abcdef0123456789abcdef01234567"
 RUNBOOK_B13 = RAIZ / "docs" / "runbooks" / "b1.3-cssharp-1.0.375.md"
 
@@ -702,6 +702,7 @@ def test_switch_main_so_no_passo_3_e_a_volta_do_revert_confere_o_delta_antes_do_
                                     re.MULTILINE | re.DOTALL))
     assert "switch main" not in comandos
     assert comandos.index(DELTA_RUNBOOK) < comandos.index(FF_RUNBOOK)
+    assert "merge --ff-only origin/main" not in comandos and "HEAD origin/main" not in comandos
     assert "Com infra no delta" in volta_rb and "fique na tag" in volta_rb
 
 

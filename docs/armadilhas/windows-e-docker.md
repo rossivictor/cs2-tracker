@@ -19,11 +19,15 @@ fontes:
   - "docs/runbooks/versoes-conhecidas.md:177 (json-file corrompido pela parada noturna)"
   - "tools/jogavel.py:1589-1592 (o --since para em silêncio na entrada corrompida, B0.7h)"
   - "backup:../2026-10-19/g7-p1.3-p1.4-copia/logs/janelas/2026-10-19.md (linha 15: --tail acima de ~7410 linhas para na entrada de 2026-10-18T03:02Z; registro de 20/10 em logs/janelas/2026-10-20.md, linha 17, --since vazio depois do restart, só no checkout principal)"
-  - "start_match.py:329-334 (container_running lê só o State.Running)"
-  - "start_match.py:1318-1321 (rodando: pula o compose up)"
+  - "start_match.py:326-331 (container_running lê só o State.Running)"
+  - "start_match.py:334-360 (P1.15: container_pausado lê o State.Paused, e a mensagem CONTAINER_PAUSADO)"
+  - "start_match.py:1347-1352 (P1.15: pausado sai com [ERRO] antes da espera do RCON; rodando, pula o compose up)"
+  - "tests/test_container_pausado.py:128 (o start_match pausado dá a causa e sai sem esperar o RCON)"
+  - "tests/test_tui_integracao.py:367 (a TUI mostra a causa e não espera o RCON)"
+  - "PR #128"
   - "backup:../2026-10-23/janela-1918/docker-logs-antes.txt (linhas 1990-2019: boot parado em BuildGameSessionManifest de 21:50:23Z a 21:56:18Z, Watchdog timeout e segfault)"
   - "backup:../2026-10-25/g7-b1.3s-p1.10-copia/logs/janelas/2026-10-23.md (linhas 28-31: o container pausado da 1ª tentativa de 23/10)"
-atualizado: 2026-10-25
+atualizado: 2026-11-05
 ---
 
 # Armadilhas do Windows e do Docker Desktop
@@ -95,5 +99,5 @@ Itens que apareceram depois de 26/09. Não têm número: a numeração é a dos 
 ### Container pausado que o `start_match` lê como rodando
 - **Sintoma:** o container conta como "rodando", então o `start_match` não sobe nada (o caminho do `já está rodando`), e o RCON nunca responde; o Victor viu o container pausado no Docker Desktop. Ao despausar, o log, que parou no meio do boot, volta com `FATAL ERROR: Watchdog timeout exceeded, exiting` e `Segmentation fault`. Visto na 1ª tentativa de jogo de 23/10: boot parado em `BuildGameSessionManifest` às 21:50:23Z, nada até 21:56:18Z (~6 min), `FATAL` às 21:56:19Z e segfault às 21:56:29Z.
 - **Causa:** container pausado tem `State.Running` = `true` (e `State.Paused` = `true`) no `docker inspect`, e o `container_running` do `start_match` só lê o `Running`, então pula o `compose up`. Despausado, o processo do jogo acha que o servidor travou pelo tempo parado, e o watchdog do engine derruba o processo. Quem pausou não ficou registrado: o `docker events` daquele dia só retinha desde a janela das 19:18, e sem `pause` nem `die`.
-- **Contorno:** com o RCON mudo e o container "rodando", olhe o estado no Docker Desktop (ou peça ao servidor o `docker inspect` do `State`). Pausado: não despause no meio da partida; feche a TUI e peça a volta ao papel servidor (em 23/10, a subida seguinte, às 21:56:31Z, bootou normal). Tratar o `Paused` no `start_match` é card próprio, se o caso voltar.
-- **Fonte:** `start_match.py:329-334` · `start_match.py:1318-1321` · `backup:../2026-10-23/janela-1918/docker-logs-antes.txt` (linhas 1990-2019) · `backup:../2026-10-25/g7-b1.3s-p1.10-copia/logs/janelas/2026-10-23.md` (linhas 28-31)
+- **Contorno:** desde o P1.15 (card 92,6, PR #128, validado pela partida 108 de 04/11), o `start_match` lê o `State.Paused` antes da espera do RCON: pausado, a TUI mostra o `[ERRO]` "O container 'cs2-spike' está pausado no Docker Desktop: o servidor parou no meio e o RCON não vai responder", com o passo seguinte (abrir o Docker Desktop, dar play, o Resume, no container e tentar de novo), e a partida não inicia. O `start_match` não despausa sozinho (o `docker unpause` fica de fora de propósito): despausado, o watchdog pode derrubar o processo, e a decisão é do Victor. Se o servidor cair ao despausar, a nova tentativa acha o container parado e faz o `compose up`, que sobe do zero (em 23/10, a subida seguinte, às 21:56:31Z, bootou normal).
+- **Fonte:** `start_match.py:326-331` · `start_match.py:334-360` (P1.15: o container_pausado e a mensagem) · `start_match.py:1347-1352` · `tests/test_container_pausado.py:128` · `tests/test_tui_integracao.py:367` · `backup:../2026-10-23/janela-1918/docker-logs-antes.txt` (linhas 1990-2019) · `backup:../2026-10-25/g7-b1.3s-p1.10-copia/logs/janelas/2026-10-23.md` (linhas 28-31)

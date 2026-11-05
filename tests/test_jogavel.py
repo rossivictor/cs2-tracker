@@ -750,6 +750,53 @@ def test_marcar_jogavel_com_nome_ocupado_e_fecha_o_candidato(mundo, capsys):
     assert _tags(mundo, "jogavel-2027-*") == ["jogavel-2027-01-15", "jogavel-2027-01-15-2"]
 
 
+def test_marcar_jogavel_com_data_da_vespera_da_o_nome_e_mantem_registro_e_candidato(mundo, capsys):
+    # P1.21: a partida 108 foi em 04/11 e a tag saiu em 05/11; o TM a fez à
+    # mão, sem a linha do tags.md e sem apagar o candidato.json. AGORA é
+    # 2027-01-15; a véspera já tem jogavel noutro commit, então sai o -2.
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "candidato", "jogavel-2026-09-26", "-m", "P1.15") == OK
+    _git(mundo.raiz, "tag", "jogavel-2027-01-14", "jogavel-2026-09-26")
+    sha, sha_dll = _head(mundo), _sha(b"dll boa")
+    assert _rodar(mundo, "marcar", "jogavel", "main", "-m", "G7 ok, partida 108",
+                  "--data", "2027-01-14") == OK
+    assert _git(mundo.raiz, "rev-parse", "jogavel-2027-01-14-2^{commit}") == sha
+    assert "refs/tags/jogavel-2027-01-14-2" in _git(mundo.raiz, "ls-remote", "--tags", "origin")
+    assert _tags(mundo, "jogavel-2027-01-15*") == []
+    linhas = (mundo.raiz / "logs" / "jogavel" / "tags.md").read_text(encoding="utf-8").splitlines()
+    assert linhas[-1] == f"- {QUANDO} jogavel-2027-01-14-2 -> {sha[:9]} · plugin {sha_dll[:12]} · G7 ok, partida 108"
+    assert not (mundo.raiz / "data" / "candidato.json").exists()
+    assert "data/candidato.json apagado: candidato-1 validado por jogavel-2027-01-14-2" in capsys.readouterr().out
+
+
+def test_marcar_jogavel_com_data_de_hoje_e_o_caminho_padrao(mundo):
+    _pasta_plugin(mundo, BOM)
+    assert _rodar(mundo, "marcar", "jogavel", "main", "-m", "G7 ok", "--data", "2027-01-15") == OK
+    assert _tags(mundo, "jogavel-2027-*") == ["jogavel-2027-01-15"]
+
+
+@pytest.mark.parametrize("tipo, dia, motivo", [
+    ("jogavel", "2027-01-16", "é depois de hoje (2027-01-15)"),
+    ("jogavel", "2028-01-01", "é depois de hoje (2027-01-15)"),
+    ("jogavel", "2027-02-30", "não é uma data AAAA-MM-DD"),
+    ("jogavel", "2027-1-14", "não é uma data AAAA-MM-DD"),
+    ("jogavel", "14/01/2027", "não é uma data AAAA-MM-DD"),
+    ("jogavel", "ontem", "não é uma data AAAA-MM-DD"),
+    ("candidato", "2027-01-14", "--data só vale para a jogavel"),
+])
+def test_marcar_recusa_data_invalida_futura_ou_no_candidato_sem_marcar_nada(mundo, capsys,
+                                                                           tipo, dia, motivo):
+    _pasta_plugin(mundo, BOM)
+    (mundo.raiz / "data").mkdir()
+    (mundo.raiz / "data" / "candidato.json").write_text('{"tag": "candidato-1"}\n', encoding="utf-8")
+    assert _rodar(mundo, "marcar", tipo, "main", "-m", NOTA, "--data", dia) == jogavel.USO
+    saida = capsys.readouterr().out
+    assert motivo in saida and "nada foi marcado" in saida
+    assert _tags(mundo, "jogavel-2027-*") == [] and _tags(mundo, "candidato-*") == []
+    assert not (mundo.raiz / "logs").exists() and not mundo.copias.exists()
+    assert (mundo.raiz / "data" / "candidato.json").read_text(encoding="utf-8") == '{"tag": "candidato-1"}\n'
+
+
 def test_marcar_jogavel_mantem_o_candidato_que_nao_esta_nela(mundo):
     _pasta_plugin(mundo, BOM)
     assert _rodar(mundo, "marcar", "candidato", "main", "-m", NOTA) == OK

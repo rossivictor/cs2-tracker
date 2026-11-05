@@ -20,10 +20,12 @@ de 26/09). Runbook: docs/runbooks/voltar-ao-jogavel.md.
   janela     abrir --por "frase" [--teto N] | fechar [--feito ITEM...] |
              vigiar [--intervalo S], todos com [--seco] e só no checkout
              principal (fatia 2; protocolo, seção 8).
-  marcar     candidato|jogavel COMMIT -m "card e evidência" [--seco]: tag
-             anotada (com o sha256 da DLL de captura) e push, cópia da pasta
-             do plugin com manifesto, linha em logs/jogavel/tags.md e
-             data/candidato.json (a jogavel apaga o do candidato que contém).
+  marcar     candidato|jogavel COMMIT -m "card e evidência" [--data AAAA-MM-DD]
+             [--seco]: tag anotada (com o sha256 da DLL de captura) e push,
+             cópia da pasta do plugin com manifesto, linha em
+             logs/jogavel/tags.md e data/candidato.json (a jogavel apaga o do
+             candidato que contém). --data (só jogavel) dá o dia da partida
+             ao nome da tag, quando ela foi antes de hoje (P1.21).
   coletar    [--destino D]: evidência pós-partida só lendo, com preflight 0 e
              sem janela: docker logs desde o StartedAt, config-hash do
              container e do compose, HEAD e sha256 dos arquivos montados
@@ -963,10 +965,39 @@ def nome_da_tag(ex: Executor, tipo: str, sha: str, hoje: str) -> tuple:
     return nome, False
 
 
+RE_DATA = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def data_da_tag_recusada(tipo: str, dia: str, hoje: str) -> str | None:
+    """Motivo para recusar o --data, ou None. AAAA-MM-DD de calendário, nunca
+    depois de hoje, e só na jogavel (o candidato-N não leva data)."""
+    if tipo != "jogavel":
+        return "--data só vale para a jogavel"
+    try:
+        if not RE_DATA.match(dia):
+            raise ValueError(dia)
+        datetime.strptime(dia, "%Y-%m-%d")  # 2026-02-30 cai aqui
+    except ValueError:
+        return f"--data {dia!r} não é uma data AAAA-MM-DD"
+    if dia > hoje:
+        return f"--data {dia} é depois de hoje ({hoje})"
+    return None
+
+
 def cmd_marcar(args, ex: Executor, agora: float, **_kw) -> int:
     """Tag anotada (com o sha256 da DLL de captura), push, cópia da pasta do
     plugin, linha em logs/jogavel/tags.md e data/candidato.json (protocolo,
     seções 3 e 5)."""
+    hoje = _hora(agora, "%Y-%m-%d")
+    dia = getattr(args, "data", None)
+    if dia is not None:
+        # P1.21: a partida da véspera marcada hoje. Só o nome muda; o carimbo
+        # do tags.md e do candidato.json segue sendo a hora da marcação.
+        recusa = data_da_tag_recusada(args.tipo, dia, hoje)
+        if recusa:
+            print(f"marcar recusado: {recusa}; nada foi marcado")
+            return USO
+        hoje = dia
     ch = ex.git("rev-parse", "--verify", "--quiet", f"{args.commit}^{{commit}}")
     if not ch.ok:
         print(f"marcar: commit {args.commit} não encontrado")
@@ -974,7 +1005,7 @@ def cmd_marcar(args, ex: Executor, agora: float, **_kw) -> int:
     sha, quando = ch.saida.strip(), _hora(agora, "%Y-%m-%dT%H:%M:%S")
     if not ex.git("fetch", "origin", "--tags", timeout=300).ok:
         print("aviso: git fetch --tags falhou; o nome sai das tags locais")
-    nome, feita = nome_da_tag(ex, args.tipo, sha, _hora(agora, "%Y-%m-%d"))
+    nome, feita = nome_da_tag(ex, args.tipo, sha, hoje)
     if feita:
         print(f"{nome} já aponta para {sha[:9]}: a tag já está feita (só confiro o push)")
         return OK if ex.git("push", "origin", f"refs/tags/{nome}", muda=True, timeout=120).ok else FALHA
@@ -2027,6 +2058,8 @@ def montar_parser() -> argparse.ArgumentParser:
     marcar.add_argument("tipo", choices=("candidato", "jogavel"))
     marcar.add_argument("commit", help="commit a marcar (o merge do candidato; o HEAD da coleta na jogável)")
     marcar.add_argument("-m", "--nota", required=True, help="card e evidência, na mensagem da tag")
+    marcar.add_argument("--data", metavar="AAAA-MM-DD",
+                        help="dia da partida no nome da jogavel (padrão: hoje); nunca depois de hoje")
     marcar.add_argument("--seco", action="store_true", help="só mostra o que faria")
     coletar = sub.add_parser("coletar", help="evidência pós-partida, só lendo (preflight 0, sem janela)")
     coletar.add_argument("--destino", type=Path, default=None,
