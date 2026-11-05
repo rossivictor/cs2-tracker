@@ -3,27 +3,39 @@ tipo: runbook
 status: rascunho
 fontes:
   - "tools/reingest_events.py:38 (NAME_RE: só events_<matchid>_map<N>[__<utc>] entra)"
-  - "tools/reingest_events.py:43-56 e 101-104 (banco real só com --confirmo-banco-real)"
+  - "tools/reingest_events.py:43-56 (eh_banco_real: o nome cs2_tracker.db ou o caminho do .env)"
+  - "tools/reingest_events.py:101-104 (banco real só com --confirmo-banco-real)"
   - "tools/reingest_events.py:107 (reprocessa TODO events_*.jsonl da --events-dir, com force=True na 155)"
   - "tools/reingest_events.py:113 (init_db grava as migrações, até no --dry-run)"
   - "tools/reingest_events.py:140-144 (nick padrão: o player_name da 1ª linha do banco; Jogador impresso)"
   - "tools/reingest_events.py:148-155 (partida nova: map None e o --series-num-maps)"
-  - "parser.py:1275 e 1294-1302 (partida nova: played_at = datetime.now(); demo_path = caminho do arquivo lido)"
+  - "parser.py:1275 (partida nova: played_at = datetime.now())"
+  - "parser.py:1294-1302 (INSERT da partida nova: as colunas gravadas; demo_path = caminho do arquivo lido)"
   - "identity.py:30-61 (--match-config dá a SteamID pelo nick; arquivo ausente vira {} e o reingest recusa)"
-  - "tools/ficha_orfas.py:41-42, 87-88 e 455-472 (cópia mode=ro, sha256 antes e depois, órfãs x já no banco)"
-  - "tools/backup.py:9-11, 64, 115 e 237 (cópia pela API de backup, integrity_check, nome .backup.db, destino novo)"
+  - "tools/ficha_orfas.py:41-42 (--saida fora de checkout git)"
+  - "tools/ficha_orfas.py:87-88 (banco aberto com mode=ro)"
+  - "tools/ficha_orfas.py:455-472 (sha256 antes e depois; órfãs x já no banco)"
+  - "tools/backup.py:9-11 (cópia pela API de backup, origem em mode=ro)"
+  - "tools/backup.py:64 (nome cs2_tracker.backup.db)"
+  - "tools/backup.py:115 (integrity_check na cópia)"
+  - "tools/backup.py:237 (destino que já existe é recusado)"
   - "tools/jogavel.py:1094-1181 (janela abrir e fechar; checklist matchzy, cvars e sha256)"
   - "tools/hooks/guarda.py:32-37 (escrita em cs2_tracker.db e em docker/events-live/** barrada para todo agente)"
-  - "tools/preflight.py:17-21 e 71 (o que é Victor jogando; 45 min de janela)"
-  - "config.py:38 e 44 (./cs2_tracker.db e ./docker/events-live)"
+  - "tools/preflight.py:17-21 (o que é Victor jogando)"
+  - "tools/preflight.py:71 (45 min de janela)"
+  - "config.py:38 (./cs2_tracker.db)"
+  - "config.py:44 (./docker/events-live)"
   - "start_match.py:100-117 (o orphan_<utc> é o current.jsonl preservado; o carimbo é a hora da partida SEGUINTE)"
-  - "watcher.py:484-526 (o nome que a partida teria: events_<matchid>_map<N>, com map e series_num_maps do match_config)"
+  - "watcher.py:482-486 (o nome que a partida teria: events_<matchid>_map<N>, com map e series_num_maps do match_config)"
+  - "watcher.py:490-516 (colisão de matchid: a partida nova ganha o sufixo __<utc>)"
   - "tools/evidencia_partida.py:114-116 (o watcher grava played_at uns 10 s depois do MAP ENDED)"
   - "backup:../2026-11-04/ficha-orfas/ficha-orfas.md (a ficha das 10, 04/11 19:13: sha256, mapa, placar e data de cada uma)"
   - "backup:../2026-11-04/partida-k19-b115/MANIFESTO.txt (o backup de 04/11 18:39: banco integrity_check ok, 72 partidas, 81 arquivos em events-live)"
   - "backup:../2026-11-04/partida-k19-b115/cs2_tracker.backup.db (lido numa cópia mode=ro: colunas de matches, maior id 77, nenhum demo_name events_105_*)"
   - "backup:../2026-11-04/partida-k19-b115/docker/events-live/ (nenhum events_105_*; os 10 arquivos com os sha256 da ficha)"
-  - "backup:../2026-11-04/partida-k19-b115/logs/jogavel/2026-11-04_121114-vanilla-on/docker-logs.txt:21446, 24397 e 24399 (changelevel de_ancient; MAP ENDED do matchid 105, mapa 0; NumMaps 1)"
+  - "backup:../2026-11-04/partida-k19-b115/logs/jogavel/2026-11-04_121114-vanilla-on/docker-logs.txt:21446 (changelevel de_ancient)"
+  - "backup:../2026-11-04/partida-k19-b115/logs/jogavel/2026-11-04_121114-vanilla-on/docker-logs.txt:24397 (MAP ENDED do matchid 105, mapa 0)"
+  - "backup:../2026-11-04/partida-k19-b115/logs/jogavel/2026-11-04_121114-vanilla-on/docker-logs.txt:24399 (MATCH ENDED, NumMaps 1)"
   - "backup:../2026-11-04/partida-k19-b115/logs/partidas/partida_20261028T004916Z.log:1 (o start_match das 21:49 preservou o orphan_20261028T004916Z)"
 atualizado: 2026-11-04
 ---
@@ -45,15 +57,15 @@ premissas abaixo antes da primeira janela.
 | Premissa | Valor | Fonte |
 |---|---|---|
 | Banco real | `C:/Users/Victor/Projetos/cs2-tracker/cs2_tracker.db` (o padrão do `config.py`); é nele que o watcher grava: a cópia de 18:39 já tem a partida de 18:28 (id 77, `events_107_map0`) | `config.py:38`; MANIFESTO.txt e a cópia do banco |
-| Colunas de `matches` que o passo 7 grava | `demo_name`, `map`, `played_at`, `score_mine`, `score_theirs`, `outcome`, `series_num_maps`, `source`, `demo_path` (e as tabelas filhas `rounds`, `kills`, `damages`, `player_positions`, `player_blinds`, `round_stats`) | `parser.py:1294-1302`; `PRAGMA table_info(matches)` na cópia |
+| Colunas de `matches` que o passo 7 grava | `demo_name`, `map`, `played_at`, `score_ct`, `score_t`, `score_mine`, `score_theirs`, `score_source`, `outcome`, `duration_minutes`, `demo_path`, `player_name`, `source`, `series_num_maps` (e as tabelas filhas `rounds`, `kills`, `damages`, `player_positions`, `player_blinds`, `round_stats`) | `parser.py:1294-1302`; `PRAGMA table_info(matches)` na cópia |
 | Pasta da captura | `docker/events-live/`, montada no container | `config.py:44`; `docker-compose.yml:102` |
 | Nome do arquivo aprovado | `orphan_20261028T004916Z.jsonl`, 2951242 bytes, sha256 `869abda9609642c74638e32c3e843c5f3ab500f1299c266da71e63e352ca0560` | ficha, seção do arquivo; `sha256sum` na cópia |
 | Nome que o reingest aceita | `events_105_map0.jsonl` | `tools/reingest_events.py:38` |
 | matchid 105 é o desta partida | `MAP ENDED ... matchid: 105 currentMapNumber: 0` às 22:50:25Z de 27/10 (19:50:25 em Brasília), 22 s antes do último evento do arquivo (mtime 19:50:47 -03:00); `changelevel "de_ancient"` às 22:25:12Z, na carga dessa partida | docker-logs.txt:21446 e 24397; mtime da cópia |
-| matchid 105 livre | nenhum `demo_name` `events_105_*` no banco (ids 75 e 76 são o 106) e nenhum `events_105_*` em `events-live`; o MatchZy já passou do 105 (107 em 04/11), então não o reusa | cópia do banco; listagem da cópia de `events-live` |
+| matchid 105 livre | nenhum `demo_name` `events_105_*` no banco (ids 75 e 76 são o 106) e nenhum `events_105_*` em `events-live`; o MatchZy já passou do 105 (107 em 04/11), então não o reusa. Se reusasse, o watcher não sobrescreveria: a partida nova ganha o sufixo `__<utc>` | cópia do banco; listagem da cópia de `events-live`; `watcher.py:490-516` |
 | Série | MD1: `MATCH ENDED, remainingMaps: 0, NumMaps: 1` | docker-logs.txt:24399 |
 | Mapa | `de_ancient` (o changelevel acima, e a ficha: 3691 callouts exclusivos de de_ancient) | docker-logs.txt:21446; ficha |
-| played_at certo | `2026-10-27T19:50:47` (hora local, como o watcher grava: o mtime do último evento; o carimbo do nome, 00:49Z de 28/10, é a hora do `start_match` seguinte) | ficha, linha "data"; `start_match.py:100-117`; `tools/evidencia_partida.py:114-116` |
+| played_at certo | `2026-10-27T19:50:47` (hora local). O watcher grava `datetime.now()` ao ingerir, uns 10 s depois do MAP ENDED (19:50:25 em Brasília); o mtime do último evento, 19:50:47, cai nessa faixa e é a data que a ficha dá. O carimbo do nome, 00:49Z de 28/10, não serve: é a hora do `start_match` seguinte | ficha, linha "data"; `start_match.py:100-117`; `tools/evidencia_partida.py:114-116` |
 | Placar esperado | 13 x 3 (win, fonte rounds); CT 11 : TR 5; 17 rounds, 122 kills, 582 damages, 28597 posições, 129 flashes, 150 round_stats | ficha; ensaio do card V1.4a numa cópia do backup de 18:39 |
 | O que o reingest grava numa partida nova | `map` NULL, `played_at` = hora da janela, `demo_path` = o caminho lido (a pasta `ingerir/`), `series_num_maps` = `--series-num-maps` | `tools/reingest_events.py:148-155`; `parser.py:1275`; ensaio do card |
 | As 9 a arquivar, por sha256 (16 primeiros) | `events_50_map0` a636bcc29ac043de · `orphan_20261015T164958Z` 6e4aa9215a474502 · `orphan_20261017T215938Z` 8692814aa0e1b26f · `orphan_20261019T185248Z` fa1ed6ab596e53ae · `orphan_20261023T222551Z` 3c13a11c31c903a0 · `orphan_20261026T165628Z` f28d07ebf0261bdd · `orphan_20261026T170007Z` d419ee2ede339a6e · `orphan_20261104T205651Z` dfdac4eb4d293237 · `orphan_20261104T210037Z` 4f937b6a739f9d67 | ficha; `sha256sum` na cópia |
@@ -139,10 +151,14 @@ Cada chamada recarrega com `. "C:/Users/Victor/cs2-tracker-backups/<data>/janela
    cp "$BK/backup-antes/cs2_tracker.backup.db" "$BK/ensaio.db"
    "$PY" "$RAIZ/tools/reingest_events.py" --db "$BK/ensaio.db" --events-dir "$BK/ingerir" \
      --player "$NICK" --match-config "$RAIZ/docker/runtime/match_config.spike.json" \
-     --series-num-maps 1 | tee "$BK/reingest-ensaio.txt"
+     --series-num-maps 1 > "$BK/reingest-ensaio.txt" 2>&1; echo "saida $?"
+   grep -E 'arquivo\(s\)|não está no banco|Jogador:|Placar reconstruído|match_id=|ERRO' \
+     "$BK/reingest-ensaio.txt" | sed -E 's/steamid=[0-9]*([0-9]{4})\)/steamid=…\1)/'
    ```
 
-   Precisa mostrar `1 arquivo(s)`, `events_105_map0: não está no banco`, `Jogador: <NICK>` com a
+   A saída inteira fica só no arquivo: a linha `Jogador:` traz a SteamID inteira
+   (`tools/reingest_events.py:144`), e o `sed` acima a mascara para os 4 últimos dígitos antes de
+   chegar ao transcript. Não use `tee` nem `cat` nesse arquivo. Precisa mostrar `1 arquivo(s)`, `events_105_map0: não está no banco`, `Jogador: <NICK>` com a
    SteamID terminando nos 4 dígitos do passo 2, `Placar reconstruído: 13 x 3 (win, fonte=rounds);
    por lado CT 11 : TR 5` e `17 rounds, 122 kills, 582 damages`. Sem a SteamID (`[ERRO] Sem a
    SteamID do humano`): o `match_config` de runtime não tem o nick; pare.
@@ -162,10 +178,12 @@ Cada chamada recarrega com `. "C:/Users/Victor/cs2-tracker-backups/<data>/janela
    "$PY" "$RAIZ/tools/reingest_events.py" --db "$RAIZ/cs2_tracker.db" --confirmo-banco-real \
      --events-dir "$BK/ingerir" --player "$NICK" \
      --match-config "$RAIZ/docker/runtime/match_config.spike.json" --series-num-maps 1 \
-     | tee "$BK/reingest-real.txt"
+     > "$BK/reingest-real.txt" 2>&1; echo "saida $?"
+   grep -E 'arquivo\(s\)|não está no banco|Jogador:|Placar reconstruído|match_id=|ERRO' \
+     "$BK/reingest-real.txt" | sed -E 's/steamid=[0-9]*([0-9]{4})\)/steamid=…\1)/'
    ```
 
-   A saída tem de ser a do ensaio, linha a linha, menos o `match_id=` (anote-o no registro).
+   As linhas conferidas têm de ser as do ensaio, menos o `match_id=` (anote-o no registro).
    Diferente: pare e vá à Volta.
 8. **Corrigir `map` e `played_at`** da linha nova para `de_ancient` e `2026-10-27T19:50:47`.
    **LACUNA L1 e L2: não há comando.** Até haver, a linha fica com `map` NULL e `played_at` da
