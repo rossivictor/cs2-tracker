@@ -45,6 +45,8 @@ fontes:
   - "backup:../2026-11-05/v1-fechada/logs/jogavel/tags.md (última linha: candidato-28; sem linha da jogavel-2026-11-04-2)"
   - "backup:../2026-11-05/pauta-respondida/MANIFESTO.txt (linha 5: 82 arquivos em docker/events-live às 11:01 de 05/11)"
   - "backup:../2026-11-05/v1-fechada/MANIFESTO.txt (linha 5: 72 arquivos em docker/events-live às 13:29 de 05/11)"
+  - "backup:../2026-11-05/s1-semeada/docs/board-cs2/ (cards 100 a 110, S1.0 a S1.10, criados às 14:17 com o 'Sim, semeie a S1' na Origem, status e dependências; card 100,5, S1.0a, criado às 14:19 com a ordem aprovada e o 'Aprovado, registre o plano na sprints.md' na Origem; Histórico dos cards 100, 101 e 104, 14:19: a ordem aprovada; Nota do PM do 104: a divergência da Q11=C)"
+  - "backup:../2026-11-05/s1-semeada/MANIFESTO.txt (linha 1: cópia de 05/11 14:19)"
 atualizado: 2026-11-05
 ---
 
@@ -58,7 +60,7 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 
 - A sigla é o campo `Sprint:` do card (B0, B1, H1, T1, K1...). O ID do card leva a sigla na frente: `B0.7` é o card 7 da B0.
 - O número do arquivo no board (campo `Ordem:`) agrupa a sprint por dezena: `12 - ...` é da B0, `26 - ...` da B1. O `,5` marca card acrescentado depois do plano (`14,5` = B0.5b).
-- Faixas semeadas em 28/09: **10–19 B0 · 20–29 B1 · 40–48 H1 · 60–67 T1 · 70–78 K1**; a P1 ficou com 80–92, e a V1 foi semeada em 04/11 na **30–39**. As outras sprints ganham faixa quando forem semeadas.
+- Faixas semeadas em 28/09: **10–19 B0 · 20–29 B1 · 40–48 H1 · 60–67 T1 · 70–78 K1**; a P1 ficou com 80–92, e a V1 foi semeada em 04/11 na **30–39**, e a S1 em 05/11 na **100–110**. As outras sprints ganham faixa quando forem semeadas.
 
 ## A regra
 
@@ -79,7 +81,7 @@ Todo agente, inclusive o PM, lê este arquivo antes de propor ou despachar o pr�
 | 5 | **K1** | paralela | Base de conhecimento | 70–78 |
 | 6 | **V1** | paralela | Pauta e partidas órfãs | 30–39 |
 | 7 | **P1** | trilho | Bugs de jogabilidade (depois da B1 e da T1) | 80–92 |
-| 8 | **S1** | trilho | Poda verificada (depois da K1) | a semear |
+| 8 | **S1** | trilho | Poda verificada (depois da K1) | 100–110 |
 | 9 | **S2** | trilho | Schema versionado | a semear |
 | 10 | **S3** | trilho | Ingestão única | a semear |
 | 11 | **S4** | trilho | Apresentação | a semear |
@@ -149,7 +151,14 @@ Foto do board (`docs/board-cs2/`, fora do git) nesta data, pela cópia de 05/11 
   - **Checkout principal em `ec2b9d5`** (merge do PR #134). O delta `e80611e..ec2b9d5` (P1.21 e V1.9: docs, testes e `tools/jogavel.py`) também fica fora do caminho de jogo e da infra, e um ff sem infra não pede janela.
 - **Build 2000940:** chegou na janela de 04/11 12:09–12:30 (papel servidor, sem card, Q4 do Victor), pelo `jogavel.py vanilla on` com rede: o SteamCMD falhou na 1ª tentativa (`state is 0x6`) e instalou na 2ª, e a build passou de 2000935 a 2000940 (PatchVersion 1.41.9.5, VersionDate 02/11), com G6 OK em vanilla on. As cópias do `libserver.so` e do gamedata da CSSharp 1.0.378 estão em `C:/Users/Victor/cs2-tracker-backups/2026-11-04/build-nova/` (com `MANIFESTO.txt`), e a conferência dos 6 plugins sobre elas foi o B1.15 (`conferir_botai` e `conferir_plugins_bot` com `RESULTADO: OK`). Fonte: `logs/janelas/2026-11-04.md` no checkout principal (a cópia com linhas está no frontmatter).
 - **Em curso:** nada. Nenhum degrau do caminho de jogo aguarda partida (o `candidato-28` virou a `jogavel-2026-11-04-2`), e nenhum card da pista paralela está em andamento.
-- **Na fila, no trilho:** a S1 (poda verificada), liberada com a K1 fechada e ainda a semear no board (sem faixa). A resposta da Q11 no ADR-0006 muda o S1.4: o Victor respondeu C (apagar as partidas 1 e 2, de demo), e o critério do plano diz "partidas 1–2 mantidas". O critério não se reescreve. Pelo ADR, o S1.4 passa a ser planejado sobre C: primeiro apagar as linhas das duas partidas numa janela de dados, com backup antes pelo `tools/backup.py`, depois tirar o caminho de demo e o awpy. Com isso o S1.4 deixa de ser só Offline e Partida. A Q11 também mexe no S1.2, S1.3 e S1.5, e a Q12=A dá ao S1.10 mais 2 partidas para desligar o GOTV ([ADR-0006, Consequências](../adr/0006-pauta-1.md#consequências)).
+- **Na fila, no trilho:** a S1 (poda verificada), liberada com a K1 fechada e ainda a semear no board (sem faixa) na foto das 13:29; a semeadura das 14:17 e a ordem aprovada estão no item seguinte. A resposta da Q11 no ADR-0006 muda o S1.4: o Victor respondeu C (apagar as partidas 1 e 2, de demo), e o critério do plano diz "partidas 1–2 mantidas". O critério não se reescreve. Pelo ADR, o S1.4 passa a ser planejado sobre C: primeiro apagar as linhas das duas partidas numa janela de dados, com backup antes pelo `tools/backup.py`, depois tirar o caminho de demo e o awpy. Com isso o S1.4 deixa de ser só Offline e Partida. A Q11 também mexe no S1.2, S1.3 e S1.5, e a Q12=A dá ao S1.10 mais 2 partidas para desligar o GOTV ([ADR-0006, Consequências](../adr/0006-pauta-1.md#consequências)).
+- **S1 é a sprint da vez no trilho**, semeada em 05/11 às 14:17 pelo PM na faixa **100–110** (cards 100 a 110, S1.0 a S1.10, critérios copiados do plano de 26/09), com o "Sim, semeie a S1" do Victor. Pela cópia de 05/11 14:19 (`C:/Users/Victor/cs2-tracker-backups/2026-11-05/s1-semeada/`), nenhum card da S1 foi despachado no dia do registro: o S1.0 (100) e o S1.1 (101) estão em Pronta para começar; o S1.2 (102), o S1.6 (106), o S1.7 (107), o S1.8 (108) e o S1.9 (109) em Bloqueada, à espera do S1.1; o S1.3 (103), o S1.4 (104), o S1.5 (105) e o S1.10 (110) em Backlog. O único card andando é este registro, o S1.0a (100,5). **Ordem aprovada pelo Victor em 05/11** ("Aprovado, registre o plano na sprints.md"):
+  1. **Agora, só offline:** S1.0 (100, `tools/metricas.py`) e S1.1 (101, lista "não apagar"); podem andar com ele jogando.
+  2. **Depois do S1.1, offline:** S1.2 (102, tirar `enrich_from_demos`), S1.3 (103, cadeia da demo), S1.7 (107, miudezas da web, que ainda não é caminho de jogo) e S1.9 (109, incertos; dump de cvars de bot em janela, nada removido).
+  3. **No trilho, um degrau por vez, cada um com uma partida do Victor:** S1.6 (106, caminho CSV) → S1.8 (108, miudezas do caminho de jogo, com o DefaultAgents, pede janela) → S1.4 (104, caminho de demo e modo nativo) → S1.10 (110, GOTV em dois passos, duas partidas). O S1.5 (105, awpy e polars fora) vem logo depois do S1.4, offline.
+  4. **No S1.4**, o critério do plano ("partidas 1–2 mantidas") diverge da Q11=C ([ADR-0006, Consequências](../adr/0006-pauta-1.md#consequências), linhas 71-75): o card para e o PM leva a decisão ao Victor antes do dev; ele também pede janela de dados e runbook.
+
+  Total previsto: 5 a 6 partidas do Victor, acima das 3–4 da tabela "O que cada sprint contempla" (a do plano), porque a Q12=A dá ao S1.10 duas partidas.
 - **Pista paralela:** sem sprint da vez. A V1 era a última da pista (H1 → T1 → K1 → V1), e a tabela "Ordem de execução" não tem outra sprint paralela.
 - **Abertos fora da ordem:** em Backlog pelo plano de 04/11, P1.16 (92,7, forçar início com o lado do mapa 1 na MD3), P1.17 (92,8, servidores duplicados na LAN), P1.18 (92,9, captura sem `equip_freeze_end` e `equipment_value` de bot, para a S7) e o B1.14 (29,98, música de MVP em loop entre os halves; paliativo do Victor: volume da música de MVP zerado). Da V1, o V1.4 (33) e o V1.4a (32,5), no Backlog sem execução (acima). Fechados em 04 e 05/11, fora da fila das sprints: o P1.19 (92,95, PR #129, a Posição de 04/11), o P1.20 (92,96, PR #131) e o P1.21 (92,97, PR #133: `versoes-conhecidas` com a `jogavel-2026-11-04-2`, armadilhas de 04/11, ff pelo SHA nos runbooks e `jogavel.py marcar --data`). Adiados no Backlog: K1.7 (76, histórico de planos) e H1.10 (48, limpeza de worktrees). Sobras de antes: T1.7 (`.gitattributes`), B0.11 (comentários do compose), B0.7d (bloquear docker cru), B1.2 e B1.8b.
 - **Lições:** L06 e L08 a L13 aplicadas (B0.7i e P1.14; [licoes.md](licoes.md)); a L07 segue pendente (o `marcar` gravar o `candidato.json` só com o código no checkout). Também pendente, sem card: a linha da `jogavel-2026-11-04-2` em `logs/jogavel/tags.md` (fora do git), que a tag criada com git cru não gravou.
@@ -172,5 +181,7 @@ Foto do board (`docs/board-cs2/`, fora do git) nesta data, pela cópia de 05/11 
   - **Q11 a Q14** (10:42), no [ADR-0006](../adr/0006-pauta-1.md): Q11 = C, apagar as partidas 1 e 2, contra a recomendação A (muda o S1.4, acima); Q12 = A, desligar o GOTV em dois passos, cada um validado numa partida; Q13 = A, aposentar o estático só depois do S6.4 e da paridade confirmada na 8000; Q14 = A, os tiles ficam como pendência e o protótipo `home.html` vai para a KB, sem nunca ser apagado.
   - **V1.9** (38, ADR-0006): card do plano de 26/09, sem decisão nova; andou depois das respostas das 10:42 e fechou às 11:13 (PR #134).
   - **V1.10** (39, esta Posição): "Sim, crie e despache".
+  - **S1 semeada** (14:17, cards 100 a 110): "Sim, semeie a S1".
+  - **Ordem da S1** (14:19, em "S1 é a sprint da vez no trilho", acima): "Aprovado, registre o plano na sprints.md"; o registro é o S1.0a (100,5).
 
 Quem fecha uma sprint, abre exceção ou muda a fila atualiza esta seção no mesmo dia (PM). Sprint nova semeada no board ganha a faixa na tabela "Ordem de execução".
