@@ -46,7 +46,7 @@ As regras para agentes ficam no [AGENTS.md](../AGENTS.md), na raiz. O board de s
 | [0003](adr/0003-repo-publico.md) | Repo público, sem uso comercial e sem PII nova | aceito |
 | [0004](adr/0004-jogo-sempre-jogavel.md) | O jogo está sempre jogável | aceito |
 | [0005](adr/0005-trilha-de-bots-uma-variavel-por-vez.md) | Trilha de bots primeiro, uma variável por vez | aceito |
-| 0006 | Respostas da pauta Q1–Q21 (card V1.9) | a escrever |
+| [0006](adr/0006-pauta-1.md) | Respostas da pauta de 26/09 (Q1–Q21) e os cards afetados | aceito (05/11; Q15–Q19 pendentes) |
 | [0007](adr/0007-servidor-dedicado-em-docker-com-matchzy.md) | Servidor dedicado em Docker, com a MatchZy conduzindo a partida | aceito (retroativo, K1.6) |
 | [0008](adr/0008-captura-por-plugin-proprio.md) | A partida é capturada por plugin próprio, não pela demo | aceito (retroativo, K1.6) |
 | [0009](adr/0009-versoes-fixas-de-metamod-cssharp-e-matchzy.md) | Metamod, CSSharp e MatchZy com versão fixa no compose | aceito (retroativo, K1.6) |
