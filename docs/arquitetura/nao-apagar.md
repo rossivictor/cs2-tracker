@@ -12,14 +12,16 @@ fontes:
   - "docs/agents/plano-2026-09-26.json:1674-1712 (S1.3 e S1.4)"
   - "docs/agents/plano-2026-09-26.json:1751-1808 (S1.7, S1.8 e S1.9)"
   - "docs/agents/plano-2026-09-26.json:2043-2140 (S4.1, S4.4 e S4.5)"
-  - "docs/agents/plano-2026-09-26.json:2210-2226 (S5.3: o CLI mantém --map e --side)"
+  - "docs/agents/plano-2026-09-26.json:2080-2096 (S4.3: team_size e clutches)"
+  - "docs/agents/plano-2026-09-26.json:2210-2251 (S5.3: o CLI mantém --map e --side; S5.4: MatchRunner)"
+  - "docs/agents/plano-2026-09-26.json:1655-1673 (S1.2)"
   - "docs/agents/plano-2026-09-26.json:2317-2333 (S6.3: botão Iniciar)"
   - "docs/agents/plano-2026-09-26.json:2366-2382 (S7.1: contrato v1 e ADR do que se captura)"
   - "docs/adr/0006-pauta-1.md:53-56 (Q11, Q13 e Q14)"
   - "docs/adr/0006-pauta-1.md:71-83 (Consequências da Q11=C, da Q13 e da Q14)"
   - "docs/agents/sprints.md:155-159 (ordem da S1 e a divergência do S1.4)"
   - "AGENTS.md:10 (wizard_tui.py vivo e sem diff até a D13)"
-  - "AGENTS.md:32 (C:/cs2server intocado)"
+  - "AGENTS.md:33 (C:/cs2server intocado)"
   - "parser.py:56-62"
   - "parser.py:246"
   - "parser.py:449-650"
@@ -67,7 +69,7 @@ atualizado: 2026-11-05
 
 A régua da poda (S1): o que nenhum card de poda tira, por que fica e o que muda isso. O QA confere o diff de cada card de poda contra esta lista: refutado, preservado ou incerto sumindo reprova.
 
-**Totais:** 14 refutados · 20 preservados por decisão (18 IDs da auditoria e 2 itens de fora dela) · 7 incertos · 1 decisão pendente (Q11). A auditoria de 26/09 tem 144 vereditos: 123 confirmados, 14 refutados e 7 incertos.
+**Totais:** 14 refutados · 20 preservados por decisão (18 IDs da auditoria e 2 itens de fora dela) · 13 confirmados com ressalva · 7 incertos · 1 decisão pendente (Q11). A auditoria de 26/09 tem 144 vereditos: 123 confirmados, 14 refutados e 7 incertos.
 
 As referências `arquivo:linha` foram conferidas no código de 05/11 (`origin/main` 01074ef); o veredito diz a linha de 26/09, que pode ter andado.
 
@@ -77,7 +79,7 @@ As referências `arquivo:linha` foram conferidas no código de 05/11 (`origin/ma
 2. **REFUTADO, PRESERVADO POR DECISÃO e INCERTO nunca saem por card de poda**, nem em parte, nem "de carona" num bloco vizinho.
 3. **Refutado só volta a ser candidato por re-verificação registrada** que satisfaça a "condição que levanta a refutação" da linha, feita por quem a linha diz. Até lá, a linha vale.
 4. **Item de poda que toque em código de uma linha desta lista cita o ID dela no PR**, e diz o que ficou no lugar.
-5. Confirmado com ressalva no próprio veredito ("não é código a apagar", "decisão de produto") está na tabela de preservados, e vale como preservado.
+5. A proteção de "preservado" vale só para os IDs da tabela de preservados. Os confirmados cuja ressalva manda consolidar ou corrigir sem apagar, ou que só saem pelo card do plano que os lista, estão em "Confirmados com ressalva", com a forma que cada ressalva permite.
 
 ## Refutados (14)
 
@@ -125,6 +127,26 @@ Confirmados mortos, sem uso ou incompletos, mas ficam por decisão do Victor ou 
 | (fora da auditoria) | `wizard_tui.py` | Vivo e sem diff até a D13 (AGENTS.md) | A D13 cumprida (MD3 pelo browser) e o OK do Victor | Victor | S8.3 |
 | (fora da auditoria) | `C:/cs2server` | Intocado: a única semente de recuperação (AGENTS.md) | Nenhuma | Victor | S1.4 (critério "intocado") |
 
+## Confirmados com ressalva (13)
+
+Confirmados pela auditoria, mas o próprio veredito limita a forma da mudança. Não são preservados: saem ou mudam só na forma da coluna "O que a ressalva permite", e o QA reprova o diff que for além dela.
+
+| ID | Onde / o quê | Ressalva do veredito | O que a ressalva permite | Card |
+|---|---|---|---|---|
+| captura-1 | modo nativo do watcher (`PATTERNS`, `tail`, `handle_line`, RCON `tv_record`, flags `--log`, `--rcon-*` etc.) | Decisão de produto (abandonar o bare-metal); o README ainda o documenta; amarrado ao captura-2 e 3 | Só pelo S1.4, na ordem dele, com o README na mesma PR e o item 54 já na KB | S1.4 |
+| captura-12 | `tools/live_watch.py` | Único que amostra `get5_status` a 0,25 s; apagar ou arquivar é decisão de produto | Só com decisão do Victor registrada; nenhum card de poda o lista | nenhum |
+| captura-39 | `SCHEMA` e os `_NEW_*_COLUMNS` do `parser.py` | A migração é necessária hoje (atualiza o banco existente) | Unificar a declaração; a migração não se apaga | S2.3 |
+| captura-41 | leitores do `match_config` (watcher, identity, start_match, wizard_core, web) | Cada leitor usa chaves diferentes e todos estão em uso | Centralizar num módulo; nenhum leitor se apaga | nenhum |
+| captura-49 | artefatos locais: `probe2.dem`, `probe3.dem`, `logs/teste-correcao.log`, conteúdo de `docker/demos-live` e `docker/stats-live`, `demos/20260902_211440_de_mirage.dem` | A demo da partida 2 é o `demo_path` dela; `demos-live` e `stats-live` são bind mounts | Probes e o log saem; das duas pastas só o conteúdo, nunca a pasta; a demo da partida 2 fica (ver "Pendente: Q11") | S1.4 |
+| captura-50 | `demo_name`/`demo_path` como identificador de JSONL | Débito de nomenclatura, não código morto (~47 referências) | Renomear só por card próprio de schema; nada se apaga | nenhum |
+| apresentacao-19 | três ambientes Jinja (`report.py`, `home.py`, `web/app.py`) | Os três caminhos estão vivos | Consolidar numa fábrica comum; não remover nenhum | nenhum |
+| apresentacao-38 | `TEAM_SIZE = 5` (`stats.py:52`) e o uso em `_clutches` | Bug latente de correção, não código morto | Corrigir (team_size gravado, teste 3v3); a constante só sai com o substituto | S4.3 |
+| apresentacao-40 | componentes CSS redefinidos entre `templates/` e `web/templates/` | `.modal-box .box` é sobrescrita proposital; `.map-btn` é variante | Extrair componentes para o `shell.html`, sem apagar nenhum dos lados; os duplicados do `report.html` só somem com o `/report` (S4.4) | S4.4 |
+| orquestracao-14 | regras de lineup em `start_match`, `wizard_core` e no web | Duplicação real, mas cada camada tem chamador vivo | Uma função de validação compartilhada, chamada também pelo CLI; nenhuma camada se apaga | S5.3 |
+| orquestracao-21 | `LaunchScreen` da TUI (`wizard_tui.py:620`) | Código vivo, separação intencional; e a TUI fica sem diff até a D13 | Extrair um controlador de partida no núcleo sem tocar no `wizard_tui.py` | S5.4 |
+| orquestracao-25 | leitura de `CS2_RCONPW` e a sentinela, em três cópias | O `server-configs/cfg/server.cfg` não é código duplicado: é o template do bare-metal | Um helper no `config.py`; o `server.cfg` só sai pelo S1.4, no fim da ordem dele | S1.4 |
+| orquestracao-32 | textos do `start_match` sobre "gravar demo/stats" | Texto vivo e desatualizado, não código morto | Corrigir o texto; nada se apaga | nenhum |
+
 ## Pendente: Q11 e o critério do S1.4
 
 **Pendente: o PM leva ao Victor antes do dev do S1.4.** A Q11=C (apagar as partidas 1 e 2, de origem demo) diverge do critério do S1.4 no plano, que diz "partidas 1–2 mantidas". O critério não se reescreve aqui, e esta lista não diz que o S1.4 mudou.
@@ -136,11 +158,11 @@ Pelo ADR-0006 (Consequências), a Q11=C implica:
 - o S1.4 deixa de ser só Offline e Partida e passa a pedir janela de dados e backup;
 - efeitos em S1.2 e S1.5 (tiram `enrich_from_demos` e o awpy), S1.3 (re-verifica a cadeia sabendo que ela não terá linhas a servir), S2.1 (import sem awpy) e S3.1 (reingestão dourada sem linhas de origem demo).
 
-Até a decisão chegar ao S1.4, ficam **no lugar**: as linhas do banco das partidas 1 e 2, a demo da partida 2 que é o `demo_path` dela (`demos/`, ressalva do captura-49) e o caminho de reingestão por demo (`tools/reingest_demos.py`, `parse_and_store`, o fallback do captura-42).
+Até a decisão chegar ao S1.4, ficam **no lugar**: as linhas do banco das partidas 1 e 2, a demo da partida 2 que é o `demo_path` dela (`demos/`, ressalva do captura-49; as pastas `docker/demos-live` e `docker/stats-live` também ficam, porque são bind mounts: limpar o conteúdo pode, apagar as pastas não) e o caminho de reingestão por demo (`tools/reingest_demos.py`, `parse_and_store`, o fallback do captura-42).
 
 ## Incertos (7)
 
-O veredito não fechou. Todos apontam para o [S1.9, "Checar os incertos"](../agents/sprints.md#posição-em-0511) (card 109), que dá veredito novo a cada um, com dump de cvars de bot em janela, e **não remove nada**. Depois do veredito, o item vira confirmado (e só sai por um card de poda que o liste) ou refutado (e entra na tabela acima). O plano de 26/09 e as críticas chamam esse card de "S1.8", numa numeração antiga; o card vigente é o S1.9.
+O veredito não fechou. Todos apontam para o [S1.9, "Checar os incertos"](../agents/sprints.md#posição-em-0511) (card 109), que dá veredito novo a cada um, com dump de cvars de bot em janela, e **não remove nada**. Depois do veredito, o item vira confirmado (e só sai por um card de poda que o liste) ou refutado (e entra na tabela acima). As críticas do plano de 26/09 chamam esse card de "S1.8", numa numeração antiga; no plano e no board ele é o S1.9.
 
 | ID | Onde / o quê | Por que é incerto (o que faltou) | Aponta para | Quem decide |
 |---|---|---|---|---|
