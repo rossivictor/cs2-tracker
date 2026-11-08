@@ -38,7 +38,7 @@ O estado de cada alvo no fim da trilha está no [Fechamento](#fechamento).
 | 101 | `counterstrikesharp/plugins/RayTraceImpl` | CSSharp | fora da B1 (B2, Q16) |
 | 108 | `RayTrace` | Metamod nativo | fora da B1 (B2) |
 | 141 | `counterstrikesharp/plugins/BotAI` | CSSharp | B1.7: religado em 14/10 pelo bind de `./docker/plugins/BotAI`, o fork do B1.7b ([religar pelo fork](#religar-o-botai-pelo-fork)) |
-| 142 | `counterstrikesharp/plugins/BotAimImprover` | CSSharp | B1.4 |
+| 142 | `counterstrikesharp/plugins/BotAimImprover` | CSSharp | B1.4 (mascarado de novo no B1.17: [desligar só o BotAimImprover](#desligar-só-o-botaimimprover-b117)) |
 | 143 | `counterstrikesharp/plugins/BotBuy` | CSSharp | B1.6 |
 | 144 | `counterstrikesharp/plugins/BotHiderImpl` | CSSharp | fora da B1 (B2) |
 | 145 | `counterstrikesharp/plugins/BotRandomizer` | CSSharp | B1.9 (vira bind de `./docker/plugins/BotRandomizer`) |
@@ -394,7 +394,12 @@ recreate ou da troca. Para as estatísticas (coluna `bot_suite`, S2.4), a fronte
 | Build 2000924 | 04/10 14:18, no boot que seguiu o segfault de 14:15 (B1.12) | o steamcmd da imagem atualizou o CS2 no boot, sem janela nem OK prévio (G5) | os mesmos da 7 | Low (inferido: [versões conhecidas](versoes-conhecidas.md#tags-jogáveis)) | 2000924 | 78 (matchid 78, `events_78_map0`, de_cache 13x8, 05/10, G7 OK). A 76 (04/10) já jogou nela, sem G7 | **validada**: jogavel-2026-10-12 |
 | Build 2000930 | 12/10 18:37, no boot | o steamcmd da imagem atualizou o CS2 no boot, sem janela nem OK prévio (G5) | os mesmos da 7 | Low (inferido) | 2000930 | 79 (matchid 79, de_mirage 13x2, 12/10), confirmação | **validada**: jogavel-2026-10-12 |
 | 5b · B1.7 + build 2000931 | 14/10 21:16 (candidato-13); a build 2000931 veio no recreate de 21:03, na mesma janela | BotAI do fork 1.8.12-b1.7b, por bind; a build nova é a 2ª variável (confundidor 3), coberta pela conferência do fork nela antes do G6 | os mesmos da 7 (o BotRandomizer é o b1.9b desde 14/10 19:07, `jogavel-2026-10-14-2`) + BotAI | Low (inferido) | 2000931 | 83 (matchid 83, `events_83_map0`, de_nuke 13x3, 14/10, G7 OK) | **validada**: jogavel-2026-10-14-3 |
+| 8 · B1.17 | pendente (janela) | BotAimImprover mascarado por pasta vazia; mira dos bots sem o plugin | os mesmos da 7 + BotAI − BotAimImprover | Medium | 2000942 | — | — |
 
+- Os B1.13 a B1.16 não entraram nesta tabela: ficam nos runbooks
+  deles ([b1.13](b1.13-plugins-de-bot-2000935.md), [b1.15](b1.15-plugins-de-bot-2000940.md)) e
+  nas [versões conhecidas](versoes-conhecidas.md). A época 8 parte do estado da
+  `jogavel-2026-11-08`.
 - A época do VPK se prova pelo sha256 do VPK ativo lido no volume (critério 8 dos
   [Critérios de sucesso](#critérios-de-sucesso-de-cada-passo)). O RoundDamageRecap faz a mesma
   comparação e anuncia, por exemplo, "BOT Difficulty: Low [1/3]", mas só no chat do jogo: é
@@ -410,7 +415,7 @@ Card B1.10, em 28/09, offline. Fontes: o registro acima, os registros das janela
 | Alvo | Passo | Veredito | No ar |
 |---|---|---|---|
 | Metamod + CSSharp | 1 · B1.3r | religado | 2.0.0.1469 + v1.0.375, da imagem |
-| BotAimImprover | 2 · B1.4 e 2b · B1.4b | religado (o do volume ficou inativo) | upstream `c3d10f5`, bind mount |
+| BotAimImprover | 2 · B1.4 e 2b · B1.4b | religado (o do volume ficou inativo); mascarado de novo no B1.17 | upstream `c3d10f5`, bind mount (até o B1.17) |
 | BotState (Smarter-Bot) | 3 · B1.5 | religado, sem os recursos que dependem do BotController | 1.9.4, do volume |
 | BotBuy (BotBuyPatch) | 4 · B1.6 | religado | 1.0.12, do volume |
 | BotAI | 5 · B1.7 (pulado em 27/09) e 5b · B1.7 | religado em 14/10 (5b), 40/40 | fork 1.8.12-b1.7b (`412416b`), bind mount |
@@ -495,6 +500,39 @@ pular e esperar; é histórico desde 14/10, quando o fork religou o BotAI (abaix
 - **BotBuyPatch e NadeSystem:** aceitos como estão. Nenhum dos dois derrubou partida, e o do
   NadeSystem só distorce a contagem de utility (B1.8b).
 - A (C), PR no upstream, fica opcional e sem prazo.
+
+## Desligar só o BotAimImprover (B1.17)
+
+**Objetivo.** Relato do Victor em 08/11: os bots ficaram rápidos e quase não erram tiro. O
+BotAimImprover melhora a mira de todo bot, pro ou não. O passo tira só ele, uma variável, para
+comparar a mira com a do B1.16; os outros plugins de bot ficam.
+
+**Mecanismo.** Uma linha no `docker-compose.yml`: a fonte do bind de
+`counterstrikesharp/plugins/BotAimImprover` passa de `./docker/plugins/BotAimImprover` para
+`./docker/plugins/_empty`, mesmo destino, como no `docker-compose.vanilla.yml` (que segue igual).
+Sem override novo: o `jogavel.py` sobe com a lista de `-f` que já conhece. O `docker compose
+config` muda só nesse mount, e o config-hash muda com ele. Entra em janela, pelo recreate do
+`jogavel.py` (infra).
+
+**Rollback de um passo.** Restaurar a fonte `./docker/plugins/BotAimImprover` no compose e
+recriar em janela pelo `jogavel.py`; ou voltar à última tag jogável com
+`jogavel.py voltar --tag jogavel-2026-11-08`.
+
+**G6 esperado na janela.**
+
+- 8 `Finished loading plugin`, sem o `BotAimImprover` (Bot AI - Patches, BotRandomizer,
+  BotBuyPatch, Smarter-Bot, NadeSystem, MatchZy, CS2 Tracker Events e RoundDamageRecap) e
+  nenhum `[BotAimImprover] Loaded`;
+- `Applied 40/40 patches.` do BotAI; zero segfault;
+- sha256 dos binds montados = checkout; config-hash novo gravado;
+- smoke só de bots ([smoke-partida-de-bots](smoke-partida-de-bots.md)).
+
+**O que observar na partida.**
+
+1. O humano entra e joga sem queda.
+2. 8 plugins carregados, zero segfault.
+3. Os bots erram mais e reagem mais devagar que no B1.16 (relato do Victor, com matchid e hora).
+4. A partida monta, inicia e é ingerida.
 
 ## Religar o BotAI pelo fork
 

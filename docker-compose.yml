@@ -72,7 +72,10 @@ services:
       # c3d10f5: offsets Linux corrigidos e trace pela API da CSSharp, sem o
       # RayTrace nativo). A pasta é gerada fora do repo (AGPL, gitignored);
       # build e volta: docs/runbooks/b1.4b-botaimimprover-upstream.md.
-      - ./docker/plugins/BotAimImprover:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAimImprover
+      # B1.17 (08/11): mascarado por pasta vazia, por decisão do Victor, para
+      # comparar a mira dos bots sem ele. Volta: restaurar a fonte
+      # ./docker/plugins/BotAimImprover e recriar em janela. ver [[trilha-de-bots]]
+      - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotAimImprover
       # B1.6: BotBuy religado (versão do volume; sem assinatura nem offset
       # fixo, protege ItemServices nulo). Volta: descomentar a linha abaixo.
       # - ./docker/plugins/_empty:/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/BotBuy
