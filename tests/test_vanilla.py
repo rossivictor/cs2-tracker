@@ -291,6 +291,20 @@ def test_override_volta_as_mascaras_de_26_09(tmp_path):
     assert {d for d, f in _efetivo(base).items() if f == EMPTY} < MASCARADOS_EM_26_09
 
 
+def test_base_do_b1_17_mascara_so_o_botaimimprover_entre_os_plugins_de_bot():
+    # Gabarito à mão (card B1.17): no base, o BotAimImprover passa a pasta vazia,
+    # e os binds de conteúdo real seguem os mesmos.
+    efetivo = _efetivo((RAIZ / BASE).read_text(encoding="utf-8"))
+    assert {d for d, f in efetivo.items() if f == EMPTY} == {
+        PLUGINS_CSSHARP + "RayTraceImpl", PLUGINS_CSSHARP + "BotHiderImpl",
+        PLUGINS_CSSHARP + "BotAimImprover",
+        "/home/steam/cs2-dedicated/game/csgo/addons/RayTrace",
+        "/home/steam/cs2-dedicated/game/csgo/addons/BotHider"}
+    assert {d: f for d, f in efetivo.items() if d.startswith(PLUGINS_CSSHARP) and f != EMPTY} == {
+        PLUGINS_CSSHARP + nome: "./docker/plugins/" + nome
+        for nome in ("BotAI", "BotRandomizer", "NadeSystem", "Cs2TrackerEvents")}
+
+
 def test_override_so_mascara_plugin_de_bot_e_nunca_a_matchzy_nem_a_captura(tmp_path):
     base = (RAIZ / BASE).read_text(encoding="utf-8")
     vanilla = (RAIZ / VANILLA).read_text(encoding="utf-8")
