@@ -36,6 +36,26 @@ fontes:
   - "parser.py:1388-1412"
   - "commit d199a1d (tools/enrich_from_demos.py:45, removido no S1.2)"
   - "tools/reingest_demos.py:34"
+  - "tools/reingest_demos.py:52-60"
+  - "tools/reingest_demos.py:84-93"
+  - "parser.py:36-37"
+  - "parser.py:474-481"
+  - "parser.py:552-563"
+  - "parser.py:620-632"
+  - "parser.py:1120"
+  - "watcher.py:255"
+  - "watcher.py:551"
+  - "matches.py:692"
+  - "tests/test_loadout.py:119-167"
+  - "pyproject.toml:20-21"
+  - "requirements.txt:1"
+  - "requirements.lock:12"
+  - "requirements.lock:43-44"
+  - "docs/features/M6-estatisticas.md:85"
+  - "docs/historico/2026-11-09-remocao-enrich-from-demos.md:26-31 (S1.2: o enrich_from_demos saiu)"
+  - "docs/adr/0006-pauta-1.md:77 (Q11=C: o S1.3 re-verifica a cadeia sabendo que ela não terá linhas a servir)"
+  - "docs/agents/plano-2026-09-26.json:1688-1729 (S1.4 e S1.5)"
+  - "backup:temp-artifacts/eb5adec0/audit/dead_captura.json (captura-40: verification.verdict confirmado, reason e evidence)"
   - "watcher.py:58"
   - "watcher.py:71-87"
   - "watcher.py:261-262"
@@ -91,16 +111,16 @@ fontes:
   - ".gitignore:44"
   - "docs/runbooks/versoes-conhecidas.md:746"
   - "README.md:515"
-atualizado: 2026-11-05
+atualizado: 2026-11-09
 ---
 
 # Não apagar
 
 A régua da poda (S1): o que nenhum card de poda tira, por que fica e o que muda isso. O QA confere o diff de cada card de poda contra esta lista: refutado, preservado ou incerto sumindo reprova, e confirmado com ressalva mudado além da forma que a ressalva permite também.
 
-**Totais:** 14 refutados · 20 preservados por decisão (18 IDs da auditoria e 2 itens de fora dela) · 47 confirmados com ressalva · 7 incertos · 1 decisão pendente (Q11). A auditoria de 26/09 tem 144 vereditos: 123 confirmados (18 preservados por decisão, 47 com ressalva e 58 sem ressalva), 14 refutados e 7 incertos.
+**Totais:** 13 refutados · 20 preservados por decisão (18 IDs da auditoria e 2 itens de fora dela) · 49 confirmados com ressalva · 7 incertos · 1 decisão pendente (Q11). A auditoria de 26/09 tem 144 vereditos: 123 confirmados (18 preservados por decisão, 47 com ressalva e 58 sem ressalva), 14 refutados e 7 incertos. A re-verificação do S1.3 (09/11) mudou dois: o captura-2 passou de refutado para confirmado com ressalva, e o captura-40, de confirmado sem ressalva para com ressalva (ficam 57 sem ressalva).
 
-As referências `arquivo:linha` foram conferidas no código de 05/11 (`origin/main` 01074ef); o veredito diz a linha de 26/09, que pode ter andado.
+As referências `arquivo:linha` foram conferidas no código de 05/11 (`origin/main` 01074ef); o veredito diz a linha de 26/09, que pode ter andado. As linhas do captura-2, 3, 10, 40 e 42 foram conferidas de novo em 09/11, no S1.3 (`origin/main` 6e36f12, já sem o `enrich_from_demos`).
 
 ## Como usar
 
@@ -110,15 +130,14 @@ As referências `arquivo:linha` foram conferidas no código de 05/11 (`origin/ma
 4. **Item de poda que toque em código de uma linha desta lista cita o ID dela no PR**, e diz o que ficou no lugar.
 5. A proteção de "preservado" vale só para os IDs da tabela de preservados. Todo confirmado cujo veredito (`verification.reason`) limita a forma da mudança está em "Confirmados com ressalva", com a forma que cada ressalva permite: o veredito diz que algo fica, que não é removível (só consolidável ou corrigível), ou que só sai depois de uma decisão, de outro item, de um card do plano ou de validação ao vivo. Não entram as ressalvas que só pedem ajustar teste, README ou `.gitignore` na mesma PR, nem as que só tornam opcional apagar algo (ex.: as colunas do captura-5): esses confirmados saem sem forma especial.
 
-## Refutados (14)
+## Refutados (13)
 
 A remoção foi refutada pela verificação de 26/09: o item está vivo ou a alegação errou.
 
 | ID | Onde / o quê | Por que a remoção foi refutada | Condição que levanta a refutação | Quem decide | Card |
 |---|---|---|---|---|---|
-| captura-2 | `parser.py`: `parse_and_store` (449-650), `_s` (246), `main` (1388-1412) e `PLAYER_PROPS` (56-62) | Junta destinos diferentes: `PLAYER_PROPS` é importado por `tools/enrich_from_demos.py:45`, e `parse_and_store` serve ao modo nativo (`watcher.py:58`) e ao `tools/reingest_demos.py:34` | `parse_and_store`, `_s`, `main`: veredito novo de que não sobrou chamador vivo (modo nativo e `reingest_demos` fora). `PLAYER_PROPS`: o `enrich_from_demos` removido (S1.2) e nenhum importador no `grep` | QA cético do S1.3 (veredito); a remoção é do S1.4, na ordem dele | S1.3, S1.4 |
 | captura-17 | regeneração do `report.html`/`index.html` a cada ingestão: `watcher.py:261-262` e `watcher.py:545-546` (funções em `watcher.py:71-87`) | Fluxo vivo e documentado: quem joga pela TUI vê as estatísticas sem subir o uvicorn; a aposentadoria é condicionada, não decidida | Q13=A: S6.4 (MD3 pelo browser) feito, S4.1 com paridade, e o Victor confirma a paridade na 8000 | Victor (paridade); QA cético do S4.4 | S4.4 |
-| captura-42 | fallback de tempo cego por saltos de `flash_duration` em `match_loadout` (`stats.py:1387-1413`) e a coluna `player_positions.flash_duration` | Serve à tela das partidas 1 e 2 (`source='demo'`) e ao que o `enrich_from_demos` grava nas partidas `events` sem `player_blinds`; tem teste | Nenhuma partida `source='demo'` no banco (só depois da decisão da Q11, abaixo), `enrich_from_demos` fora (S1.2) e nenhum outro produtor de `flash_duration` não nulo | QA cético do S1.3; Victor na Q11 | S1.3 (o S1.5 tira awpy e polars sem tocar no fallback) |
+| captura-42 | fallback de tempo cego por saltos de `flash_duration` em `match_loadout` (`stats.py:1387-1413`), a coluna `player_positions.flash_duration` e os testes do fallback (`tests/test_loadout.py:119-167`) | Serve à tela de detalhe das partidas 1 e 2 (`source='demo'`; consumidor em `matches.py:692`), que seguem no banco; tem teste. Re-verificado no S1.3 (09/11), a refutação fica: o `enrich_from_demos` saiu no S1.2 e não grava mais nas partidas `events`; o único produtor de `flash_duration` não nulo que sobrou é o `parse_and_store` (`parser.py:632`), porque a ingestão por eventos grava NULL (`parser.py:1120`) e a do CSV não grava posição | As partidas 1 e 2 apagadas (Q11=C, na janela de dados do S1.4) e o `parse_and_store` fora (S1.4). Com "partidas 1–2 mantidas", a refutação não levanta: o fallback é o tempo cego delas | QA do S1.4 (veredito depois da janela de dados); Victor na Q11 | nenhum no plano: card próprio depois do S1.4 (o S1.5 tira awpy e polars sem tocar no fallback) |
 | captura-46 | `docker/build-events-plugin.sh` e `docker/build-events-plugin.ps1` | Não são equivalentes na prática: em 26/09 o `.sh` falhava no Git Bash do host (conversão de caminho do MSYS) e o build que funcionou foi o `.ps1`. Desde então o 0.4.1 saiu do `.sh` (`docs/runbooks/versoes-conhecidas.md:746`) e o `README.md:515` documenta os dois | Um script só provado no host do Victor, com README, `.gitignore:8` e runbooks na mesma PR; e o `.ps1` só sai com a condição do orquestracao-42 | Victor | nenhum |
 | captura-47 | dois leitores de VPK: índice em `tools/extract_map_radar.py:51` e regex em `roster.py:239-254`; `data/map_radar.json` com 22 mapas | Cada leitor sustenta um fluxo vivo (pak01 só pelo índice; `botprofile.db` é texto); mapas fora do pool continuam alcançáveis pelo `--map` | Não é remoção: só uma refatoração que unifique os leitores, com teste dos dois fluxos; os mapas extras só saem se o `--map` passar a validar contra o pool | card próprio de refatoração, com QA | nenhum |
 | captura-48 | modo `bbox` do radar em `matches.py:491-565` | Alcançável: mapa NULL cai em `bbox` (já aconteceu em 22/09) e o `--map` aceita mapa fora do snapshot; tem teste | Mapa NULL impossível na ingestão e `--map` validado contra `data/map_radar.json`, com teste. O docstring velho de `stats.match_positions` (`stats.py:1212-1214`) é a parte confirmada: corrigir o comentário pode | card próprio, com QA | nenhum |
@@ -156,15 +175,16 @@ Confirmados mortos, sem uso ou incompletos, mas ficam por decisão do Victor ou 
 | (fora da auditoria) | `wizard_tui.py` | Vivo e sem diff até a D13 (AGENTS.md) | A D13 cumprida (MD3 pelo browser) e o OK do Victor | Victor | S8.3 |
 | (fora da auditoria) | `C:/cs2server` | Intocado: a única semente de recuperação (AGENTS.md) | Nenhuma | Victor | S1.4 (critério "intocado") |
 
-## Confirmados com ressalva (47)
+## Confirmados com ressalva (49)
 
 Confirmados pela auditoria, mas o próprio veredito limita a forma da mudança (regra 5). Não são preservados: saem ou mudam só na forma da coluna "O que a ressalva permite", e o QA reprova o diff que for além dela. O S1.7 não lista IDs ("só os IDs confirmados"): um confirmado da apresentação desta tabela pode chegar a ele, sempre nesta forma. Onde a forma toca o `wizard_tui.py`, vale também a linha dele nos preservados: sem diff até a D13.
 
 | ID | Onde / o quê | Ressalva do veredito | O que a ressalva permite | Card |
 |---|---|---|---|---|
 | captura-1 | modo nativo do watcher (`PATTERNS`, `tail`, `handle_line`, RCON `tv_record`, flags `--log`, `--rcon-*` etc.) | Decisão de produto (abandonar o bare-metal); o README ainda o documenta; amarrado ao captura-2 e 3 | Só pelo S1.4, na ordem dele, com o README na mesma PR; o docstring (`watcher.py:13-56` no plano) só sai com o item 54 já na KB | S1.4 |
-| captura-3 | import de awpy e polars no topo do `parser.py` (só o `parse_and_store` os usa) | O acoplamento procede, mas tirar a dependência não: o `tools/enrich_from_demos.py` importa os dois direto | Separar schema e ingestão num módulo sem dependência pesada; awpy e polars só saem do requirements com o `enrich_from_demos` fora (S1.2) e o veredito novo do S1.3 | S1.3, S1.5, S2.1 |
-| captura-10 | `tools/reingest_demos.py` | Uso único e cumprido; mas, se o captura-2 for corrigido em vez de removido, é o único meio de reparar as partidas 1 e 2 | Só pelo S1.4, na ordem dele, depois do veredito novo do S1.3; fica no lugar até a decisão da Q11 (abaixo) | S1.3, S1.4 |
+| captura-2 | `parser.py`: `parse_and_store` (449-650), `_s` (246), `main` (1388-1412) e `PLAYER_PROPS` (56-62) | Refutado em 26/09 por juntar destinos diferentes (o `enrich_from_demos` importava o `PLAYER_PROPS`). Re-verificado no S1.3 (09/11): com o `enrich_from_demos` fora (S1.2), o `PLAYER_PROPS` só é lido dentro do `parse_and_store` (`parser.py:474`), e os quatro símbolos têm o mesmo destino. Os chamadores vivos do `parse_and_store` são só os que o S1.4 tira antes dele: o modo nativo (`watcher.py:58` e `:255`; `--mode native` segue default em `watcher.py:551`), o `tools/reingest_demos.py:34` e `:93`, e o CLI (`parser.py:1409`). Os bugs de índice seguem (`parser.py:552-553` e `:561-563`) | Só pelo S1.4, no passo 3 da ordem dele, com o `reingest_demos` e o modo nativo já fora no mesmo card e o `grep` de `parse_and_store`, `PLAYER_PROPS` e `_s(` sem chamador fora da KB. Os comentários que citam o `PLAYER_PROPS` (`matches.py:585`, `stats.py:1328`, `templates/match_detail.html:216`, `templates/_matches_style.html:197`, `tests/test_loadout.py:4`) mudam na mesma PR. Com "partidas 1–2 mantidas", só com o Victor aceitando perder o reparo delas (captura-10) | S1.4 |
+| captura-3 | import de awpy e polars no topo do `parser.py` (`:36-37`; só o `parse_and_store` os usa, `:471-623`) e as dependências (`requirements.txt:1`, `pyproject.toml:20-21`, `requirements.lock:12` e `:43-44`) | O acoplamento procede. Em 26/09 tirar a dependência não dava, porque o `tools/enrich_from_demos.py` importava os dois direto. Re-verificado no S1.3 (09/11): essa contraprova caiu no S1.2; fora do `parser.py`, nenhum módulo, tool ou teste importa awpy ou polars (o resto do `grep` é comentário). Tirar a dependência só espera o `parse_and_store` sair | O import do topo sai com o `parse_and_store` (S1.4, passo 3); awpy e polars saem do `requirements.txt`, do `pyproject.toml` e do lock só depois, pelo S1.5, com a `.venv` intocada; separar schema e ingestão (`init_db` sem dependência pesada) é do S2.1. Se o `parse_and_store` ficar (as partidas 1 e 2 mantidas com reparo), as dependências ficam e só cabe o import local ou a separação | S1.4, S1.5, S2.1 |
+| captura-10 | `tools/reingest_demos.py` | Uso único e cumprido; se o captura-2 fosse corrigido em vez de removido, seria o único meio de reparar as partidas 1 e 2. Re-verificado no S1.3 (09/11): nenhum chamador no código, nos testes ou no README, só a KB (`docs/features/M6-estatisticas.md:85` e `:122`). Seleciona `source='demo'` (`:52-56`) e chama o `parse_and_store` com placar e minutos `None` (`:84-93`), o que cai nos índices errados do captura-2. Com as partidas 1 e 2 apagadas não tem o que reprocessar (sai em `:59-60`); mantidas, segue o único meio de repará-las | Só pelo S1.4, no passo 1 da ordem dele, com o `M6-estatisticas.md` atualizado na mesma PR. Com "partidas 1–2 mantidas", só com o Victor aceitando que elas ficam sem reparo (a duração de 17 × 19 min da partida 1 fica como está) | S1.4 |
 | captura-12 | `tools/live_watch.py` | Único que amostra `get5_status` a 0,25 s; apagar ou arquivar é decisão de produto | Só com decisão do Victor registrada; nenhum card de poda o lista | nenhum |
 | captura-13 | três clientes RCON: `send_command` (`watcher.py:204`), `rcon_run` (`start_match.py:375`) e `rcon` (`tools/live_watch.py:123`) | Duplicação real, mas apagar o do watcher depende da decisão sobre o modo nativo (captura-1) | Unificar num helper único (S5.2); a cópia do watcher só sai com o modo nativo, pelo S1.4 | S5.2, S1.4 |
 | captura-14 | três módulos que leem `docker logs` por conta própria: watcher em stream, start_match em snapshot, live_watch de diagnóstico (os leitores listados no orquestracao-28) | Nenhum dos três pode ser removido sem quebrar o seu fluxo; consolidar num módulo de eventos da MatchZy é viável | Consolidar; nenhum leitor se remove. É o mesmo conjunto do orquestracao-28 (incerto): até o veredito do S1.9, vale a regra 2 | S5.2, S7.5 |
@@ -177,6 +197,7 @@ Confirmados pela auditoria, mas o próprio veredito limita a forma da mudança (
 | captura-36 | as definições de `ROOT` e os `sys.path.insert` das tools, do `web/app.py` e dos testes | Nos módulos da raiz o `ROOT` pode vir do `config.ROOT`; nas tools, no web e nos testes, `ROOT` e `sys.path.insert` são bootstrap obrigatório | O `ROOT` dos módulos da raiz pode vir do `config`; os inserts só saem como diz o orquestracao-53 | nenhum |
 | captura-38 | persistência duplicada entre `parse_and_store` e `store_match_from_events` | Os dois caminhos estão vivos; a divergência já virou bug (`r[8]`/`r[6]` no lugar de `r[9]`/`r[7]`) | Uma função de persistência única (S3.3) e o bug corrigido; nenhum dos dois caminhos se apaga aqui (o `parse_and_store` é o captura-2) | S3.3 |
 | captura-39 | `SCHEMA` e os `_NEW_*_COLUMNS` do `parser.py` | A migração é necessária hoje (atualiza o banco existente) | Unificar a declaração; a migração não se apaga | S2.3 |
+| captura-40 | filtro `human_ticks` repetido dentro do `parse_and_store` (`parser.py:478-481` e `:620-623`) e o helper `_bool` (`parser.py:626-627`) | Confirmado em 26/09 sem ressalva, como duplicação do caminho da demo. Re-verificado no S1.3 (09/11): a cópia do `enrich_from_demos` (o filtro e o `_bool`) saiu no S1.2; o que sobra é interno ao `parse_and_store` (captura-2) | Sai só com o `parse_and_store`, no passo 3 do S1.4; não se deduplica o filtro antes, num PR à parte: seria diff no `parser.py` (caminho de jogo) em código que vai sair. Se o `parse_and_store` ficar, tirar o segundo filtro vira limpeza dele | S1.4 |
 | captura-41 | leitores do `match_config` (watcher, identity, start_match, wizard_core, web) | Cada leitor usa chaves diferentes e todos estão em uso | Centralizar num módulo; nenhum leitor se apaga | nenhum |
 | captura-43 | textos de UI e CLI que descrevem o pipeline de demo como atual | Parte é falsa, mas o ramo `source == 'demo'` do `match_detail.html` e a nota do `matches.html` sobre partidas de `.dem` seguem corretos enquanto as partidas 1 e 2 existirem; a regeneração do `report.html` é verdadeira (captura-17) | Corrigir só os textos falsos; os dois trechos de `.dem` ficam até a decisão da Q11; o texto do `wizard_tui.py`, só depois da D13 | nenhum |
 | captura-44 | README e docstrings (`watcher.py`, `identity.py`) que só descrevem a captura por demo | Incompletos, não falsos: o modo nativo ainda existe e é o default do CLI do watcher | Acrescentar o fluxo de eventos; o que descreve o modo nativo só sai com ele (captura-1, S1.4) | S1.4 |
@@ -219,9 +240,21 @@ Pelo ADR-0006 (Consequências), a Q11=C implica:
 - apagar as linhas das partidas 1 e 2 numa janela de dados, com backup antes pelo `tools/backup.py`, e só depois tirar o caminho de demo e o awpy;
 - as duas partidas não têm JSONL: o backup é a única volta;
 - o S1.4 deixa de ser só Offline e Partida e passa a pedir janela de dados e backup;
-- efeitos em S1.2 e S1.5 (tiram `enrich_from_demos` e o awpy), S1.3 (re-verifica a cadeia sabendo que ela não terá linhas a servir), S2.1 (import sem awpy) e S3.1 (reingestão dourada sem linhas de origem demo).
+- efeitos em S1.2 (tirou o `enrich_from_demos` em 09/11) e S1.5 (tira o awpy), S1.3 (re-verificou a cadeia sabendo que ela não terá linhas a servir; abaixo), S2.1 (import sem awpy) e S3.1 (reingestão dourada sem linhas de origem demo).
 
 Até a decisão chegar ao S1.4, ficam **no lugar**: as linhas do banco das partidas 1 e 2, a demo da partida 2 que é o `demo_path` dela (`demos/`, ressalva do captura-49; as pastas `docker/demos-live` e `docker/stats-live` também ficam, porque são bind mounts: limpar o conteúdo pode, apagar as pastas não) e o caminho de reingestão por demo (`tools/reingest_demos.py`, `parse_and_store`, o fallback do captura-42).
+
+### O que a re-verificação do S1.3 mostra sob as duas leituras
+
+O S1.3 (09/11) deu veredito novo à cadeia da demo sem resolver a divergência. A linha de cada ID, nas tabelas acima, traz a forma; aqui fica o efeito de cada leitura.
+
+| ID | Veredito novo (S1.3) | Partidas 1 e 2 mantidas (critério do S1.4) | Partidas 1 e 2 apagadas (Q11=C) |
+|---|---|---|---|
+| captura-2 | confirmado com ressalva | sai no passo 3 do S1.4, mas leva junto o único jeito de reprocessá-las: o que os bugs de índice gravaram nelas (a duração de 17 × 19 min da partida 1) fica sem reparo, e o Victor tem de aceitar isso | sai no passo 3 do S1.4 sem perda: não há linha de origem demo a reprocessar |
+| captura-3 | confirmado com ressalva | igual: o import sai com o `parse_and_store`, e awpy e polars saem pelo S1.5; só se o Victor quiser o reparo (o `parse_and_store` fica) as dependências ficam | o import sai com o `parse_and_store` (S1.4), awpy e polars pelo S1.5 |
+| captura-10 | confirmado com ressalva | é o único meio de reparar as duas; sai só com o Victor aceitando que elas fiquem sem reparo | não tem o que reprocessar (encerra em "Nenhuma partida com source='demo'"); sai no passo 1 do S1.4 |
+| captura-40 | confirmado com ressalva | sai com o `parse_and_store` | sai com o `parse_and_store` |
+| captura-42 | refutado (mantido) | a refutação não levanta enquanto elas estiverem no banco: o fallback é o tempo cego das duas na tela de detalhe | levanta depois da janela de dados e do `parse_and_store` fora, com veredito do QA; a remoção fica para card próprio depois do S1.4 |
 
 ## Incertos (7)
 
