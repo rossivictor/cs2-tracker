@@ -23,7 +23,6 @@ from pathlib import Path
 import stats as stats_mod
 from stats import (
     BUY_LABEL,
-    HITGROUP_ORDER,
     load_stats,
     match_loadout,
     map_bg_path,
@@ -280,9 +279,7 @@ def _map_cards(maps_leaderboard, side):
             "map": _map_view(entry["map"]),
             "matches": s["matches"],
             "win_pct": _pct(s["round_win_pct"]),
-            "kd": round(s["kd"], 2),
             "adr": _pct(s["adr"], 1),
-            "kast_pct": _pct(s["kast_pct"]),
             "ct_adr": _pct((entry["stats"].get("ct") or {}).get("adr"), 1),
             "t_adr": _pct((entry["stats"].get("t") or {}).get("adr"), 1),
         })
@@ -321,7 +318,6 @@ def _match_rows(matches_data, side):
             "score_theirs": match["score_theirs"],
             "outcome": match["outcome"],
             "series": _series_tag(match["series_num_maps"]),
-            "source": match["source"],
             "has_side": bool(s),
             "kills": (s or {}).get("kills"),
             "deaths": (s or {}).get("deaths"),
@@ -703,7 +699,6 @@ def build_detail_context(db_path, match_id, side="all"):
         "comparison": comparison,
         "weapons": weapons,
         "hitgroups": _round_hitgroups(match["hitgroups"].get(side) or []),
-        "hitgroup_order": HITGROUP_ORDER,
         "head_to_head": match["head_to_head"].get(side) or [],
         "rounds": _round_blocks(match, side, loadout),
         "total_rounds": len(rounds),
