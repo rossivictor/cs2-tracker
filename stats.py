@@ -959,8 +959,6 @@ def _add_stats_to_acc(acc, stats):
         acc["round_wins"] += stats.get("round_wins") or 0
         if stats.get("dmg_total") is not None:
             acc["dmg_total"] += stats["dmg_total"]
-        elif stats.get("adr") is not None:
-            acc["dmg_total"] += stats["adr"] * stats["rounds_played"]
     if stats.get("entry_for") is not None:
         acc["entry_for"] += stats["entry_for"]
         acc["entry_against"] += stats.get("entry_against") or 0
