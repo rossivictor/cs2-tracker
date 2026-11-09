@@ -178,29 +178,6 @@ def _human_side_by_round(conn, match_id, rounds):
     return _dominant_side_by_round(conn, match_id)
 
 
-def _team_score_from_rounds(rounds, human_side):
-    """Placar do ponto de vista do humano, a partir dos rounds contados.
-
-    Só serve de reserva pra partidas ainda não reprocessadas — o número
-    bom vem de matches.score_mine/score_theirs, calculado na ingestão
-    (ver parser.team_score). Devolve (None, None) quando falta lado em
-    algum round: melhor não mostrar placar do que mostrar errado."""
-    mine = theirs = 0
-    for r in rounds:
-        if not r["counted"] or not r["winner_side"]:
-            continue
-        side = human_side.get(r["round_num"])
-        if not side:
-            return None, None
-        if side == r["winner_side"]:
-            mine += 1
-        else:
-            theirs += 1
-    if mine == 0 and theirs == 0:
-        return None, None
-    return mine, theirs
-
-
 def _dominant_side_by_round(conn, match_id):
     """Lado que o jogador humano mais apareceu em cada round (via
     player_positions) — necessário pra comparar com rounds.winner_side,
@@ -819,18 +796,6 @@ def build_match_data(conn, row):
         # parser.mark_counted_rounds.
         rounds = [r for r in rounds if r["counted"]]
 
-        if score_mine is None or score_theirs is None:
-            # Partida ingerida antes do placar por time existir: reconstrói
-            # aqui. Note que NÃO se recalcula score_ct/score_t — eles são
-            # rounds por lado, que num MR12 não são o placar de ninguém.
-            score_mine, score_theirs = _team_score_from_rounds(rounds, dominant_side)
-            if score_mine is not None:
-                score_source = score_source or "rounds-render"
-                outcome = outcome or (
-                    "win" if score_mine > score_theirs
-                    else "loss" if score_theirs > score_mine else "tie"
-                )
-
         scopes = {
             "all": _side_round_nums(rounds, dominant_side, None),
             "ct": _side_round_nums(rounds, dominant_side, "ct"),
@@ -959,8 +924,6 @@ def _add_stats_to_acc(acc, stats):
         acc["round_wins"] += stats.get("round_wins") or 0
         if stats.get("dmg_total") is not None:
             acc["dmg_total"] += stats["dmg_total"]
-        elif stats.get("adr") is not None:
-            acc["dmg_total"] += stats["adr"] * stats["rounds_played"]
     if stats.get("entry_for") is not None:
         acc["entry_for"] += stats["entry_for"]
         acc["entry_against"] += stats.get("entry_against") or 0
