@@ -12,7 +12,7 @@ Aqui fica só o que vale para todo mundo, inclusive para a sessão que conversa 
 - KB e board no Obsidian, sem Notion: KB versionada em `docs/`, board em `docs/board-cs2/`, fora do git. (Q21=A; critic, lacuna 2)
 - Repo público: nenhum SteamID64 real, IP ou segredo em `docs/`, `tests/` ou commit. (princípio; critic, risco 8)
 - Trilho único: no máximo uma mudança não validada em partida no caminho de jogo; ele joga sobre um candidato por vez. (Q6=A)
-- `botprofile.vpk` na variante Low; trocar só em janela, com o servidor parado. (Victor, 28/09; substitui o Medium de 27/09 e a Q9=A "High fixo")
+- `botprofile.vpk` na variante Medium; trocar só em janela, com o servidor parado. Desde 08/11 o BotAimImprover fica mascarado, e os outros plugins de bot seguem ligados. (Victor, 06/11, B1.16; substitui o Low de 28/09, que substituiu o Medium de 27/09 e a Q9=A "High fixo"; BotAimImprover: Victor, 08/11, B1.17)
 - `docs/prototypes/home.html` nunca se apaga: é a única especificação visual da F3.5.2 e da F3.5.3. (S1.1; ADR-0006 Q14)
 - Tudo em pt-BR: docs, comentários, commits e nomes de teste. (princípio)
 

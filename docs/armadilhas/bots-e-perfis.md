@@ -6,7 +6,9 @@ fontes:
   - "docs/SPEC.md:177-279"
   - "start_match.py:225-483"
   - "backup:repo-local/logs/teste-correcao.log (linha 799: kick do CSTV)"
-atualizado: 2026-10-13
+  - "backup:temp-artifacts/5a2af0df/improver/overrides/ (Low, Medium e High: botprofile.db do CS2-Bot-Improver de 26/09; leitura do PM de 08/11 e diff do B1.18)"
+  - "docs/runbooks/trilha-de-bots.md:513-566 (B1.17: desligar só o BotAimImprover)"
+atualizado: 2026-11-09
 ---
 
 # Armadilhas dos bots, dos perfis e do RCON
@@ -65,10 +67,10 @@ Rascunho: o item 37 é hipótese não testada, e os valores efetivos das cvars d
 - **Fonte:** `docs/SPEC.md:192-194` · `start_match.py:547-549`
 
 ### 29. Todo perfil pro tem `Skill = 100`
-- **Sintoma:** trocar Low, Medium ou High não muda a força dos pros nomeados.
-- **Causa:** as variantes do VPK só mudam os templates dos bots genéricos.
-- **Contorno:** não há dial por time; a dificuldade é a variante do VPK (Low desde 28/09).
-- **Fonte:** `docs/SPEC.md:195-197`
+- **Sintoma:** trocar Low, Medium ou High não muda a força dos pros nomeados. Em 08/11, já no Medium com os 6 plugins de bot (B1.16), o Victor relatou bots "muito rápidos" que "quase não erram tiro".
+- **Causa:** as variantes do VPK só mudam os templates dos bots genéricos. Leitura do PM em 08/11, só nas cópias do `botprofile.db` do CS2-Bot-Improver de 26/09 (backup, não o VPK do volume): entre os templates, Low e Medium só diferem no `ReactionTime` de RankDuelist e RankRifler (0,1 no Low, 0,2 no Medium, que é o mais lento); os templates Pro* têm reação ~0 (`ReactionTime` de 0 a 0,01) e mira perfeita (`AimFocus*` ~0) nas três variantes, e nos 4 mapas anteriores ao relato a maioria dos bots era Pro*. Hipótese, não prova: a precisão vinha também dos plugins (BotAimImprover e os patches SkipSkillCheck do BotAI), não só do VPK. O confronto dessas cópias com o VPK do volume ficou pendente. Ressalva do B1.18 (09/11, `diff` das mesmas cópias): fora dos templates as duas variantes também diferem. O `LookAngle*` (aceleração e rigidez da virada da mira) do template padrão muda, e o Medium soma `LookAngle*` próprio em ~1.370 perfis, que no Low não têm; o efeito disso na mira não foi medido.
+- **Contorno:** não há dial por time; a dificuldade é a variante do VPK (Medium desde 06/11, Low de 28/09 a 06/11) somada aos plugins. Desde 08/11 o BotAimImprover está mascarado (B1.17), e depois das partidas de 09/11 (113 e a MD3 114) o Victor relatou "Melhorou bastante": isso sustenta, sem provar, que parte da precisão vinha do plugin.
+- **Fonte:** `docs/SPEC.md:195-197` · `backup:temp-artifacts/5a2af0df/improver/overrides/` (o botprofile.db das três variantes) · `docs/runbooks/trilha-de-bots.md:513-566` · `commit 29087da`
 
 ### 30. O CS2-Bot-Improver ignora `bot_difficulty`
 - **Sintoma:** `bot_difficulty` e `custom_bot_difficulty` não mudam nada; o cfg ainda seta 5.

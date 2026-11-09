@@ -23,7 +23,8 @@ Ponto de partida, na tag `jogavel-2026-09-26`:
 - A suíte inteira de plugins de bot está mascarada por `./docker/plugins/_empty`
   (compose:141-155), e o RayTrace também (101 e 108).
 - Os bots têm IA e mira vanilla. O `botprofile.vpk` é o High. A Q9=A o fixava até o fim da
-  B1, mas o Victor o trocou duas vezes durante a trilha (ver [Épocas](#épocas)).
+  B1, mas o Victor o trocou duas vezes durante a trilha e uma depois dela, em 06/11 (ver
+  [Épocas](#épocas)).
 
 A trilha termina no B1.10. Nesse ponto, cada plugin está religado, degradado ou mascarado, as
 assinaturas que falharam estão registradas pelo nome e as épocas de comportamento dos bots
@@ -211,8 +212,9 @@ registro e não reprova o passo:
      checkout (binds de arquivo e pastas de `docker/plugins/`), e o VPK mora no volume, fora
      deles. Ler o VPK na coleta é card separado; até lá, a leitura é esse `docker exec` à mão.
    - Registre `VPK: <variante> (<sha abreviado>, lido <data hora>, <janela|coleta>)` e a época
-     da tabela [Épocas](#épocas). Hoje é a "VPK Low": `02e5e958…` desde 28/09 19:54:52, em
-     vigor na `jogavel-2026-10-03`.
+     da tabela [Épocas](#épocas). Hoje é o Medium do B1.16: `ba754b61…` desde 06/11 17:39:05,
+     relido nas coletas de 08/11 e 09/11 (`jogavel-2026-11-08` e `jogavel-2026-11-09`). Antes,
+     a "VPK Low" (`02e5e958…`) valeu de 28/09 19:54:52 a 06/11.
    - Sem esse sha, registre `VPK: <variante> inferida (<de onde>)`. Foi o caso do G7 do B0.8
      (`candidato-8`, matchid 74): o log não anuncia a dificuldade (0 ocorrências de
      `difficulty`), a coleta não leu o VPK, e o Low ficou inferido do
@@ -346,6 +348,7 @@ nas [Notas por passo](#notas-por-passo), como lida (com o sha e a hora) ou infer
 | 6 · B1.8 | 27/09 21:17–21:28 ("terminei") | máscara do NadeSystem removida (volume) | igual | não precisa | NadeSystem 1.2.1, "3703 grenades in DB"; sem EmitSoundFilter | OK: 5 rounds, 0 crash, replays de smoke/flash; 182 cegueiras |
 | 7 · B1.9 | 27/09 22:29–22:37 ("pode aplicar", Victor no PC) | BotRandomizer do upstream `276f1ce` (com a correção `18d1510`) por bind mount, no lugar da máscara | igual | não precisa (bind mount) | BotRandomizer 1.3.2, "Catalog loaded: 35 weapons, 1456 weapon paints, 10565 stickers, 81 charms"; 0 `signature failed`; sha no container = manifesto (5/5) | OK: 10 bots em mirage e de novo após a troca para inferno (readição); 0 crash, 0 exceção do BotRandomizer |
 | 5b · B1.7 | 14/10 20:57–21:24 ("pode mexer no servidor", Victor no PC) | máscara do BotAI trocada pelo bind de `./docker/plugins/BotAI` (fork 1.8.12-b1.7b, `412416b`) | 2000930 → **2000931** (SteamCMD no 1º recreate; volta à máscara, conferência do fork na 2000931 com `RESULTADO: OK`, 2º recreate) | não precisa (bind mount) | `B1.7b: m_gameState = 0x50F8`, `Applied 40/40 patches.`; 0 `FAILED`, `patch disabled` ou `NAO resolvido`; 9 plugins carregados; sha no container = checkout (17/17), BotAI = manifesto | OK: 10 bots em mirage e de novo após a troca para inferno (readição); 0 crash, 0 exceção do BotAI; bomba plantada sem evidência no log (ficou para o G7) |
+| 8 · B1.17 | 08/11 19:04–19:24 ("pode mexer no servidor", Victor no PC) | fonte do bind do BotAimImprover trocada por `./docker/plugins/_empty` (candidato-29, ff pelo SHA `29087da`) | 2000942 → 2000942 | volume-addons-1905.tgz, 7596278d… (sem escrita no volume) | 8 `Finished loading`, 0 linhas `BotAimImprover`; `Applied 40/40 patches.`; 0 segfault; sha no container = checkout (70/70); config-hash novo `6427c169…`; VPK Medium `ba754b61…` | OK: 10 bots em mirage e de novo após a troca para inferno (readição); 0 crash, 0 linha do BotAimImprover |
 
 ### Partida (G7)
 
@@ -359,6 +362,7 @@ nas [Notas por passo](#notas-por-passo), como lida (com o sha e a hora) ou infer
 | 6 · B1.8 | events_67_map0, de_dust2 (partida 30, 5x13) | não | 0 | 0 | sim | **OK** · cegueiras de bot 10,17/rd (ref. 3,33) | jogavel-2026-09-27-5 |
 | 7 · B1.9 | events_68_map0, de_dust2 (partida 31, 3x13) | não | 0 | 0 | sim | **OK** · skins confirmadas pelo Victor | jogavel-2026-09-28 |
 | 5b · B1.7 | events_83_map0, de_nuke (partida 83, 13x3, 5x5) | não (MD1; o `loadmatch` trocou de_mirage → de_nuke) | 0 | 0 | sim (id 48) | **OK** (`--build-esperada 2000931`) · BotAI 40/40 do boot ao fim; 12 bombas plantadas (3 por bot, 9 pelo Victor) e 2 defuses, os dois de bot | jogavel-2026-10-14-3 (build 2000931) |
+| 8 · B1.17 | matchid 113, de_inferno (13x5, id 83) e a MD3 de matchid 114, de_mirage 11x13 e de_anubis 7x13 (ids 84 e 85) | sim (o `loadmatch` e o changelevel da MD3) | 0 | 0 (3 entradas `FULL`, sem queda; 2 `DISCONNECT_BY_USER` só nos fins) | sim | **OK** (`--build-esperada 2000942`, `--assinatura-proibida BotAimImprover`) · Victor: "Melhorou bastante" | jogavel-2026-11-09 (build 2000942, VPK Medium) |
 
 ### Notas por passo
 
@@ -394,11 +398,16 @@ recreate ou da troca. Para as estatísticas (coluna `bot_suite`, S2.4), a fronte
 | Build 2000924 | 04/10 14:18, no boot que seguiu o segfault de 14:15 (B1.12) | o steamcmd da imagem atualizou o CS2 no boot, sem janela nem OK prévio (G5) | os mesmos da 7 | Low (inferido: [versões conhecidas](versoes-conhecidas.md#tags-jogáveis)) | 2000924 | 78 (matchid 78, `events_78_map0`, de_cache 13x8, 05/10, G7 OK). A 76 (04/10) já jogou nela, sem G7 | **validada**: jogavel-2026-10-12 |
 | Build 2000930 | 12/10 18:37, no boot | o steamcmd da imagem atualizou o CS2 no boot, sem janela nem OK prévio (G5) | os mesmos da 7 | Low (inferido) | 2000930 | 79 (matchid 79, de_mirage 13x2, 12/10), confirmação | **validada**: jogavel-2026-10-12 |
 | 5b · B1.7 + build 2000931 | 14/10 21:16 (candidato-13); a build 2000931 veio no recreate de 21:03, na mesma janela | BotAI do fork 1.8.12-b1.7b, por bind; a build nova é a 2ª variável (confundidor 3), coberta pela conferência do fork nela antes do G6 | os mesmos da 7 (o BotRandomizer é o b1.9b desde 14/10 19:07, `jogavel-2026-10-14-2`) + BotAI | Low (inferido) | 2000931 | 83 (matchid 83, `events_83_map0`, de_nuke 13x3, 14/10, G7 OK) | **validada**: jogavel-2026-10-14-3 |
-| 8 · B1.17 | pendente (janela) | BotAimImprover mascarado por pasta vazia; mira dos bots sem o plugin | os mesmos da 7 + BotAI − BotAimImprover | Medium | 2000942 | — | — |
+| Build 2000942 (vanilla on) | 05/11 18:48 (recreate do `vanilla on`; build nova às 19:04) | o SteamCMD trouxe a 2000942 (CS2 v1.41.9.6), porque o cliente do Victor já estava nela; a janela venceu antes de conferir os plugins de bot (L11) | nenhum: válvula vanilla on | Low | 2000940 → 2000942 | nenhuma (o matchid seguinte ao 108 é o 109, já na época B1.16) | — |
+| B1.16 | 06/11 17:39:05 (VPK) e 17:39:17 (recreate do `vanilla off`) | VPK Low → Medium e os 6 plugins de bot de volta, a pedido do Victor ("B: Medium e plugins"): duas variáveis na mesma janela | os mesmos da 5b, os 6 de bot (9 plugins carregados) | Medium | 2000942 | MD3 de matchid 112 (08/11, de_dust2 16x12 e de_mirage 13x7, ids 81 e 82, G7 OK). Antes, sem G7: 109 (06/11, de_mirage, sem fim de mapa), 110 e 111 (07/11, ids 79 e 80) | **validada**: jogavel-2026-11-08 |
+| 8 · B1.17 | 08/11 19:06 (candidato-29) | BotAimImprover mascarado por pasta vazia; mira dos bots sem o plugin | os da B1.16 − BotAimImprover (8 plugins carregados) | Medium | 2000942 | 113 (09/11, de_inferno 13x5, id 83) e a MD3 de matchid 114 (09/11, de_mirage 11x13 e de_anubis 7x13, ids 84 e 85), G7 OK | **validada**: jogavel-2026-11-09 |
 
-- Os B1.13 a B1.16 não entraram nesta tabela: ficam nos runbooks
+- Os B1.13 e B1.15 não entraram nesta tabela: ficam nos runbooks
   deles ([b1.13](b1.13-plugins-de-bot-2000935.md), [b1.15](b1.15-plugins-de-bot-2000940.md)) e
-  nas [versões conhecidas](versoes-conhecidas.md). A época 8 parte do estado da
+  nas [versões conhecidas](versoes-conhecidas.md). As épocas da build 2000942 entraram pelo
+  B1.18 (09/11), com as fontes nas [versões conhecidas](versoes-conhecidas.md#tags-jogáveis):
+  os registros de janela de 05/11, 06/11 e 08/11 (`logs/janelas/`, fora do git) e as coletas
+  `2026-11-08/partida-b116/` e `2026-11-09/partida-b117/`. A época 8 parte do estado da
   `jogavel-2026-11-08`.
 - A época do VPK se prova pelo sha256 do VPK ativo lido no volume (critério 8 dos
   [Critérios de sucesso](#critérios-de-sucesso-de-cada-passo)). O RoundDamageRecap faz a mesma
@@ -533,6 +542,28 @@ recriar em janela pelo `jogavel.py`; ou voltar à última tag jogável com
 2. 8 plugins carregados, zero segfault.
 3. Os bots erram mais e reagem mais devagar que no B1.16 (relato do Victor, com matchid e hora).
 4. A partida monta, inicia e é ingerida.
+
+### Resultado (08–09/11)
+
+Fontes: os registros das janelas de 06/11 e 08/11 (`logs/janelas/2026-11-06.md` e
+`2026-11-08.md`, fora do git), a evidência delas em `C:/Users/Victor/cs2-tracker-backups/2026-11-06/b1.16/`
+e `2026-11-08/b1.17/` e a coleta `2026-11-09/partida-b117/`. As tags e os hashes estão em
+[versões conhecidas](versoes-conhecidas.md#tags-jogáveis).
+
+- **Ponto de partida, o B1.16** (06/11, fora do plano): VPK Medium e os 6 plugins de bot na
+  2000942, na mesma janela; validado pela MD3 de matchid 112 (`jogavel-2026-11-08`). Foi nesse
+  estado que o Victor relatou, em 08/11, os bots rápidos e quase sem erro
+  ([armadilha 29](../armadilhas/bots-e-perfis.md#29-todo-perfil-pro-tem-skill--100)).
+- **Janela** 08/11 19:04–19:24, aberta por "pode mexer no servidor": ff pelo SHA `29087da`
+  (candidato-29), recreate pelo `jogavel.py`, G6 e smoke da linha `8 · B1.17` do
+  [registro](#janela-g6).
+- **G7:** a partida 113 e a MD3 114 de 09/11, no container do recreate de 08/11 (parado sem erro
+  e religado pelo `start_match`, RestartCount 0), com 8 plugins em cada boot e nenhuma linha do
+  BotAimImprover; `evidencia_partida.py` com `VEREDITO G7: OK`. Tag `jogavel-2026-11-09` no
+  `29087da`.
+- **Veredito:** mascarado, como o passo pedia. Impressão do Victor depois da 113 e da 114:
+  "Melhorou bastante, e agora parece que tá num nível maneiro pra jogar". Vale para a sessão
+  inteira, não para um matchid só, e é dado, não critério.
 
 ## Religar o BotAI pelo fork
 
