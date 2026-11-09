@@ -112,8 +112,9 @@ fontes:
   - "docs/runbooks/versoes-conhecidas.md:746"
   - "README.md:515"
   - "backup:../2026-11-08/b1.17/docker-logs-boot.txt:418-425 (exec do gamemode_competitive_server.cfg no boot da 2000942: só o bot_defer_to_human dá Unknown command; S1.9)"
-  - "backup:../2026-11-08/b1.17/depois-rcon.txt e fechamento-rcon.txt (cvars de bot lidas pela RCON no G6: sem as de dificuldade; S1.9)"
-  - "docs/runbooks/s1.9-dump-cvars-bot.md (o dump de cvars do orquestracao-46)"
+  - "backup:../2026-11-08/b1.17/depois-rcon.txt (cvars de bot lidas pela RCON no G6: sem as de dificuldade; S1.9)"
+  - "backup:../2026-11-08/b1.17/fechamento-rcon.txt (as mesmas cvars no fechamento; S1.9)"
+  - "docs/runbooks/s1.9-dump-cvars-bot.md:96-182 (o dump de cvars do orquestracao-46)"
 atualizado: 2026-11-09
 ---
 

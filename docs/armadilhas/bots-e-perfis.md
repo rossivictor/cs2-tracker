@@ -9,7 +9,7 @@ fontes:
   - "backup:temp-artifacts/5a2af0df/improver/overrides/ (Low, Medium e High: botprofile.db do CS2-Bot-Improver de 26/09; leitura do PM de 08/11 e diff do B1.18)"
   - "docs/runbooks/trilha-de-bots.md:513-566 (B1.17: desligar só o BotAimImprover)"
   - "backup:../2026-11-08/b1.17/ (docker-logs-boot.txt:418-425, docker-logs-smoke.txt:329-333, depois-rcon.txt e fechamento-rcon.txt: o que já se sabe das cvars de bot antes do dump do S1.9)"
-  - "docs/runbooks/s1.9-dump-cvars-bot.md"
+  - "docs/runbooks/s1.9-dump-cvars-bot.md:96-182 (a lista do dump e a leitura dos cfgs da MatchZy)"
 atualizado: 2026-11-09
 ---
 
@@ -81,14 +81,14 @@ dos plugins, e o dump não a mede.
 - **Causa:** a dificuldade vem do VPK, lido só na subida do processo.
 - **Contorno:** trocar a variante do VPK (item 9); nada por RCON nem pelo wizard.
 - **Valor efetivo (S1.9, 09/11):** o que já se sabe offline é que as cinco cvars das linhas 14-18 do cfg existem na build 2000942: no boot e no `changelevel` do B1.17, o exec do cfg só dá `Unknown command` para o `bot_defer_to_human` (linha 21), que não existe mais. O valor lido de nenhuma delas foi coletado (as leituras RCON de 06/11 e 08/11 não as incluem), nem se o `5` fica ou é limitado à faixa 0-3. "Não mudam nada" segue sem medição. **Espera o [dump do S1.9](../runbooks/s1.9-dump-cvars-bot.md).**
-- **Fonte:** `README.md:226-231` · `server-configs/cfg/gamemode_competitive_server.cfg:13-15` (auditoria: README.md:228-232) · `backup:../2026-11-08/b1.17/docker-logs-boot.txt:421-425` e `docker-logs-smoke.txt:329-333` · `docs/arquitetura/nao-apagar.md` (orquestracao-46, Vereditos do S1.9)
+- **Fonte:** `README.md:226-231` · `server-configs/cfg/gamemode_competitive_server.cfg:13-15` (auditoria: README.md:228-232) · `backup:../2026-11-08/b1.17/docker-logs-boot.txt:421-425` e `backup:../2026-11-08/b1.17/docker-logs-smoke.txt:329-333` · `docs/arquitetura/nao-apagar.md:288` (orquestracao-46, Vereditos do S1.9)
 
 ### 32. O cfg do modo volta na virada para o ao vivo
 - **Sintoma:** 11 clientes (CT 6 : TR 5), com o bot extra sempre no CT.
 - **Causa:** o engine reexecuta o `gamemode_competitive_server.cfg`, que tem `bot_quota 10` e `fill`, por cima do override.
 - **Contorno:** depois do `css_start`, reafirmar a quota **antes** de kickar o excedente; kickar com a quota em 10 só repõe o bot.
 - **Valor efetivo (S1.9, 09/11):** fora de partida, a quota lida pela RCON é `0` com `fill`, não o `10` do cfg (G6 e fechamento de 06/11 e 08/11). No boot, o `MatchZy/warmup.cfg` roda depois do cfg do modo, o que explicaria o `0`; é hipótese, porque ninguém leu o que o `warmup.cfg` traz. O passo 4 do [dump do S1.9](../runbooks/s1.9-dump-cvars-bot.md) lê os cfgs da MatchZy dentro do container. O valor durante a partida ao vivo segue sem leitura direta.
-- **Fonte:** `start_match.py:600-612` · `server-configs/cfg/gamemode_competitive_server.cfg:9-11` (auditoria: start_match.py:497-505) · `backup:../2026-11-08/b1.17/depois-rcon.txt` e `fechamento-rcon.txt` · `backup:../2026-11-08/b1.17/docker-logs-boot.txt:418-421` e `:528-529` (ordem dos cfgs no boot)
+- **Fonte:** `start_match.py:600-612` · `server-configs/cfg/gamemode_competitive_server.cfg:9-11` (auditoria: start_match.py:497-505) · `backup:../2026-11-08/b1.17/depois-rcon.txt` e `backup:../2026-11-08/b1.17/fechamento-rcon.txt` · `backup:../2026-11-08/b1.17/docker-logs-boot.txt:418-421` e `backup:../2026-11-08/b1.17/docker-logs-boot.txt:528-529` (ordem dos cfgs no boot)
 
 ### 33. Cliente interno da MatchZy cai num time
 - **Sintoma:** 6x5 com o balanceamento explícito certo.
