@@ -34,7 +34,7 @@ fontes:
   - "parser.py:246"
   - "parser.py:449-650"
   - "parser.py:1388-1412"
-  - "tools/enrich_from_demos.py:45"
+  - "commit d199a1d (tools/enrich_from_demos.py:45, removido no S1.2)"
   - "tools/reingest_demos.py:34"
   - "watcher.py:58"
   - "watcher.py:71-87"
@@ -225,7 +225,7 @@ Até a decisão chegar ao S1.4, ficam **no lugar**: as linhas do banco das parti
 
 ## Incertos (7)
 
-O veredito não fechou. Todos apontam para o [S1.9, "Checar os incertos"](../agents/sprints.md#posição-em-0511) (card 109), que dá veredito novo a cada um, com dump de cvars de bot em janela, e **não remove nada**. Depois do veredito, o item vira confirmado (e só sai por um card de poda que o liste; se o veredito limitar a forma, entra em "Confirmados com ressalva") ou refutado (e entra na tabela de refutados). Os julgamentos (`judgements`) do plano de 26/09 chamam esse card de "S1.8", numa numeração antiga; no plano e no board ele é o S1.9.
+O veredito não fechou. Todos apontam para o [S1.9, "Checar os incertos"](../agents/sprints.md#posição-em-0911) (card 109), que dá veredito novo a cada um, com dump de cvars de bot em janela, e **não remove nada**. Depois do veredito, o item vira confirmado (e só sai por um card de poda que o liste; se o veredito limitar a forma, entra em "Confirmados com ressalva") ou refutado (e entra na tabela de refutados). Os julgamentos (`judgements`) do plano de 26/09 chamam esse card de "S1.8", numa numeração antiga; no plano e no board ele é o S1.9.
 
 | ID | Onde / o quê | Por que é incerto (o que faltou) | Aponta para | Quem decide |
 |---|---|---|---|---|

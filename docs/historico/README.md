@@ -13,6 +13,7 @@ O que aconteceu e quando: investigações datadas, handoffs, diários de experim
 ## Existentes
 
 - [2026-09-26-handoff-plugins-de-bot.md](2026-09-26-handoff-plugins-de-bot.md): cópia literal do handoff da sessão paralela `5a2af0df`, que virou a trilha B1. O runbook vivo é o [trilha-de-bots.md](../runbooks/trilha-de-bots.md).
+- [2026-11-09-remocao-enrich-from-demos.md](2026-11-09-remocao-enrich-from-demos.md): por que o `tools/enrich_from_demos.py` e o teste dele saíram no S1.2 (captura-11; [ADR-0008](../adr/0008-captura-por-plugin-proprio.md) e Q11=C da [ADR-0006](../adr/0006-pauta-1.md)).
 
 ## Previstos
 
