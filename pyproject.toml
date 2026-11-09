@@ -17,8 +17,8 @@ requires-python = ">=3.13,<3.14"
 # Só o que o código de runtime importa (ou exige) diretamente; as transitivas
 # estão travadas no requirements.lock.
 dependencies = [
-    "awpy==2.0.2",          # parser.py e tools/enrich_from_demos.py (demos)
-    "polars",               # parser.py e tools/enrich_from_demos.py
+    "awpy==2.0.2",          # parser.py (demos)
+    "polars",               # parser.py
     "rcon",                 # start_match.py, watcher.py e tools/live_watch.py
     "textual",              # wizard_tui.py
     "jinja2",               # home.py, report.py e os templates do web/
