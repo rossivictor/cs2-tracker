@@ -7,7 +7,7 @@ fontes:
   - "docs/runbooks/versoes-conhecidas.md:244-249 (a jogavel-2026-10-25 fecha o candidato-24 do B1.3s; janela de 25/10 15:01)"
   - "docs/runbooks/versoes-conhecidas.md:205 (jogavel-2026-10-26-2: o B1.13 com a partida 101)"
   - "docs/runbooks/versoes-conhecidas.md:228-230 (a jogavel-2026-10-26-2 fecha o candidato-26 do B1.13; janela de 26/10 13:48)"
-atualizado: 2026-11-05
+atualizado: 2026-11-09
 ---
 
 # Runbooks
@@ -33,6 +33,7 @@ Procedimentos passo a passo, com pré-condição, rollback e o que conferir no f
 - [reconstruir-volume.md](reconstruir-volume.md): o que o `cs2-data` external protege e o que não, e a reconstrução a partir do `C:/cs2server` (B0.8).
 - [servidor-boot-saudavel.md](servidor-boot-saudavel.md): o que o log, a RCON e os arquivos montados mostram num boot saudável, o ruído conhecido e as linhas proibidas, ligadas às [armadilhas](../armadilhas/README.md) (K1.4).
 - [inventario-volume.md](inventario-volume.md): o inventário do volume da Janela 0 (B0.9).
+- [s1.9-dump-cvars-bot.md](s1.9-dump-cvars-bot.md): o S1.9, dump só leitura das cvars de bot pela RCON em janela (dificuldade, thresholds, quota e as do cfg), com a conferência contra o `gamemode_competitive_server.cfg` versionado (rascunho: janela pendente).
 
 ## Previstos
 
