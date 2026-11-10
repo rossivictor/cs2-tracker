@@ -34,7 +34,7 @@ Procedimentos passo a passo, com pré-condição, rollback e o que conferir no f
 - [servidor-boot-saudavel.md](servidor-boot-saudavel.md): o que o log, a RCON e os arquivos montados mostram num boot saudável, o ruído conhecido e as linhas proibidas, ligadas às [armadilhas](../armadilhas/README.md) (K1.4).
 - [inventario-volume.md](inventario-volume.md): o inventário do volume da Janela 0 (B0.9).
 - [s1.9-dump-cvars-bot.md](s1.9-dump-cvars-bot.md): o S1.9, dump só leitura das cvars de bot pela RCON em janela (dificuldade, thresholds, quota e as do cfg), com a conferência contra o `gamemode_competitive_server.cfg` versionado (executado em 09/11: o 5 de dificuldade pega, e o `bot_defer_to_human` não existe na 2000942).
-- [s1.9-teste-tty.md](s1.9-teste-tty.md): o S1.9, partida de teste sem `tty` e `stdin_open` (orquestracao-51): override fora do repo pelo `COMPOSE_FILE` do `jogavel.py recriar`, janela A com G6, medição do atraso do log e smoke, série curta do Victor com o override no ar e janela B de volta, com o veredito pelas medidas T1 a T5 (rascunho: nenhuma janela rodou).
+- [s1.9-teste-tty.md](s1.9-teste-tty.md): o S1.9, partida de teste sem `tty` e `stdin_open` (orquestracao-51): override não versionado em `logs/s1.9-tty/` (ignorado pelo git) pelo `COMPOSE_FILE` do `jogavel.py recriar`, janela A com G6 e rollback próprio, medição do atraso do log e smoke, série curta do Victor com o override no ar e janela B de volta, com o veredito pelas medidas T1 a T5 (rascunho: nenhuma janela rodou).
 
 ## Previstos
 
