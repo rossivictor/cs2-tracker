@@ -7,7 +7,7 @@ fontes:
   - "docs/runbooks/versoes-conhecidas.md:244-249 (a jogavel-2026-10-25 fecha o candidato-24 do B1.3s; janela de 25/10 15:01)"
   - "docs/runbooks/versoes-conhecidas.md:205 (jogavel-2026-10-26-2: o B1.13 com a partida 101)"
   - "docs/runbooks/versoes-conhecidas.md:228-230 (a jogavel-2026-10-26-2 fecha o candidato-26 do B1.13; janela de 26/10 13:48)"
-atualizado: 2026-11-05
+atualizado: 2026-11-12
 ---
 
 # Runbooks
@@ -19,6 +19,7 @@ Procedimentos passo a passo, com pré-condição, rollback e o que conferir no f
 - [trilha-de-bots.md](trilha-de-bots.md): a sprint B1, que religa os plugins de bot um por partida real.
 - [b1.3-cssharp-1.0.375.md](b1.3-cssharp-1.0.375.md): o B1.3r, que sobe o par Metamod 2.0.0.1469 + CSSharp 1.0.375, com a janela, o G6 e o rollback.
 - [b1.3s-cssharp-1.0.378.md](b1.3s-cssharp-1.0.378.md): o B1.3s, CSSharp 1.0.378 (fix do CS2 v1.41.9.2) instalada à mão no volume, com o sha256 do asset sem runtime conferido, o G6 e a volta pelo snapshot (executado na janela de 25/10 15:01, 3ª tentativa, e validado pela partida 97, G7 OK: `jogavel-2026-10-25`, em [versões conhecidas](versoes-conhecidas.md#tags-jogáveis); Históricos dos cards 22,5 e 89).
+- [b1.19-cssharp-1.0.380.md](b1.19-cssharp-1.0.380.md): o B1.19, CSSharp 1.0.380 (fix do CS2 v1.41.9.7, build 2000943) instalada à mão no volume pelo padrão do B1.3s, com a tabela G5, as duas conferências offline na 2000943 (`RESULTADO: OK`), o boot e o smoke com `changelevel` em vanilla on antes do `vanilla off` e a volta pelo snapshot (rascunho: janela pendente).
 - [b1.4-botaimimprover.md](b1.4-botaimimprover.md): o B1.4, que tira a máscara do BotAimImprover do volume (ficou inativo pela guarda).
 - [b1.4b-botaimimprover-upstream.md](b1.4b-botaimimprover-upstream.md): o B1.4b, BotAimImprover compilado do upstream por bind mount, com o sha256 fixado.
 - [b1.9-botrandomizer-upstream.md](b1.9-botrandomizer-upstream.md): o B1.9, BotRandomizer compilado do upstream por bind mount, com o smoke só de bots na janela.

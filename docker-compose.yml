@@ -29,10 +29,10 @@ services:
       # wizard grava no team1 do docker/runtime/match_config.spike.json.
       - MATCHZY_ADMINS=${MATCHZY_ADMINS}
       # Versões fixadas: sem pin, o boot baixa o latest e quebra MatchZy e captura. Metamod e
-      # CSSharp são par (1411 com <= 1.0.374; 1469 com 1.0.375 a 1.0.378); a 1.0.378 está no
-      # volume, instalada à mão. Troca só por runbook, em janela: ver [[ADR-0009]] e [[b1.3s-cssharp-1.0.378]]
+      # CSSharp são par (1411 com <= 1.0.374; 1469 com 1.0.375 a 1.0.380); a 1.0.380 está no
+      # volume, instalada à mão. Troca só por runbook, em janela: ver [[ADR-0009]] e [[b1.19-cssharp-1.0.380]]
       - MMSOURCE_FIXED_VERSION=2.0.0.1469
-      - CSSHARP_FIXED_VERSION=v1.0.378
+      - CSSHARP_FIXED_VERSION=v1.0.380
       - MATCHZY_FIXED_VERSION=0.8.15
     volumes:
       # Jogo e addons (plugins de bot instalados à mão): não se reproduz, é external.
