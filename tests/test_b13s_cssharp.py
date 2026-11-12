@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
 Card B1.3s: CSSharp v1.0.378 (fix do CS2 v1.41.9.2), instalada à mão no
-volume pelo papel servidor. Prende o pin do compose, o asset aprovado (o sem
-runtime, com o sha256 do digest do GitHub) e a ordem da volta pelo snapshot
-no runbook. Só leitura de arquivo versionado: nada de processo, rede ou Docker.
+volume pelo papel servidor. Prende o asset aprovado (o sem runtime, com o
+sha256 do digest do GitHub) e a ordem da volta pelo snapshot no runbook. O
+pin vigente do compose saiu daqui no B1.19 (v1.0.380): é o
+tests/test_b119_cssharp.py que o prende agora. Só leitura de arquivo
+versionado: nada de processo, rede ou Docker.
 """
 import re
 from pathlib import Path
@@ -24,14 +26,6 @@ def _secao(texto, titulo):
     achado = re.search(rf"^#+ {re.escape(titulo)}[^\n]*\n(.*?)(?=^## |\Z)", texto, re.M | re.S)
     assert achado, f"seção '{titulo}' sumiu"
     return achado.group(1)
-
-
-def test_compose_pina_o_par_com_a_cssharp_1_0_378():
-    linhas = [x.strip() for x in _texto(RAIZ / "docker-compose.yml").splitlines()
-              if "FIXED_VERSION=" in x and not x.strip().startswith("#")]
-    assert linhas == ["- MMSOURCE_FIXED_VERSION=2.0.0.1469",
-                      "- CSSHARP_FIXED_VERSION=v1.0.378",
-                      "- MATCHZY_FIXED_VERSION=0.8.15"]
 
 
 def test_runbook_baixa_so_o_asset_sem_runtime_e_confere_o_sha256():
